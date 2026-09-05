@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.api import deps
 from app.core.security import verify_password
 from app.db.database import get_db
-from app.models.user import WW360User
+from app.models.user import User
 from app.services.auth_service import mint_ww360_token
 from app.tenant_auth import TenantContext, build_user_token_payload
 
@@ -32,7 +32,7 @@ class UserOut(BaseModel):
 
 @router.post("/login")
 def login(body: LoginBody, db: Session = Depends(get_db)):
-    user = db.query(WW360User).filter(WW360User.username == body.username).first()
+    user = db.query(User).filter(User.username == body.username).first()
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     if not verify_password(body.password, user.hashed_password or ""):

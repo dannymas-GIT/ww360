@@ -5,7 +5,7 @@ from app.db.base_class import Base  # noqa: F401
 
 def import_models() -> None:
     import app.models.sync  # noqa: F401
-    import app.models.user  # noqa: F401
+    import app.models.user  # noqa: F401 — before workforce (User FK)
     import app.models.water_district  # noqa: F401
     import app.models.workforce_succession  # noqa: F401
     import app.models.workforce_organization  # noqa: F401

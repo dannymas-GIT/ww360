@@ -9,7 +9,7 @@ from app.db.base_class import Base
 from app.core.security import get_password_hash
 
 
-class WW360User(Base):
+class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -27,5 +27,4 @@ class WW360User(Base):
         self.hashed_password = get_password_hash(password)
 
 
-# Compatibility alias for workforce importer
-User = WW360User
+WW360User = User  # compatibility alias

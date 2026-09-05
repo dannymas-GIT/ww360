@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.core.security import get_password_hash
 from app.db.database import SessionLocal, init_db
-from app.models.user import WW360User
+from app.models.user import User
 from app.models.water_district import WaterDistrict
 
 
@@ -26,9 +26,9 @@ def main() -> None:
             )
             db.add(district)
 
-        user = db.query(WW360User).filter(WW360User.username == "jingrao-aman-OWW").one_or_none()
+        user = db.query(User).filter(User.username == "jingrao-aman-OWW").one_or_none()
         if not user:
-            user = WW360User(
+            user = User(
                 username="jingrao-aman-OWW",
                 email="jingrao@onewaterworkforce.org",
                 full_name="Jenny Ingrao",

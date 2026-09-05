@@ -358,7 +358,7 @@ export default function OwwExecutiveDashboard() {
       {/* Header */}
       <Ww360PageHero
         eyebrow="One Water Workforce · New York Section AWWA"
-        title={`${ww360Greeting()}, Jenny — here is the statewide water workforce picture.`}
+        title={`${ww360Greeting()}, Jenny — here is the 360 degree view of the statewide water workforce.`}
         description="Live EPA SDWIS compliance for New York, plus sample program metrics for Learning Stream, onewaterworkforce.org, and utility Continuity reporting until those feeds are connected."
         dataMode={heroMode}
         lastSynced={sdwisInsights?.last_refreshed}

@@ -77,8 +77,12 @@ export function NewDocumentDialog({
       <DialogContent
         className="max-w-3xl"
         data-tour="studio-new-dialog"
-        onInteractOutside={tourActive ? e => e.preventDefault() : undefined}
-        onPointerDownOutside={tourActive ? e => e.preventDefault() : undefined}
+        {...(tourActive
+          ? {
+              onInteractOutside: (e: Event) => e.preventDefault(),
+              onPointerDownOutside: (e: Event) => e.preventDefault(),
+            }
+          : {})}
       >
         <form onSubmit={submit}>
           <DialogHeader>

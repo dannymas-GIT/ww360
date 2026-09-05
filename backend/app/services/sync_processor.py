@@ -15,8 +15,8 @@ from app.models.sync import (
     ExtUser,
     SyncCursor,
     SyncInbox,
-    WaterDistrict,
 )
+from app.models.water_district import WaterDistrict
 
 logger = logging.getLogger(__name__)
 

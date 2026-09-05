@@ -74,6 +74,7 @@ import { fetchWorkforceInsights, type SDWISWorkforceInsights } from '@/services/
 import { Ww360KpiTile } from '@/components/ww360/Ww360KpiTile';
 import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
 import { Ww360Section } from '@/components/ww360/Ww360Section';
+import { Ww360SourceChip } from '@/components/ww360/Ww360SourceChip';
 import { ww360ChartTooltipStyle } from '@/components/ww360/ww360ChartTooltip';
 import { ww360Greeting } from '@/components/ww360/ww360Greeting';
 import type { Ww360SourceId } from '@/components/ww360/ww360SourceTokens';
@@ -1019,7 +1020,7 @@ export default function OwwExecutiveDashboard() {
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap gap-1">
                     {i.sources.map(s => (
-                      <SourceChip key={s} id={s} />
+                      <Ww360SourceChip key={s} id={s} />
                     ))}
                   </div>
                   <Button type="button" size="sm" variant="outline" className="h-8 text-xs">

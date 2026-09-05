@@ -47,8 +47,12 @@ export default function LoginPage() {
           <img
             src={getWw360LogoPath('light')}
             alt="Workforce 360"
-            style={{ height: WW360_LOGO_SIZE.loginPx, minHeight: WW360_LOGO_SIZE.navPx }}
             className="mb-4 w-auto max-w-[min(100%,320px)] object-contain"
+            style={{
+              height: 'auto',
+              maxHeight: WW360_LOGO_SIZE.loginPx,
+              minHeight: WW360_LOGO_SIZE.navMinPx,
+            }}
           />
           <h1 className="text-xl font-semibold text-[#07111f]">Sign in to Workforce 360</h1>
           <p className="text-sm text-slate-500 mt-1 text-center">One Water Workforce program workspace</p>

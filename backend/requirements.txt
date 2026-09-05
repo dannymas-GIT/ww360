@@ -78,5 +78,5 @@ pyasn1>=0.6.3  # CVE-2026-30922
 
 # Development tools
 black>=26.3.1  # Security update (CVE-2026-32274)
-isort>=5.12.0
+isort>=9.0.1
 openpyxl

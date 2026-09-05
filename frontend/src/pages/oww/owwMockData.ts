@@ -605,24 +605,9 @@ export function regionRisk(row: RegionDemandRow): 'critical' | 'elevated' | 'wat
   return 'healthy';
 }
 
-export function formatCompact(n: number): string {
-  if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}k`;
-  return String(n);
-}
-
-export function formatPct(v: number, digits = 0): string {
-  return `${(v * 100).toFixed(digits)}%`;
-}
-
-export function formatUsd(n: number): string {
-  return n.toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  });
-}
-
-export function formatShortDate(iso: string): string {
-  const d = new Date(`${iso}T12:00:00`);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
+export {
+  formatCompact,
+  formatPct,
+  formatUsd,
+  formatShortDate,
+} from '@/lib/format';

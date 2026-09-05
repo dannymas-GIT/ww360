@@ -39,6 +39,22 @@
       "tags": ["ww360", "oww"]
     },
     {
+      "id": "ww360-routes",
+      "specFile": "frontend/e2e/ww360_routes.spec.ts",
+      "pathPatterns": [
+        "frontend/src/App.tsx",
+        "frontend/src/pages/sdwis/**",
+        "frontend/src/pages/admin/**",
+        "frontend/src/pages/WorkforceContinuityPage.tsx",
+        "frontend/src/components/workforce/workforceContinuityTabs.ts",
+        "backend/app/api/v1/endpoints/tenant.py",
+        "backend/app/api/v1/endpoints/admin_users.py"
+      ],
+      "defaultRunOn": ["staging", "pr"],
+      "flakeBudget": 3,
+      "tags": ["ww360", "routes"]
+    },
+    {
       "id": "sdwis-insights",
       "specFile": "backend/tests/test_sdwis_insights.py",
       "pathPatterns": [

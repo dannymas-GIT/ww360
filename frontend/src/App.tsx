@@ -8,7 +8,12 @@ import Workforce360Landing from '@/pages/workforce360/Workforce360Landing';
 import OwwExecutiveDashboard from '@/pages/oww/OwwExecutiveDashboard';
 import WorkforceContinuityPage from '@/pages/WorkforceContinuityPage';
 import SdwisLandscapePage from '@/pages/sdwis/SdwisLandscapePage';
+import SdwisWatchlistPage from '@/pages/sdwis/SdwisWatchlistPage';
+import SdwisLookupPage from '@/pages/sdwis/SdwisLookupPage';
+import SdwisCompliancePage from '@/pages/sdwis/SdwisCompliancePage';
 import AdminPwsidLinksPage from '@/pages/admin/AdminPwsidLinksPage';
+import AdminUsersPage from '@/pages/admin/AdminUsersPage';
+import AdminSettingsPage from '@/pages/admin/AdminSettingsPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
@@ -40,13 +45,18 @@ export default function App() {
         }
       >
         <Route path="/dashboard" element={<OwwExecutiveDashboard />} />
-        <Route path="/continuity/*" element={<WorkforceContinuityPage />} />
+        <Route path="/continuity" element={<WorkforceContinuityPage workspace="continuity" />} />
+        <Route
+          path="/continuity/ceu-training"
+          element={<WorkforceContinuityPage workspace="ceu_training" />}
+        />
         <Route path="/water-systems" element={<SdwisLandscapePage />} />
-        <Route path="/water-systems/watchlist" element={<SdwisLandscapePage />} />
-        <Route path="/water-systems/lookup" element={<SdwisLandscapePage />} />
+        <Route path="/water-systems/watchlist" element={<SdwisWatchlistPage />} />
+        <Route path="/water-systems/lookup" element={<SdwisLookupPage />} />
+        <Route path="/water-systems/compliance" element={<SdwisCompliancePage />} />
         <Route path="/admin/pwsid-links" element={<AdminPwsidLinksPage />} />
-        <Route path="/admin/users" element={<div className="p-8">Users & access — coming soon</div>} />
-        <Route path="/admin/settings" element={<div className="p-8">Settings — coming soon</div>} />
+        <Route path="/admin/users" element={<AdminUsersPage />} />
+        <Route path="/admin/settings" element={<AdminSettingsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

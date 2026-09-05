@@ -407,7 +407,7 @@ export function DistrictPwsLinkConfigSection({
       {showComplianceLink && (
         <p className="text-sm text-muted-foreground">
           View violations and enforcement details on{' '}
-          <Link to="/dashboard/sdwis-compliance" className="text-primary underline">
+          <Link to="/water-systems/compliance" className="text-primary underline">
             SDWIS Compliance
           </Link>
           .

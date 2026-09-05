@@ -16,7 +16,7 @@ import {
   CircleHelp,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { PageHeader } from '@/components/PageHeader';
+import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -110,6 +110,7 @@ import {
   getWorkspaceForTab,
   parseTrainingSubTab,
   parseWorkforceTab,
+  WORKFORCE_CONTINUITY_TABS,
   WORKFORCE_TAB_META,
   WORKFORCE_WORKSPACE_META,
   WORKFORCE_WORKSPACE_PATHS,
@@ -717,9 +718,23 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
 
   useEffect(() => {
     if (isWorkforceOperator && workspace === 'continuity') {
-      navigate('/dashboard/ceu-training?tab=certifications', { replace: true });
+      navigate('/continuity/ceu-training?tab=certifications', { replace: true });
     }
   }, [isWorkforceOperator, workspace, navigate]);
+
+  // Map legacy hash shortcuts (#ceu / #training) onto ?tab=
+  useEffect(() => {
+    const hash = (location.hash || '').replace(/^#/, '');
+    if (!hash) return;
+    if ((WORKFORCE_CONTINUITY_TABS as readonly string[]).includes(hash)) {
+      const tab = hash as WorkforceContinuityTab;
+      const targetWorkspace = getWorkspaceForTab(tab);
+      const params = buildWorkforceSearchParams(tab);
+      navigate(`${WORKFORCE_WORKSPACE_PATHS[targetWorkspace]}?${params.toString()}`, {
+        replace: true,
+      });
+    }
+  }, [location.hash, navigate]);
 
   const districtLocked = isWorkforceDistrictLocked(
     actingDistrictCode,
@@ -876,7 +891,7 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
   const navigateFlowNode = useCallback(
     (nodeId: WorkforceFlowNodeId) => {
       if (nodeId === 'alerts') {
-        navigate('/dashboard/alerts');
+        navigate('/admin/settings');
         return;
       }
       if (nodeId === 'readiness' || nodeId === 'doh352') {
@@ -1069,14 +1084,12 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
 
   return (
     <TooltipProvider>
-      <div className="space-y-6 p-4">
-        <PageHeader
+      <div className="ww360-app-shell mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6">
+        <Ww360PageHero
+          eyebrow={workspaceMeta.title}
           title={pageTitle}
           description={pageDescription}
-          icon={tabMeta.icon}
-          gradientFrom={workspaceMeta.gradientFrom}
-          gradientTo={workspaceMeta.gradientTo}
-          descriptionColor={workspaceMeta.descriptionColor}
+          dataMode="live"
           actions={isWorkforceOperator ? tourHeaderAction : undefined}
         />
 
@@ -1139,7 +1152,7 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
                 Tour
               </Button>
               {canManageUsers ? (
-                <Button variant="outline" onClick={() => navigate('/dashboard/workforce-users')}>
+                <Button variant="outline" onClick={() => navigate('/admin/users')}>
                   <UserPlus className="mr-1.5 h-4 w-4" />
                   Add users
                 </Button>

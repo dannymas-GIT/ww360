@@ -1,16 +1,34 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, LogOut, Menu } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { getWw360LogoPath } from '@/utils/brandHost';
-import { ww360NavGroups } from './navConfig';
+import { ww360NavGroups, navItemTo } from './navConfig';
 import { Button } from '@/components/ui/button';
+
+function ensureWw360Fonts() {
+  if (typeof document === 'undefined') return;
+  const id = 'ww360-google-fonts';
+  if (document.getElementById(id)) return;
+  const link = document.createElement('link');
+  link.id = id;
+  link.rel = 'stylesheet';
+  link.href =
+    'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap';
+  document.head.appendChild(link);
+}
 
 export const AppShell: React.FC = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    ensureWw360Fonts();
+    document.body.classList.add('ww360-app');
+    return () => document.body.classList.remove('ww360-app');
+  }, []);
 
   const logo = getWw360LogoPath('dark');
 
@@ -35,10 +53,13 @@ export const AppShell: React.FC = () => {
               )}
               <ul className="space-y-1">
                 {group.items.map(item => {
-                  const to = item.hash ? `${item.path}#${item.hash}` : item.path;
+                  const to = navItemTo(item);
                   const active =
                     location.pathname === item.path ||
-                    (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
+                    (item.path !== '/dashboard' &&
+                      item.path !== '/continuity' &&
+                      location.pathname.startsWith(item.path)) ||
+                    (item.path === '/continuity' && location.pathname === '/continuity');
                   return (
                     <li key={`${group.id}-${item.label}`}>
                       <NavLink
@@ -96,7 +117,7 @@ export const AppShell: React.FC = () => {
             {ww360NavGroups.flatMap(g => g.items).map(item => (
               <Link
                 key={item.label}
-                to={item.hash ? `${item.path}#${item.hash}` : item.path}
+                to={navItemTo(item)}
                 className="block py-2 text-sm"
                 onClick={() => setMobileOpen(false)}
               >

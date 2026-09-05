@@ -2,7 +2,6 @@ import type { LucideIcon } from 'lucide-react';
 import {
   BarChart3,
   BookOpen,
-  Building2,
   ClipboardList,
   Droplets,
   GraduationCap,
@@ -20,6 +19,8 @@ export interface NavItem {
   path: string;
   icon: LucideIcon;
   hash?: string;
+  /** Query string without leading ? (e.g. tab=ceu) */
+  search?: string;
 }
 
 export interface NavGroup {
@@ -55,16 +56,24 @@ export const ww360NavGroups: NavGroup[] = [
     id: 'learning',
     label: 'Learning',
     items: [
-      { label: 'CEU & renewals', path: '/continuity', icon: GraduationCap, hash: 'ceu' },
-      { label: 'Training calendar', path: '/continuity', icon: BookOpen, hash: 'training' },
+      {
+        label: 'CEU & renewals',
+        path: '/continuity/ceu-training',
+        icon: GraduationCap,
+        search: 'tab=ceu',
+      },
+      {
+        label: 'Training calendar',
+        path: '/continuity/ceu-training',
+        icon: BookOpen,
+        search: 'tab=training',
+      },
     ],
   },
   {
     id: 'reporting',
     label: 'Reporting',
-    items: [
-      { label: 'EPA measures', path: '/dashboard', icon: ClipboardList, hash: 'epa' },
-    ],
+    items: [{ label: 'EPA measures', path: '/dashboard', icon: ClipboardList, hash: 'epa' }],
   },
   {
     id: 'admin',
@@ -76,3 +85,9 @@ export const ww360NavGroups: NavGroup[] = [
     ],
   },
 ];
+
+export function navItemTo(item: NavItem): string {
+  const q = item.search ? `?${item.search}` : '';
+  const hash = item.hash ? `#${item.hash}` : '';
+  return `${item.path}${q}${hash}`;
+}

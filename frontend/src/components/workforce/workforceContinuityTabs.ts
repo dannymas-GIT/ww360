@@ -66,8 +66,8 @@ export const WORKFORCE_CONTINUITY_TAB_GROUPS: WorkforceTabGroup[] = [
 ];
 
 export const WORKFORCE_WORKSPACE_PATHS: Record<WorkforceWorkspace, string> = {
-  continuity: '/dashboard/workforce-continuity',
-  ceu_training: '/dashboard/ceu-training',
+  continuity: '/continuity',
+  ceu_training: '/continuity/ceu-training',
 };
 
 export const WORKFORCE_WORKSPACE_META: Record<
@@ -85,11 +85,11 @@ export const WORKFORCE_WORKSPACE_META: Record<
   continuity: {
     title: 'Workforce Continuity',
     description:
-      'Plan, hire, and cover critical functions — workforce risk grounded in AquaSafe operational data.',
+      'Plan, hire, and cover critical functions — workforce risk grounded in utility operational data.',
     icon: Users,
-    gradientFrom: 'indigo-600',
-    gradientTo: 'purple-700',
-    descriptionColor: 'indigo-200',
+    gradientFrom: '07111f',
+    gradientTo: '2563eb',
+    descriptionColor: 'sky-200',
     defaultTab: 'dashboard',
   },
   ceu_training: {
@@ -97,9 +97,9 @@ export const WORKFORCE_WORKSPACE_META: Record<
     description:
       'Renew operator licenses and close the training loop — certifications, CEUs, and statewide courses.',
     icon: GraduationCap,
-    gradientFrom: 'emerald-600',
-    gradientTo: 'teal-700',
-    descriptionColor: 'emerald-200',
+    gradientFrom: '07111f',
+    gradientTo: '0f766e',
+    descriptionColor: 'teal-200',
     defaultTab: 'certifications',
   },
 };
@@ -119,56 +119,56 @@ export const WORKFORCE_TAB_META: Record<WorkforceContinuityTab, WorkforceTabMeta
     label: 'Dashboard',
     icon: LayoutDashboard,
     phase: 'overview',
-    activeClass: 'border-indigo-600 text-indigo-700',
+    activeClass: 'border-sky-600 text-sky-700',
     workspace: 'continuity',
   },
   positions: {
     label: 'Positions',
     icon: Briefcase,
     phase: 'plan',
-    activeClass: 'border-blue-600 text-blue-700',
+    activeClass: 'border-sky-600 text-sky-700',
     workspace: 'continuity',
   },
   employees: {
     label: 'Employees',
     icon: Users,
     phase: 'plan',
-    activeClass: 'border-blue-600 text-blue-700',
+    activeClass: 'border-sky-600 text-sky-700',
     workspace: 'continuity',
   },
   certifications: {
     label: 'Certifications',
     icon: BadgeCheck,
     phase: 'plan',
-    activeClass: 'border-green-600 text-green-700',
+    activeClass: 'border-teal-600 text-teal-700',
     workspace: 'ceu_training',
   },
   ceu: {
     label: 'CEUs',
     icon: GraduationCap,
     phase: 'sustain',
-    activeClass: 'border-green-600 text-green-700',
+    activeClass: 'border-teal-600 text-teal-700',
     workspace: 'ceu_training',
   },
   training: {
     label: 'Training',
     icon: School,
     phase: 'sustain',
-    activeClass: 'border-green-600 text-green-700',
+    activeClass: 'border-teal-600 text-teal-700',
     workspace: 'ceu_training',
   },
   functions: {
     label: 'Critical functions',
     icon: AlertTriangle,
     phase: 'plan',
-    activeClass: 'border-blue-600 text-blue-700',
+    activeClass: 'border-sky-600 text-sky-700',
     workspace: 'continuity',
   },
   coverage: {
     label: 'Coverage',
     icon: Shield,
     phase: 'plan',
-    activeClass: 'border-blue-600 text-blue-700',
+    activeClass: 'border-sky-600 text-sky-700',
     workspace: 'continuity',
   },
   succession: {
@@ -196,7 +196,7 @@ export const WORKFORCE_TAB_META: Record<WorkforceContinuityTab, WorkforceTabMeta
     label: 'Import',
     icon: Upload,
     phase: 'plan',
-    activeClass: 'border-blue-600 text-blue-700',
+    activeClass: 'border-sky-600 text-sky-700',
     workspace: 'continuity',
   },
 };
@@ -268,12 +268,23 @@ export function buildWorkforceTabPath(
   return `${base}?${params.toString()}`;
 }
 
-/** Legacy deep links on /workforce-continuity that belong in CEU & Training. */
+/** Legacy deep links that belonged under AquaSafe paths or hash shortcuts. */
 export function getLegacyWorkforceRedirect(
   pathname: string,
   search: string,
   tab: string | null
 ): string | null {
+  if (pathname.includes('/dashboard/workforce-continuity')) {
+    const params = new URLSearchParams(search);
+    if (tab && (WORKFORCE_CEU_TRAINING_WORKSPACE_TABS as readonly string[]).includes(tab)) {
+      return `${WORKFORCE_WORKSPACE_PATHS.ceu_training}?${params.toString()}`;
+    }
+    return `${WORKFORCE_WORKSPACE_PATHS.continuity}?${params.toString() || 'tab=dashboard'}`;
+  }
+  if (pathname.includes('/dashboard/ceu-training')) {
+    const params = new URLSearchParams(search);
+    return `${WORKFORCE_WORKSPACE_PATHS.ceu_training}?${params.toString() || 'tab=certifications'}`;
+  }
   if (!pathname.includes('/workforce-continuity') || pathname.includes('/ceu-training')) {
     return null;
   }

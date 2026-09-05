@@ -301,3 +301,14 @@ export async function fetchWorkforceInsights(state = 'NY'): Promise<SDWISWorkfor
   });
   return data;
 }
+
+export async function refreshSdwisState(
+  state = 'NY'
+): Promise<{ success: boolean; state: string; systems_refreshed: number }> {
+  const { data } = await axios.post(
+    `${base}/refresh-state`,
+    null,
+    { headers: headers(), params: { state } }
+  );
+  return data;
+}

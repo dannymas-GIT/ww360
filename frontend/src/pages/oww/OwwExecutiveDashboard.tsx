@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Area,
   AreaChart,
@@ -28,8 +29,6 @@ import {
   RefreshCw,
   ShieldCheck,
   Sparkles,
-  TrendingDown,
-  TrendingUp,
   UserCheck,
   Users,
 } from 'lucide-react';
@@ -72,6 +71,12 @@ import {
   type OwwSourceStatus,
 } from './owwMockData';
 import { fetchWorkforceInsights, type SDWISWorkforceInsights } from '@/services/sdwisService';
+import { Ww360KpiTile } from '@/components/ww360/Ww360KpiTile';
+import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
+import { Ww360Section } from '@/components/ww360/Ww360Section';
+import { ww360ChartTooltipStyle } from '@/components/ww360/ww360ChartTooltip';
+import { ww360Greeting } from '@/components/ww360/ww360Greeting';
+import type { Ww360SourceId } from '@/components/ww360/ww360SourceTokens';
 import { Droplets } from 'lucide-react';
 
 /* ------------------------------------------------------------------ */
@@ -88,162 +93,42 @@ const C = {
   navy: '#07111f',
 };
 
-const SOURCE_LABEL: Record<OwwSourceStatus['id'], string> = {
-  'learning-stream': 'Learning Stream',
-  'oww-web': 'onewaterworkforce.org',
-  ww360: 'Water Workforce 360',
-};
-
-const SOURCE_TONE: Record<OwwSourceStatus['id'], string> = {
-  'learning-stream': 'bg-sky-50 text-sky-800 border-sky-200',
-  'oww-web': 'bg-teal-50 text-teal-800 border-teal-200',
-  ww360: 'bg-blue-50 text-blue-800 border-blue-200',
-};
-
-function SourceChip({ id }: { id: OwwSourceStatus['id'] }) {
-  return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${SOURCE_TONE[id]}`}
-    >
-      {SOURCE_LABEL[id]}
-    </span>
-  );
-}
-
-function greeting(): string {
-  const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
-}
-
-/* ------------------------------------------------------------------ */
-/* KPI cards                                                           */
-/* ------------------------------------------------------------------ */
-
-interface Kpi {
-  id: string;
-  label: string;
-  value: string;
-  sub: string;
-  delta: number; // fraction, positive good unless invert
-  invert?: boolean;
-  icon: React.ReactNode;
-  sources: Array<OwwSourceStatus['id']>;
-  target?: string;
-}
-
-function KpiCard({ kpi }: { kpi: Kpi }) {
-  const good = kpi.invert ? kpi.delta <= 0 : kpi.delta >= 0;
-  const Icon = kpi.delta >= 0 ? TrendingUp : TrendingDown;
-  return (
-    <Card
-      className="group relative overflow-hidden border-slate-200 bg-white shadow-sm"
-      title={`Source: ${kpi.sources.map(s => SOURCE_LABEL[s]).join(' + ')}`}
-    >
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-2">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{kpi.label}</p>
-          <span className="rounded-md bg-slate-100 p-1.5 text-slate-600">{kpi.icon}</span>
-        </div>
-        <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">{kpi.value}</p>
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-          <span
-            className={`inline-flex items-center gap-1 font-medium ${good ? 'text-emerald-700' : 'text-red-600'}`}
-          >
-            <Icon className="h-3.5 w-3.5" aria-hidden />
-            {kpi.delta >= 0 ? '+' : ''}
-            {formatPct(kpi.delta)}
-          </span>
-          <span className="text-slate-500">{kpi.sub}</span>
-        </div>
-        {kpi.target ? (
-          <p className="mt-2 text-[11px] text-slate-500">
-            <span className="font-medium text-slate-600">EPA target:</span> {kpi.target}
-          </p>
-        ) : null}
-        <div className="mt-2 flex flex-wrap gap-1 opacity-70 transition-opacity group-hover:opacity-100">
-          {kpi.sources.map(s => (
-            <SourceChip key={s} id={s} />
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Section wrapper                                                     */
-/* ------------------------------------------------------------------ */
-
-function Section({
-  tourId,
-  title,
-  eyebrow,
-  sources,
-  action,
-  children,
-  className = '',
-}: {
-  tourId: string;
-  title: string;
-  eyebrow?: string;
-  sources?: Array<OwwSourceStatus['id']>;
-  action?: React.ReactNode;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <Card
-      id={tourId}
-      data-tour={tourId}
-      className={`scroll-mt-20 border-slate-200 bg-white shadow-sm ${className}`}
-    >
-      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2 space-y-0 border-b border-slate-100 px-5 py-4">
-        <div className="min-w-0">
-          {eyebrow ? (
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-600">
-              {eyebrow}
-            </p>
-          ) : null}
-          <CardTitle className="text-base font-semibold text-slate-900">{title}</CardTitle>
-          {sources?.length ? (
-            <div className="mt-1.5 flex flex-wrap gap-1">
-              {sources.map(s => (
-                <SourceChip key={s} id={s} />
-              ))}
-            </div>
-          ) : null}
-        </div>
-        {action}
-      </CardHeader>
-      <CardContent className="px-5 py-4">{children}</CardContent>
-    </Card>
-  );
-}
-
-const tooltipStyle = {
-  contentStyle: {
-    borderRadius: 8,
-    border: '1px solid #e2e8f0',
-    fontSize: 12,
-    boxShadow: '0 4px 12px rgba(7,17,31,0.08)',
-  },
-  labelStyle: { fontWeight: 600, color: '#0f172a' },
-};
-
 /* ------------------------------------------------------------------ */
 /* Page                                                                */
 /* ------------------------------------------------------------------ */
 
 type Range = '30d' | 'qtr' | '12mo';
 
+interface ExecKpi {
+  id: string;
+  label: string;
+  value: string;
+  sub: string;
+  delta: number;
+  invert?: boolean;
+  icon: React.ReactNode;
+  sources: Ww360SourceId[];
+  target?: string;
+}
+
+const tooltipStyle = ww360ChartTooltipStyle;
+
 export default function OwwExecutiveDashboard() {
   const { userRoles } = useAuth();
+  const location = useLocation();
   const [range, setRange] = useState<Range>('12mo');
   const [regionSort, setRegionSort] = useState<'gap' | 'retirements' | 'utilities'>('gap');
   const [sdwisInsights, setSdwisInsights] = useState<SDWISWorkforceInsights | null>(null);
   const [sdwisLoading, setSdwisLoading] = useState(true);
+
+  useEffect(() => {
+    const id = (location.hash || '').replace(/^#/, '');
+    if (!id) return;
+    const t = window.setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+    return () => window.clearTimeout(t);
+  }, [location.hash, sdwisLoading]);
 
   useEffect(() => {
     let cancelled = false;
@@ -262,7 +147,7 @@ export default function OwwExecutiveDashboard() {
     };
   }, []);
 
-  const kpis: Kpi[] = useMemo(
+  const kpis: ExecKpi[] = useMemo(
     () => [
       {
         id: 'members',
@@ -361,40 +246,20 @@ export default function OwwExecutiveDashboard() {
   return (
     <div className="ww360-app-shell mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6">
       {/* Header */}
-      <header className="relative overflow-hidden rounded-2xl bg-[#07111f] px-6 py-6 text-white shadow-md md:px-8 md:py-8">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-60"
-          style={{
-            background:
-              'radial-gradient(60% 80% at 85% 20%, rgba(56,189,248,0.35), transparent 60%), radial-gradient(50% 70% at 10% 90%, rgba(37,99,235,0.35), transparent 60%)',
-          }}
-        />
-        <div className="relative flex flex-wrap items-start justify-between gap-6">
-          <div className="min-w-0 max-w-3xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-300">
-              One Water Workforce · New York Section AWWA
-            </p>
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight md:text-3xl">
-              {greeting()}, Jenny — here is the statewide water workforce picture.
-            </h1>
-            <p className="mt-3 text-sm leading-relaxed text-slate-300 md:text-[15px]">
-              Learning Stream, onewaterworkforce.org and 27 participating utilities, reconciled into
-              one executive view: who is entering the pipeline, who is being trained, where
-              utilities expect openings, and how the EPA Area 3 measures are tracking.
-            </p>
-            <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
-              <Badge className="border-transparent bg-sky-400/20 text-sky-100 hover:bg-sky-400/20">
-                Sample data · shaped to live API contracts
-              </Badge>
-              {isPlatform ? (
-                <Badge className="border-transparent bg-white/10 text-white hover:bg-white/10">
-                  <ShieldCheck className="mr-1 h-3 w-3" aria-hidden /> Platform partner access
-                </Badge>
-              ) : null}
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
+      <Ww360PageHero
+        eyebrow="One Water Workforce · New York Section AWWA"
+        title={`${ww360Greeting()}, Jenny — here is the statewide water workforce picture.`}
+        description="Learning Stream, onewaterworkforce.org and 27 participating utilities, reconciled into one executive view: who is entering the pipeline, who is being trained, where utilities expect openings, and how the EPA Area 3 measures are tracking."
+        dataMode="sample"
+        badges={
+          isPlatform ? (
+            <Badge className="border-transparent bg-white/10 text-white hover:bg-white/10">
+              <ShieldCheck className="mr-1 h-3 w-3" aria-hidden /> Platform partner access
+            </Badge>
+          ) : null
+        }
+        actions={
+          <>
             <div className="inline-flex rounded-lg border border-white/15 bg-white/5 p-0.5 text-xs">
               {(
                 [
@@ -407,7 +272,7 @@ export default function OwwExecutiveDashboard() {
                   key={id}
                   type="button"
                   onClick={() => setRange(id)}
-                  className={`rounded-md px-3 py-1.5 font-medium transition ${
+                  className={`rounded-md px-3 py-1.5 font-medium transition min-h-[44px] md:min-h-0 ${
                     range === id ? 'bg-white text-slate-900' : 'text-slate-200 hover:bg-white/10'
                   }`}
                 >
@@ -419,17 +284,21 @@ export default function OwwExecutiveDashboard() {
               type="button"
               variant="outline"
               size="sm"
-              className="border-white/20 bg-white/5 text-white hover:bg-white/15 hover:text-white"
+              className="border-white/20 bg-white/5 text-white hover:bg-white/15 hover:text-white min-h-[44px] md:min-h-9"
               onClick={() => requestOpenOwwTour(0)}
             >
               <CircleHelp className="mr-1.5 h-4 w-4" aria-hidden /> Tour
             </Button>
-            <Button type="button" size="sm" className="bg-sky-400 text-slate-900 hover:bg-sky-300">
+            <Button
+              type="button"
+              size="sm"
+              className="bg-sky-400 text-slate-900 hover:bg-sky-300 min-h-[44px] md:min-h-9"
+            >
               <Download className="mr-1.5 h-4 w-4" aria-hidden /> EPA quarterly package
             </Button>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       {/* Sources */}
       <div data-tour="sources" className="grid gap-3 md:grid-cols-3">
@@ -467,12 +336,12 @@ export default function OwwExecutiveDashboard() {
       {/* KPIs */}
       <div data-tour="kpis" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {kpis.map(k => (
-          <KpiCard key={k.id} kpi={k} />
+          <Ww360KpiTile key={k.id} label={k.label} value={k.value} sub={k.sub} delta={k.delta} invert={k.invert} icon={k.icon} sources={k.sources} target={k.target} />
         ))}
       </div>
 
       {/* Water System Landscape (EPA SDWIS — live data) */}
-      <Section
+      <Ww360Section
         tourId="sdwis-landscape"
         eyebrow="EPA SDWIS · ECHO"
         title="Water system landscape"
@@ -545,11 +414,11 @@ export default function OwwExecutiveDashboard() {
             SDWIS landscape unavailable — run state refresh from Administration or wait for nightly sync.
           </p>
         )}
-      </Section>
+      </Ww360Section>
 
       {/* Pipeline + Supply/Demand */}
       <div className="grid gap-6 lg:grid-cols-5">
-        <Section
+        <Ww360Section
           tourId="pipeline"
           eyebrow="Candidate journey"
           title="Pipeline: awareness → employment"
@@ -593,9 +462,9 @@ export default function OwwExecutiveDashboard() {
             typically lifts this step; Exam-ready → Employed (26%) is the matching problem addressed
             below.
           </div>
-        </Section>
+        </Ww360Section>
 
-        <Section
+        <Ww360Section
           tourId="supply-demand"
           eyebrow="Employer demand vs. candidate supply"
           title="Openings expected in 24 months vs. candidates in training, by region"
@@ -648,11 +517,11 @@ export default function OwwExecutiveDashboard() {
               </p>
             </div>
           </div>
-        </Section>
+        </Ww360Section>
       </div>
 
       {/* Learning Stream */}
-      <Section
+      <Ww360Section
         tourId="learning-stream"
         eyebrow="Learning Stream · system of record"
         title={`Training delivery — ${rangeLabel}`}
@@ -826,11 +695,11 @@ export default function OwwExecutiveDashboard() {
             </ul>
           </div>
         </div>
-      </Section>
+      </Ww360Section>
 
       {/* Website + grade demand */}
       <div className="grid gap-6 lg:grid-cols-3">
-        <Section
+        <Ww360Section
           tourId="web"
           eyebrow="onewaterworkforce.org"
           title="Member growth & job board"
@@ -889,9 +758,9 @@ export default function OwwExecutiveDashboard() {
               </li>
             ))}
           </ul>
-        </Section>
+        </Ww360Section>
 
-        <Section
+        <Ww360Section
           tourId="grades"
           eyebrow="Certification demand"
           title="Openings by NYS grade vs. pipeline"
@@ -944,9 +813,9 @@ export default function OwwExecutiveDashboard() {
               </li>
             ))}
           </ul>
-        </Section>
+        </Ww360Section>
 
-        <Section
+        <Ww360Section
           tourId="epa"
           eyebrow="EPA Area 3 · cooperative agreement"
           title="Program measures"
@@ -997,11 +866,11 @@ export default function OwwExecutiveDashboard() {
               ))}
             </ul>
           </div>
-        </Section>
+        </Ww360Section>
       </div>
 
       {/* Regions */}
-      <Section
+      <Ww360Section
         tourId="regions"
         eyebrow="Water Workforce 360 · employer reporting"
         title="Regional workforce risk"
@@ -1111,11 +980,11 @@ export default function OwwExecutiveDashboard() {
           exam-ready in the same region. Utility-level drill-down is available for the{' '}
           {WW360_SUMMARY.utilitiesConsentedToShare} utilities that consented to partner visibility.
         </p>
-      </Section>
+      </Ww360Section>
 
       {/* Insights + access */}
       <div className="grid gap-6 lg:grid-cols-5">
-        <Section
+        <Ww360Section
           tourId="insights"
           eyebrow="Cross-source analysis"
           title="Recommended actions this month"
@@ -1160,9 +1029,9 @@ export default function OwwExecutiveDashboard() {
               </li>
             ))}
           </ul>
-        </Section>
+        </Ww360Section>
 
-        <Section
+        <Ww360Section
           tourId="access"
           eyebrow="Your platform access"
           title="What jingrao-aman-OWW can see and do"
@@ -1224,11 +1093,11 @@ export default function OwwExecutiveDashboard() {
               </div>
             ))}
           </div>
-        </Section>
+        </Ww360Section>
       </div>
 
       {/* Content engagement footer */}
-      <Section
+      <Ww360Section
         tourId="content"
         eyebrow="Content that converts"
         title="onewaterworkforce.org — top pages, last 30 days"
@@ -1250,7 +1119,7 @@ export default function OwwExecutiveDashboard() {
             </div>
           ))}
         </div>
-      </Section>
+      </Ww360Section>
 
       <OwwTourOverlay autoOpen />
     </div>

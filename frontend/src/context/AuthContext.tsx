@@ -15,6 +15,14 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   isOwwPartner: boolean;
   isPlatformAdmin: boolean;
+  /** AquaSafe-compatible aliases used by ported workforce UI */
+  isAdmin: boolean;
+  isGlobalAdmin: boolean;
+  isSystemAdmin: boolean;
+  isCeuAdmin: boolean;
+  isWorkforceOperator: boolean;
+  canManageWorkforce: boolean;
+  actingDistrictCode: string | null;
   login: (username: string, password: string) => Promise<void>;
   redeemHandoffCode: (code: string) => Promise<void>;
   logout: () => void;
@@ -69,6 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   const userRoles = user?.roles ?? [];
+  const isPlatformAdmin = hasAnyRole('platform_admin');
 
   const value = useMemo(
     () => ({
@@ -77,13 +86,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       loading,
       isAuthenticated: !!user,
       isOwwPartner: hasAnyRole('oww_partner'),
-      isPlatformAdmin: hasAnyRole('platform_admin'),
+      isPlatformAdmin,
+      isAdmin: isPlatformAdmin || hasAnyRole('district_admin', 'admin'),
+      isGlobalAdmin: isPlatformAdmin,
+      isSystemAdmin: isPlatformAdmin,
+      isCeuAdmin: hasAnyRole('ceu_admin'),
+      isWorkforceOperator: hasAnyRole('workforce_operator'),
+      canManageWorkforce:
+        isPlatformAdmin || hasAnyRole('district_admin', 'admin', 'ceu_admin', 'workforce_manager'),
+      actingDistrictCode: user?.districts?.[0] ?? null,
       login,
       redeemHandoffCode,
       logout,
       hasAnyRole,
     }),
-    [user, loading, login, redeemHandoffCode, logout, hasAnyRole, userRoles]
+    [user, loading, login, redeemHandoffCode, logout, hasAnyRole, userRoles, isPlatformAdmin]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

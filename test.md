@@ -33,15 +33,15 @@ Pipeline QA uses credentials from `~/.openclaw/openclaw.env` with prefix `WW360`
 1. Wait 2
 **Expected:**
 - See "Sign in to Workforce 360"
-- input[name="password"] visible
+- input#password visible
 
 ## Authenticated (Required when credentials set)
 
 ### Test: Executive Dashboard
 **URL:** ${BASE_URL}/login
 **Steps:**
-1. Fill input[name="username"] with ${TEST_EMAIL}
-2. Fill input[name="password"] with ${TEST_PASSWORD}
+1. Fill input#username with ${TEST_EMAIL}
+2. Fill input#password with ${TEST_PASSWORD}
 3. Click button[type="submit"]
 4. Wait 3
 5. Navigate to ${BASE_URL}/dashboard

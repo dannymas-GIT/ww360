@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -18,7 +18,7 @@ class DocStudioAccess(BaseModel):
     can_author: bool
     can_publish: bool
     can_manage_folders: bool
-    roles: List[str] = Field(default_factory=list)
+    roles: list[str] = Field(default_factory=list)
 
 
 # ── Folders ──────────────────────────────────────────────────────────────────
@@ -26,15 +26,15 @@ class DocStudioAccess(BaseModel):
 
 class DocFolderCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
-    parent_id: Optional[str] = None
-    description: Optional[str] = None
+    parent_id: str | None = None
+    description: str | None = None
 
 
 class DocFolderUpdate(BaseModel):
-    name: Optional[str] = Field(default=None, min_length=1, max_length=200)
-    parent_id: Optional[str] = None
-    description: Optional[str] = None
-    sort_order: Optional[int] = None
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    parent_id: str | None = None
+    description: str | None = None
+    sort_order: int | None = None
 
 
 class DocFolderRead(BaseModel):
@@ -42,9 +42,9 @@ class DocFolderRead(BaseModel):
 
     id: str
     scope: str
-    parent_id: Optional[str] = None
+    parent_id: str | None = None
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     sort_order: int = 0
     is_system: bool = False
     document_count: int = 0
@@ -57,27 +57,27 @@ class DocFolderRead(BaseModel):
 
 class DocDocumentCreate(BaseModel):
     title: str = Field(min_length=1, max_length=500)
-    folder_id: Optional[str] = None
-    template_id: Optional[str] = None
-    content_markdown: Optional[str] = ""
-    content_json: Optional[Dict[str, Any]] = None
-    summary: Optional[str] = None
-    tags: Optional[List[str]] = None
+    folder_id: str | None = None
+    template_id: str | None = None
+    content_markdown: str | None = ""
+    content_json: dict[str, Any] | None = None
+    summary: str | None = None
+    tags: list[str] | None = None
 
 
 class DocDocumentUpdate(BaseModel):
-    title: Optional[str] = Field(default=None, min_length=1, max_length=500)
-    folder_id: Optional[str] = None
-    summary: Optional[str] = None
-    tags: Optional[List[str]] = None
-    status: Optional[DocStatus] = None
+    title: str | None = Field(default=None, min_length=1, max_length=500)
+    folder_id: str | None = None
+    summary: str | None = None
+    tags: list[str] | None = None
+    status: DocStatus | None = None
 
 
 class DocContentSave(BaseModel):
     content_markdown: str = ""
-    content_json: Optional[Dict[str, Any]] = None
-    title: Optional[str] = None
-    note: Optional[str] = Field(default=None, max_length=300)
+    content_json: dict[str, Any] | None = None
+    title: str | None = None
+    note: str | None = Field(default=None, max_length=300)
     # Force a new version even if content is unchanged.
     force_version: bool = False
     # Autosave: persist content but do not cut a new version (explicit Save does).
@@ -89,26 +89,26 @@ class DocDocumentRead(BaseModel):
 
     id: str
     title: str = ""
-    scope: Optional[str] = None
-    folder_id: Optional[str] = None
+    scope: str | None = None
+    folder_id: str | None = None
     doc_type: str = "document"
     status: str = "draft"
-    summary: Optional[str] = None
-    tags: Optional[List[str]] = None
-    template_id: Optional[str] = None
+    summary: str | None = None
+    tags: list[str] | None = None
+    template_id: str | None = None
     version_no: int = 1
     word_count: int = 0
-    source_filename: Optional[str] = None
-    created_by: Optional[int] = None
-    updated_by: Optional[int] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    published_at: Optional[datetime] = None
+    source_filename: str | None = None
+    created_by: int | None = None
+    updated_by: int | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    published_at: datetime | None = None
 
 
 class DocDocumentDetail(DocDocumentRead):
-    content_markdown: Optional[str] = ""
-    content_json: Optional[Dict[str, Any]] = None
+    content_markdown: str | None = ""
+    content_json: dict[str, Any] | None = None
 
 
 class DocVersionRead(BaseModel):
@@ -117,23 +117,23 @@ class DocVersionRead(BaseModel):
     id: str
     document_id: str
     version_no: int
-    title: Optional[str] = None
-    note: Optional[str] = None
+    title: str | None = None
+    note: str | None = None
     kind: str = "save"
-    created_by: Optional[int] = None
+    created_by: int | None = None
     created_at: datetime
 
 
 class DocVersionDetail(DocVersionRead):
-    content_markdown: Optional[str] = ""
-    content_json: Optional[Dict[str, Any]] = None
+    content_markdown: str | None = ""
+    content_json: dict[str, Any] | None = None
 
 
 class DocAssetRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    document_id: Optional[str] = None
+    document_id: str | None = None
     filename: str
     content_type: str
     size_bytes: int
@@ -147,4 +147,4 @@ class DocStudioStats(BaseModel):
     drafts: int
     published: int
     words: int
-    recent: List[DocDocumentRead] = Field(default_factory=list)
+    recent: list[DocDocumentRead] = Field(default_factory=list)

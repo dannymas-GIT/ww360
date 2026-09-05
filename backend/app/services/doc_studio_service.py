@@ -10,12 +10,9 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Sequence
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional, Sequence
-
-from fastapi import HTTPException, status
-from sqlalchemy import func, or_
-from sqlalchemy.orm import Session
+from typing import Any
 
 from app.models.doc_document import PROGRAM_SCOPE, DocAsset, DocDocument, DocFolder, DocVersion
 from app.schemas.doc_studio import (
@@ -34,6 +31,9 @@ from app.schemas.doc_studio import (
     DocVersionRead,
 )
 from app.tenant_auth import TenantContext
+from fastapi import HTTPException, status
+from sqlalchemy import func, or_
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
@@ -60,13 +60,13 @@ ASSET_URL_PREFIX = "/api/v1/doc-studio/assets"
 _WORD_RE = re.compile(r"[A-Za-z0-9’'-]+")
 
 
-def _word_count(markdown: Optional[str]) -> int:
+def _word_count(markdown: str | None) -> int:
     if not markdown:
         return 0
     return len(_WORD_RE.findall(markdown))
 
 
-def resolve_scope(context: TenantContext, requested: Optional[str] = None) -> str:
+def resolve_scope(context: TenantContext, requested: str | None = None) -> str:
     """Program partners and platform admins work in the shared program library.
 
     District users are pinned to their own district scope; platform admins may
@@ -97,7 +97,9 @@ class DocStudioService:
         roles = set(context.roles)
         can_author = context.is_global_admin or bool(roles & AUTHOR_ROLES)
         can_publish = context.is_global_admin or bool(roles & PUBLISH_ROLES)
-        label = "One Water Workforce program library" if scope == PROGRAM_SCOPE else f"{scope} library"
+        label = (
+            "One Water Workforce program library" if scope == PROGRAM_SCOPE else f"{scope} library"
+        )
         return DocStudioAccess(
             scope=scope,
             scope_label=label,
@@ -110,18 +112,24 @@ class DocStudioService:
 
     def require_author(self, context: TenantContext, scope: str) -> None:
         if not self.access(context, scope).can_author:
-            raise HTTPException(status.HTTP_403_FORBIDDEN, "Authoring requires a program or district manager role")
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN, "Authoring requires a program or district manager role"
+            )
 
     def require_publisher(self, context: TenantContext, scope: str) -> None:
         if not self.access(context, scope).can_publish:
-            raise HTTPException(status.HTTP_403_FORBIDDEN, "Publishing requires an admin or program partner role")
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN, "Publishing requires an admin or program partner role"
+            )
 
     # ── Folders ────────────────────────────────────────────────────────────
 
-    def ensure_default_folders(self, scope: str, user_id: Optional[int]) -> None:
+    def ensure_default_folders(self, scope: str, user_id: int | None) -> None:
         if scope != PROGRAM_SCOPE:
             return
-        existing = self.db.query(func.count(DocFolder.id)).filter(DocFolder.scope == scope).scalar() or 0
+        existing = (
+            self.db.query(func.count(DocFolder.id)).filter(DocFolder.scope == scope).scalar() or 0
+        )
         if existing:
             return
         for idx, (name, desc) in enumerate(DEFAULT_PROGRAM_FOLDERS):
@@ -137,7 +145,7 @@ class DocStudioService:
             )
         self.db.commit()
 
-    def list_folders(self, scope: str) -> List[DocFolderRead]:
+    def list_folders(self, scope: str) -> list[DocFolderRead]:
         counts = dict(
             self.db.query(DocDocument.folder_id, func.count(DocDocument.id))
             .filter(DocDocument.scope == scope, DocDocument.status != "archived")
@@ -150,7 +158,7 @@ class DocStudioService:
             .order_by(DocFolder.sort_order.asc(), DocFolder.name.asc())
             .all()
         )
-        out: List[DocFolderRead] = []
+        out: list[DocFolderRead] = []
         for f in rows:
             item = DocFolderRead.model_validate(f)
             item.document_count = int(counts.get(f.id, 0))
@@ -158,16 +166,23 @@ class DocStudioService:
         return out
 
     def _get_folder(self, scope: str, folder_id: str) -> DocFolder:
-        f = self.db.query(DocFolder).filter(DocFolder.id == folder_id, DocFolder.scope == scope).first()
+        f = (
+            self.db.query(DocFolder)
+            .filter(DocFolder.id == folder_id, DocFolder.scope == scope)
+            .first()
+        )
         if not f:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Folder not found")
         return f
 
-    def create_folder(self, scope: str, payload: DocFolderCreate, user_id: Optional[int]) -> DocFolderRead:
+    def create_folder(
+        self, scope: str, payload: DocFolderCreate, user_id: int | None
+    ) -> DocFolderRead:
         if payload.parent_id:
             self._get_folder(scope, payload.parent_id)
         max_sort = (
-            self.db.query(func.max(DocFolder.sort_order)).filter(DocFolder.scope == scope).scalar() or 0
+            self.db.query(func.max(DocFolder.sort_order)).filter(DocFolder.scope == scope).scalar()
+            or 0
         )
         f = DocFolder(
             scope=scope,
@@ -187,7 +202,9 @@ class DocStudioService:
         data = payload.model_dump(exclude_unset=True)
         if "parent_id" in data and data["parent_id"]:
             if data["parent_id"] == folder_id:
-                raise HTTPException(status.HTTP_400_BAD_REQUEST, "A folder cannot be its own parent")
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST, "A folder cannot be its own parent"
+                )
             self._get_folder(scope, data["parent_id"])
         for k, v in data.items():
             setattr(f, k, v.strip() if isinstance(v, str) and k == "name" else v)
@@ -222,12 +239,12 @@ class DocStudioService:
     def list_documents(
         self,
         scope: str,
-        folder_id: Optional[str] = None,
-        q: Optional[str] = None,
-        status_filter: Optional[str] = None,
+        folder_id: str | None = None,
+        q: str | None = None,
+        status_filter: str | None = None,
         include_archived: bool = False,
         limit: int = 200,
-    ) -> List[DocDocumentRead]:
+    ) -> list[DocDocumentRead]:
         query = self.db.query(DocDocument).filter(DocDocument.scope == scope)
         if folder_id == "__root__":
             query = query.filter(DocDocument.folder_id.is_(None))
@@ -253,7 +270,7 @@ class DocStudioService:
         return DocDocumentDetail.model_validate(self._get_document_row(scope, document_id))
 
     def create_document(
-        self, scope: str, payload: DocDocumentCreate, user_id: Optional[int]
+        self, scope: str, payload: DocDocumentCreate, user_id: int | None
     ) -> DocDocumentDetail:
         if payload.folder_id:
             self._get_folder(scope, payload.folder_id)
@@ -283,7 +300,8 @@ class DocStudioService:
                 title=d.title,
                 content_markdown=md,
                 content_json=payload.content_json,
-                note="Created" + (f" from template {payload.template_id}" if payload.template_id else ""),
+                note="Created"
+                + (f" from template {payload.template_id}" if payload.template_id else ""),
                 kind="save",
                 created_by=user_id,
             )
@@ -298,9 +316,9 @@ class DocStudioService:
         *,
         title: str,
         markdown: str,
-        folder_id: Optional[str],
+        folder_id: str | None,
         source_filename: str,
-        user_id: Optional[int],
+        user_id: int | None,
     ) -> DocDocumentDetail:
         if folder_id:
             self._get_folder(scope, folder_id)
@@ -335,7 +353,7 @@ class DocStudioService:
         return DocDocumentDetail.model_validate(d)
 
     def update_document(
-        self, scope: str, document_id: str, payload: DocDocumentUpdate, user_id: Optional[int]
+        self, scope: str, document_id: str, payload: DocDocumentUpdate, user_id: int | None
     ) -> DocDocumentDetail:
         d = self._get_document_row(scope, document_id)
         data = payload.model_dump(exclude_unset=True)
@@ -351,10 +369,24 @@ class DocStudioService:
         return DocDocumentDetail.model_validate(d)
 
     def save_content(
-        self, scope: str, document_id: str, payload: DocContentSave, user_id: Optional[int]
+        self, scope: str, document_id: str, payload: DocContentSave, user_id: int | None
     ) -> DocDocumentDetail:
         d = self._get_document_row(scope, document_id)
-        changed = (d.content_markdown or "") != (payload.content_markdown or "")
+        incoming = payload.content_markdown or ""
+        if payload.autosave:
+            # Autosave only updates the working copy; compare against it.
+            changed = (d.content_markdown or "") != incoming
+        else:
+            # Explicit save snapshots a version whenever the content differs from the
+            # last *version*, not the last autosave (otherwise Save after an autosave is a no-op).
+            latest = (
+                self.db.query(DocVersion)
+                .filter(DocVersion.document_id == d.id)
+                .order_by(DocVersion.version_no.desc())
+                .first()
+            )
+            baseline = (latest.content_markdown if latest else d.content_markdown) or ""
+            changed = baseline != incoming
         if payload.title is not None and payload.title.strip() and payload.title.strip() != d.title:
             d.title = payload.title.strip()
             changed = True
@@ -382,7 +414,7 @@ class DocStudioService:
         self.db.refresh(d)
         return DocDocumentDetail.model_validate(d)
 
-    def publish(self, scope: str, document_id: str, user_id: Optional[int]) -> DocDocumentDetail:
+    def publish(self, scope: str, document_id: str, user_id: int | None) -> DocDocumentDetail:
         d = self._get_document_row(scope, document_id)
         d.status = "published"
         d.published_at = datetime.utcnow()
@@ -404,7 +436,7 @@ class DocStudioService:
         self.db.refresh(d)
         return DocDocumentDetail.model_validate(d)
 
-    def duplicate(self, scope: str, document_id: str, user_id: Optional[int]) -> DocDocumentDetail:
+    def duplicate(self, scope: str, document_id: str, user_id: int | None) -> DocDocumentDetail:
         src = self._get_document_row(scope, document_id)
         payload = DocDocumentCreate(
             title=f"{src.title} (copy)",
@@ -437,7 +469,7 @@ class DocStudioService:
             if old.kind == "save":
                 self.db.delete(old)
 
-    def list_versions(self, scope: str, document_id: str) -> List[DocVersionRead]:
+    def list_versions(self, scope: str, document_id: str) -> list[DocVersionRead]:
         self._get_document_row(scope, document_id)
         rows = (
             self.db.query(DocVersion)
@@ -459,7 +491,7 @@ class DocStudioService:
         return DocVersionDetail.model_validate(v)
 
     def restore_version(
-        self, scope: str, document_id: str, version_no: int, user_id: Optional[int]
+        self, scope: str, document_id: str, version_no: int, user_id: int | None
     ) -> DocDocumentDetail:
         d = self._get_document_row(scope, document_id)
         v = self.get_version(scope, document_id, version_no)
@@ -495,8 +527,8 @@ class DocStudioService:
         filename: str,
         content_type: str,
         data: bytes,
-        document_id: Optional[str],
-        user_id: Optional[int],
+        document_id: str | None,
+        user_id: int | None,
     ) -> DocAssetRead:
         if len(data) > self.MAX_ASSET_BYTES:
             raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "Asset exceeds 8 MB")
@@ -536,7 +568,9 @@ class DocStudioService:
     # ── Stats ──────────────────────────────────────────────────────────────
 
     def stats(self, scope: str) -> DocStudioStats:
-        docs = self.db.query(DocDocument).filter(DocDocument.scope == scope, DocDocument.status != "archived")
+        docs = self.db.query(DocDocument).filter(
+            DocDocument.scope == scope, DocDocument.status != "archived"
+        )
         total = docs.count()
         drafts = docs.filter(DocDocument.status == "draft").count()
         published = docs.filter(DocDocument.status == "published").count()
@@ -546,7 +580,9 @@ class DocStudioService:
             .scalar()
             or 0
         )
-        folders = self.db.query(func.count(DocFolder.id)).filter(DocFolder.scope == scope).scalar() or 0
+        folders = (
+            self.db.query(func.count(DocFolder.id)).filter(DocFolder.scope == scope).scalar() or 0
+        )
         recent = docs.order_by(DocDocument.updated_at.desc()).limit(5).all()
         return DocStudioStats(
             folders=int(folders),
@@ -559,5 +595,5 @@ class DocStudioService:
 
     # ── Compatibility with workforce_succession doc-pack endpoint ─────────
 
-    def _doc_with_lock_name(self, doc: Any, user_id: Optional[int]) -> DocDocumentRead:
+    def _doc_with_lock_name(self, doc: Any, user_id: int | None) -> DocDocumentRead:
         return DocDocumentRead.model_validate(doc)

@@ -166,6 +166,11 @@ export default function DocumentStudioPage() {
     },
   });
 
+  // `mutateAsync` is referentially stable; the `saveMut` object is not (new identity every render),
+  // so depend on the function only — otherwise the unmount-flush effect below re-runs on every
+  // render and autosaves on every keystroke.
+  const saveContentAsync = saveMut.mutateAsync;
+
   const flushAutosave = useCallback(async () => {
     if (autosaveTimer.current) {
       window.clearTimeout(autosaveTimer.current);
@@ -176,11 +181,13 @@ export default function DocumentStudioPage() {
     pendingMarkdown.current = null;
     setSaveState('saving');
     try {
-      await saveMut.mutateAsync({ id: selectedId, markdown, json: editorRef.current?.getJson(), autosave: true });
+      await saveContentAsync({ id: selectedId, markdown, json: editorRef.current?.getJson(), autosave: true });
     } catch {
       /* toast handled in onError */
     }
-  }, [canAuthor, saveMut, selectedId]);
+  }, [canAuthor, saveContentAsync, selectedId]);
+  const flushAutosaveRef = useRef(flushAutosave);
+  flushAutosaveRef.current = flushAutosave;
 
   const handleEditorChange = useCallback(
     (markdown: string) => {
@@ -199,17 +206,15 @@ export default function DocumentStudioPage() {
     pendingMarkdown.current = null;
     const markdown = editorRef.current?.getMarkdown() ?? doc?.content_markdown ?? '';
     setSaveState('saving');
-    await saveMut
-      .mutateAsync({
-        id: selectedId,
-        markdown,
-        json: editorRef.current?.getJson(),
-        autosave: false,
-        title: titleDraft.trim() || undefined,
-        note: 'Manual save',
-      })
-      .catch(() => undefined);
-  }, [canAuthor, doc?.content_markdown, saveMut, selectedId, titleDraft]);
+    await saveContentAsync({
+      id: selectedId,
+      markdown,
+      json: editorRef.current?.getJson(),
+      autosave: false,
+      title: titleDraft.trim() || undefined,
+      note: 'Manual save',
+    }).catch(() => undefined);
+  }, [canAuthor, doc?.content_markdown, saveContentAsync, selectedId, titleDraft]);
 
   // Ctrl/Cmd+S
   useEffect(() => {
@@ -223,8 +228,8 @@ export default function DocumentStudioPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [handleExplicitSave]);
 
-  // Flush on unmount / doc switch
-  useEffect(() => () => void flushAutosave(), [flushAutosave]);
+  // Flush pending edits on unmount only (doc switches flush explicitly in selectDocument)
+  useEffect(() => () => void flushAutosaveRef.current(), []);
 
   const selectDocument = useCallback(
     async (id: string | null) => {

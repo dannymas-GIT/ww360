@@ -73,3 +73,14 @@ bash scripts/staging/apply-host-nginx.sh
 ## Design system
 
 Primitives live under `frontend/src/components/ww360/` (hero, section, KPI tiles, chips, empty states). Formatters: `frontend/src/lib/format.ts`. Applied across SDWIS, admin, continuity, and OWW executive dashboard. See TheHelm runbook `docs/ww360-extraction-runbook.md` § Design system.
+
+## Document Studio (`/studio`)
+
+Rich-content authoring for the One Water Workforce program (briefs, cohort plans, EPA quarterly narratives, invitations, newsletters). Ported from AquaSafe's studio, scoped to folders + editor + versions + import/export.
+
+- **Backend:** `backend/app/api/v1/endpoints/doc_studio.py` → `/api/v1/doc-studio/*` (access, stats, folders, documents, versions, `export/{markdown|html|pdf|docx}`, import, assets). Service `app/services/doc_studio_service.py`; export/import `app/services/doc_studio_export_service.py` (reportlab PDF, python-docx). Models `app/models/doc_document.py` (`doc_folders`, `doc_documents`, `doc_versions`, `doc_assets`) — schema patched idempotently on startup via `ensure_doc_studio_schema` (no Alembic).
+- **Scopes:** program partners + platform admins share the `program` library (default folders seeded on first visit); district users get a per-district library. Authoring roles: `AUTHOR_ROLES`; publishing: `PUBLISH_ROLES`. Feature flag `WW360_DOC_STUDIO_ENABLED` (default true).
+- **Saves:** autosave ~2.5s after typing updates the working copy only; **Save** / Ctrl+S cuts a numbered version when content differs from the last version; **Publish** and **Restore** always create versions. Version cap 60 (`MAX_VERSIONS`; publish/restore never pruned).
+- **Frontend:** `frontend/src/pages/studio/DocumentStudioPage.tsx` (3-pane), `components/doc-studio/*` (TipTap `StudioEditor`, `FolderTree`, `DocumentList`, `VersionHistoryPanel`, `NewDocumentDialog`), templates `config/studioTemplates.ts`, client `services/docStudioService.ts`. Nav: **Content → Document Studio**.
+- **Tours:** reusable `components/ww360/Ww360TourOverlay.tsx` drives both the OWW dashboard tour and the Studio tour (`pages/studio/studioTourContent.ts`; keys `ww360-studio-tour-dismissed` / `-step`). Tour slides scroll `[data-tour]` targets clear of the card.
+- **QA:** Playwright `frontend/e2e/doc_studio.spec.ts` (manifest suite `doc-studio`), `test.md` § Document Studio.

@@ -72,6 +72,13 @@ test.describe('WW360 routes', () => {
     });
   });
 
+  test('document studio route loads', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('ww360-studio-tour-dismissed', '1'));
+    await page.goto('/studio');
+    await expect(page.locator('[data-tour="studio-workspace"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole('heading', { name: /create rich/i })).toBeVisible();
+  });
+
   test('ceu training deep link', async ({ page }) => {
     await page.goto('/continuity/ceu-training?tab=ceu');
     await expect(page.getByRole('heading', { name: /ceu & training/i })).toBeVisible({

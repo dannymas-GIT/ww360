@@ -55,6 +55,25 @@
       "tags": ["ww360", "routes"]
     },
     {
+      "id": "doc-studio",
+      "specFile": "frontend/e2e/doc_studio.spec.ts",
+      "pathPatterns": [
+        "frontend/src/pages/studio/**",
+        "frontend/src/components/doc-studio/**",
+        "frontend/src/components/ww360/Ww360TourOverlay.tsx",
+        "frontend/src/services/docStudioService.ts",
+        "frontend/src/config/studioTemplates.ts",
+        "backend/app/api/v1/endpoints/doc_studio.py",
+        "backend/app/services/doc_studio_service.py",
+        "backend/app/services/doc_studio_export_service.py",
+        "backend/app/models/doc_document.py",
+        "backend/app/schemas/doc_studio.py"
+      ],
+      "defaultRunOn": ["staging", "pr"],
+      "flakeBudget": 2,
+      "tags": ["ww360", "studio", "content"]
+    },
+    {
       "id": "sdwis-insights",
       "specFile": "backend/tests/test_sdwis_insights.py",
       "pathPatterns": [

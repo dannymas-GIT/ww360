@@ -16,6 +16,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
+from app.db.base_class import Base
 from sqlalchemy import (
     Boolean,
     Column,
@@ -28,8 +29,6 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
-
-from app.db.base_class import Base
 
 PROGRAM_SCOPE = "program"
 

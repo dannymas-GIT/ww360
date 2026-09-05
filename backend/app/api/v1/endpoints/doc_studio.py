@@ -8,12 +8,7 @@ accepts ``?scope=`` for admins who need to switch.
 from __future__ import annotations
 
 import logging
-from typing import List, Optional
 from urllib.parse import quote
-
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
-from fastapi.responses import HTMLResponse, PlainTextResponse
-from sqlalchemy.orm import Session
 
 from app.api import deps
 from app.core.config import settings
@@ -39,6 +34,19 @@ from app.services.doc_studio_export_service import (
 )
 from app.services.doc_studio_service import DocStudioService, resolve_scope
 from app.tenant_auth import TenantContext
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Response,
+    UploadFile,
+    status,
+)
+from fastapi.responses import HTMLResponse, PlainTextResponse
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
@@ -47,19 +55,24 @@ router = APIRouter()
 
 def _require_enabled() -> None:
     if not settings.WW360_DOC_STUDIO_ENABLED:
-        raise HTTPException(status.HTTP_501_NOT_IMPLEMENTED, "Document Studio is not enabled on this WW360 host")
+        raise HTTPException(
+            status.HTTP_501_NOT_IMPLEMENTED, "Document Studio is not enabled on this WW360 host"
+        )
 
 
 def _ctx(
     context: TenantContext = Depends(deps.get_current_tenant_user),
-    scope: Optional[str] = Query(None, description="program | <district_code>"),
+    scope: str | None = Query(None, description="program | <district_code>"),
 ) -> tuple[TenantContext, str]:
     _require_enabled()
     return context, resolve_scope(context, scope)
 
 
 def _filename(title: str, ext: str) -> str:
-    safe = "".join(c if c.isalnum() or c in " -_" else "" for c in (title or "document")).strip() or "document"
+    safe = (
+        "".join(c if c.isalnum() or c in " -_" else "" for c in (title or "document")).strip()
+        or "document"
+    )
     return f"{safe[:80]}.{ext}"
 
 
@@ -83,7 +96,7 @@ def get_stats(pair=Depends(_ctx), db: Session = Depends(deps.get_db)):
 # ── Folders ──────────────────────────────────────────────────────────────────
 
 
-@router.get("/folders", response_model=List[DocFolderRead])
+@router.get("/folders", response_model=list[DocFolderRead])
 def list_folders(pair=Depends(_ctx), db: Session = Depends(deps.get_db)):
     context, scope = pair
     svc = DocStudioService(db)
@@ -121,34 +134,42 @@ def delete_folder(folder_id: str, pair=Depends(_ctx), db: Session = Depends(deps
 # ── Documents ────────────────────────────────────────────────────────────────
 
 
-@router.get("/documents", response_model=List[DocDocumentRead])
+@router.get("/documents", response_model=list[DocDocumentRead])
 def list_documents(
-    folder_id: Optional[str] = Query(None, description="folder id, or __root__ for unfiled"),
-    q: Optional[str] = Query(None, min_length=1, max_length=200),
-    status_filter: Optional[str] = Query(None, alias="status"),
+    folder_id: str | None = Query(None, description="folder id, or __root__ for unfiled"),
+    q: str | None = Query(None, min_length=1, max_length=200),
+    status_filter: str | None = Query(None, alias="status"),
     include_archived: bool = False,
     pair=Depends(_ctx),
     db: Session = Depends(deps.get_db),
 ):
     _, scope = pair
     return DocStudioService(db).list_documents(
-        scope, folder_id=folder_id, q=q, status_filter=status_filter, include_archived=include_archived
+        scope,
+        folder_id=folder_id,
+        q=q,
+        status_filter=status_filter,
+        include_archived=include_archived,
     )
 
 
 @router.post("/documents", response_model=DocDocumentDetail, status_code=status.HTTP_201_CREATED)
-def create_document(payload: DocDocumentCreate, pair=Depends(_ctx), db: Session = Depends(deps.get_db)):
+def create_document(
+    payload: DocDocumentCreate, pair=Depends(_ctx), db: Session = Depends(deps.get_db)
+):
     context, scope = pair
     svc = DocStudioService(db)
     svc.require_author(context, scope)
     return svc.create_document(scope, payload, context.user_id)
 
 
-@router.post("/documents/import", response_model=DocDocumentDetail, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/documents/import", response_model=DocDocumentDetail, status_code=status.HTTP_201_CREATED
+)
 async def import_document(
     file: UploadFile = File(...),
-    folder_id: Optional[str] = Form(None),
-    title: Optional[str] = Form(None),
+    folder_id: str | None = Form(None),
+    title: str | None = Form(None),
     pair=Depends(_ctx),
     db: Session = Depends(deps.get_db),
 ):
@@ -164,7 +185,9 @@ async def import_document(
         raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, str(exc)) from exc
     except Exception as exc:
         logger.warning("Import failed for %s: %s", file.filename, exc)
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Could not read that file") from exc
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "Could not read that file"
+        ) from exc
     fallback = (file.filename or "Imported document").rsplit(".", 1)[0]
     return svc.create_imported_document(
         scope,
@@ -184,7 +207,10 @@ def get_document(document_id: str, pair=Depends(_ctx), db: Session = Depends(dep
 
 @router.patch("/documents/{document_id}", response_model=DocDocumentDetail)
 def update_document(
-    document_id: str, payload: DocDocumentUpdate, pair=Depends(_ctx), db: Session = Depends(deps.get_db)
+    document_id: str,
+    payload: DocDocumentUpdate,
+    pair=Depends(_ctx),
+    db: Session = Depends(deps.get_db),
 ):
     context, scope = pair
     svc = DocStudioService(db)
@@ -196,7 +222,10 @@ def update_document(
 
 @router.put("/documents/{document_id}/content", response_model=DocDocumentDetail)
 def save_content(
-    document_id: str, payload: DocContentSave, pair=Depends(_ctx), db: Session = Depends(deps.get_db)
+    document_id: str,
+    payload: DocContentSave,
+    pair=Depends(_ctx),
+    db: Session = Depends(deps.get_db),
 ):
     context, scope = pair
     svc = DocStudioService(db)
@@ -212,7 +241,9 @@ def publish_document(document_id: str, pair=Depends(_ctx), db: Session = Depends
     return svc.publish(scope, document_id, context.user_id)
 
 
-@router.post("/documents/{document_id}/duplicate", response_model=DocDocumentDetail, status_code=201)
+@router.post(
+    "/documents/{document_id}/duplicate", response_model=DocDocumentDetail, status_code=201
+)
 def duplicate_document(document_id: str, pair=Depends(_ctx), db: Session = Depends(deps.get_db)):
     context, scope = pair
     svc = DocStudioService(db)
@@ -232,7 +263,7 @@ def delete_document(document_id: str, pair=Depends(_ctx), db: Session = Depends(
 # ── Versions ─────────────────────────────────────────────────────────────────
 
 
-@router.get("/documents/{document_id}/versions", response_model=List[DocVersionRead])
+@router.get("/documents/{document_id}/versions", response_model=list[DocVersionRead])
 def list_versions(document_id: str, pair=Depends(_ctx), db: Session = Depends(deps.get_db)):
     _, scope = pair
     return DocStudioService(db).list_versions(scope, document_id)
@@ -246,7 +277,9 @@ def get_version(
     return DocStudioService(db).get_version(scope, document_id, version_no)
 
 
-@router.post("/documents/{document_id}/versions/{version_no}/restore", response_model=DocDocumentDetail)
+@router.post(
+    "/documents/{document_id}/versions/{version_no}/restore", response_model=DocDocumentDetail
+)
 def restore_version(
     document_id: str, version_no: int, pair=Depends(_ctx), db: Session = Depends(deps.get_db)
 ):
@@ -265,7 +298,7 @@ def export_document(
     fmt: str,
     download: bool = True,
     context: TenantContext = Depends(deps.get_current_tenant_user_from_header_or_query),
-    scope: Optional[str] = Query(None),
+    scope: str | None = Query(None),
     db: Session = Depends(deps.get_db),
 ):
     _require_enabled()
@@ -279,7 +312,9 @@ def export_document(
         return PlainTextResponse(
             body,
             media_type="text/markdown; charset=utf-8",
-            headers={"Content-Disposition": f"{disposition}; filename*=UTF-8''{quote(_filename(doc.title, 'md'))}"},
+            headers={
+                "Content-Disposition": f"{disposition}; filename*=UTF-8''{quote(_filename(doc.title, 'md'))}"
+            },
         )
     if fmt == "html":
         return HTMLResponse(exporter.export_html(resolved, document_id))
@@ -288,7 +323,9 @@ def export_document(
         return Response(
             data,
             media_type="application/pdf",
-            headers={"Content-Disposition": f"{disposition}; filename*=UTF-8''{quote(_filename(doc.title, 'pdf'))}"},
+            headers={
+                "Content-Disposition": f"{disposition}; filename*=UTF-8''{quote(_filename(doc.title, 'pdf'))}"
+            },
         )
     if fmt == "docx":
         try:
@@ -298,9 +335,13 @@ def export_document(
         return Response(
             data,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            headers={"Content-Disposition": f"{disposition}; filename*=UTF-8''{quote(_filename(doc.title, 'docx'))}"},
+            headers={
+                "Content-Disposition": f"{disposition}; filename*=UTF-8''{quote(_filename(doc.title, 'docx'))}"
+            },
         )
-    raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unsupported format — use pdf, docx, markdown or html")
+    raise HTTPException(
+        status.HTTP_400_BAD_REQUEST, "Unsupported format — use pdf, docx, markdown or html"
+    )
 
 
 # ── Assets ───────────────────────────────────────────────────────────────────
@@ -309,7 +350,7 @@ def export_document(
 @router.post("/assets", response_model=DocAssetRead, status_code=status.HTTP_201_CREATED)
 async def upload_asset(
     file: UploadFile = File(...),
-    document_id: Optional[str] = Form(None),
+    document_id: str | None = Form(None),
     pair=Depends(_ctx),
     db: Session = Depends(deps.get_db),
 ):
@@ -319,7 +360,9 @@ async def upload_asset(
     data = await file.read()
     ctype = file.content_type or "application/octet-stream"
     if not ctype.startswith("image/"):
-        raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "Only image uploads are supported inline")
+        raise HTTPException(
+            status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, "Only image uploads are supported inline"
+        )
     return svc.create_asset(
         scope,
         filename=file.filename or "image",
@@ -343,5 +386,8 @@ def get_asset_file(asset_id: str, db: Session = Depends(deps.get_db)):
     return Response(
         bytes(a.data),
         media_type=a.content_type,
-        headers={"Cache-Control": "private, max-age=86400", "Content-Disposition": f"inline; filename*=UTF-8''{quote(a.filename)}"},
+        headers={
+            "Cache-Control": "private, max-age=86400",
+            "Content-Disposition": f"inline; filename*=UTF-8''{quote(a.filename)}",
+        },
     )

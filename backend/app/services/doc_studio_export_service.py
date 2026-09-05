@@ -12,12 +12,10 @@ import io
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import List, Optional, Sequence
-
-from sqlalchemy.orm import Session
 
 from app.models.doc_document import DocAsset, DocDocument
 from app.services.doc_studio_service import ASSET_URL_PREFIX, DocStudioService
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
@@ -31,12 +29,14 @@ BRAND_SLATE = "#475569"
 
 @dataclass
 class Block:
-    kind: str  # heading | paragraph | bullets | numbers | tasks | quote | code | table | image | rule
+    kind: (
+        str  # heading | paragraph | bullets | numbers | tasks | quote | code | table | image | rule
+    )
     text: str = ""
     level: int = 0
-    items: List[str] = field(default_factory=list)
-    checked: List[bool] = field(default_factory=list)
-    rows: List[List[str]] = field(default_factory=list)
+    items: list[str] = field(default_factory=list)
+    checked: list[bool] = field(default_factory=list)
+    rows: list[list[str]] = field(default_factory=list)
     src: str = ""
     alt: str = ""
 
@@ -49,12 +49,12 @@ _HEADING_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
 _TABLE_SEP_RE = re.compile(r"^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$")
 
 
-def parse_markdown(markdown: str) -> List[Block]:
+def parse_markdown(markdown: str) -> list[Block]:
     lines = (markdown or "").replace("\r\n", "\n").split("\n")
-    blocks: List[Block] = []
+    blocks: list[Block] = []
     i = 0
     n = len(lines)
-    para: List[str] = []
+    para: list[str] = []
 
     def flush_para() -> None:
         nonlocal para
@@ -74,7 +74,7 @@ def parse_markdown(markdown: str) -> List[Block]:
         if stripped.startswith("```"):
             flush_para()
             i += 1
-            code: List[str] = []
+            code: list[str] = []
             while i < n and not lines[i].strip().startswith("```"):
                 code.append(lines[i])
                 i += 1
@@ -104,7 +104,7 @@ def parse_markdown(markdown: str) -> List[Block]:
 
         if stripped.startswith("|") and i + 1 < n and _TABLE_SEP_RE.match(lines[i + 1]):
             flush_para()
-            rows: List[List[str]] = []
+            rows: list[list[str]] = []
             rows.append([c.strip() for c in stripped.strip("|").split("|")])
             i += 2
             while i < n and lines[i].strip().startswith("|"):
@@ -115,7 +115,7 @@ def parse_markdown(markdown: str) -> List[Block]:
 
         if stripped.startswith(">"):
             flush_para()
-            quote: List[str] = []
+            quote: list[str] = []
             while i < n and lines[i].strip().startswith(">"):
                 quote.append(lines[i].strip().lstrip(">").strip())
                 i += 1
@@ -124,8 +124,8 @@ def parse_markdown(markdown: str) -> List[Block]:
 
         if _TASK_RE.match(line):
             flush_para()
-            items: List[str] = []
-            checked: List[bool] = []
+            items: list[str] = []
+            checked: list[bool] = []
             while i < n and _TASK_RE.match(lines[i]):
                 tm = _TASK_RE.match(lines[i])
                 assert tm
@@ -180,7 +180,9 @@ def inline_to_html(text: str) -> str:
     out = _INLINE_BOLD.sub(lambda m: f"<b>{m.group(1) or m.group(2)}</b>", out)
     out = _INLINE_EM.sub(lambda m: f"<i>{m.group(1) or m.group(2)}</i>", out)
     out = _INLINE_STRIKE.sub(lambda m: f"<strike>{m.group(1)}</strike>", out)
-    out = _INLINE_LINK.sub(lambda m: f"<a href='{m.group(2)}' color='#0369a1'>{m.group(1)}</a>", out)
+    out = _INLINE_LINK.sub(
+        lambda m: f"<a href='{m.group(2)}' color='#0369a1'>{m.group(1)}</a>", out
+    )
     return out
 
 
@@ -202,7 +204,7 @@ class DocStudioExportService:
     def _doc(self, scope: str, document_id: str) -> DocDocument:
         return self.studio._get_document_row(scope, document_id)
 
-    def _asset_bytes(self, src: str) -> Optional[bytes]:
+    def _asset_bytes(self, src: str) -> bytes | None:
         m = re.search(rf"{re.escape(ASSET_URL_PREFIX)}/([0-9a-fA-F-]{{36}})/file", src or "")
         if not m:
             return None
@@ -220,7 +222,7 @@ class DocStudioExportService:
     # HTML (used for print preview and as the DOCX/PDF fallback)
     def export_html(self, scope: str, document_id: str) -> str:
         doc = self._doc(scope, document_id)
-        parts: List[str] = [
+        parts: list[str] = [
             "<!doctype html><html><head><meta charset='utf-8'>",
             f"<title>{html.escape(doc.title or 'Document')}</title>",
             "<style>body{font-family:Inter,system-ui,sans-serif;color:#0f172a;max-width:52rem;margin:2rem auto;padding:0 1rem;line-height:1.55}"
@@ -239,12 +241,17 @@ class DocStudioExportService:
             elif b.kind == "paragraph":
                 parts.append(f"<p>{inline_to_html(b.text)}</p>")
             elif b.kind == "bullets":
-                parts.append("<ul>" + "".join(f"<li>{inline_to_html(t)}</li>" for t in b.items) + "</ul>")
+                parts.append(
+                    "<ul>" + "".join(f"<li>{inline_to_html(t)}</li>" for t in b.items) + "</ul>"
+                )
             elif b.kind == "numbers":
-                parts.append("<ol>" + "".join(f"<li>{inline_to_html(t)}</li>" for t in b.items) + "</ol>")
+                parts.append(
+                    "<ol>" + "".join(f"<li>{inline_to_html(t)}</li>" for t in b.items) + "</ol>"
+                )
             elif b.kind == "tasks":
                 lis = "".join(
-                    f"<li>{'☑' if c else '☐'} {inline_to_html(t)}</li>" for t, c in zip(b.items, b.checked)
+                    f"<li>{'☑' if c else '☐'} {inline_to_html(t)}</li>"
+                    for t, c in zip(b.items, b.checked, strict=False)
                 )
                 parts.append(f"<ul style='list-style:none;padding-left:0'>{lis}</ul>")
             elif b.kind == "quote":
@@ -258,9 +265,12 @@ class DocStudioExportService:
             elif b.kind == "table" and b.rows:
                 head = "".join(f"<th>{inline_to_html(c)}</th>" for c in b.rows[0])
                 body_rows = "".join(
-                    "<tr>" + "".join(f"<td>{inline_to_html(c)}</td>" for c in r) + "</tr>" for r in b.rows[1:]
+                    "<tr>" + "".join(f"<td>{inline_to_html(c)}</td>" for c in r) + "</tr>"
+                    for r in b.rows[1:]
                 )
-                parts.append(f"<table><thead><tr>{head}</tr></thead><tbody>{body_rows}</tbody></table>")
+                parts.append(
+                    f"<table><thead><tr>{head}</tr></thead><tbody>{body_rows}</tbody></table>"
+                )
         parts.append("</body></html>")
         return "".join(parts)
 
@@ -287,24 +297,77 @@ class DocStudioExportService:
         )
 
         styles = getSampleStyleSheet()
-        base = ParagraphStyle("ww-body", parent=styles["BodyText"], fontName="Helvetica", fontSize=10.5, leading=15)
+        base = ParagraphStyle(
+            "ww-body", parent=styles["BodyText"], fontName="Helvetica", fontSize=10.5, leading=15
+        )
         h_styles = {
-            1: ParagraphStyle("ww-h1", parent=styles["Heading1"], textColor=colors.HexColor(BRAND_NAVY), spaceBefore=10, spaceAfter=6),
-            2: ParagraphStyle("ww-h2", parent=styles["Heading2"], textColor=colors.HexColor(BRAND_NAVY), spaceBefore=10, spaceAfter=4),
-            3: ParagraphStyle("ww-h3", parent=styles["Heading3"], textColor=colors.HexColor(BRAND_SLATE), spaceBefore=8, spaceAfter=3),
+            1: ParagraphStyle(
+                "ww-h1",
+                parent=styles["Heading1"],
+                textColor=colors.HexColor(BRAND_NAVY),
+                spaceBefore=10,
+                spaceAfter=6,
+            ),
+            2: ParagraphStyle(
+                "ww-h2",
+                parent=styles["Heading2"],
+                textColor=colors.HexColor(BRAND_NAVY),
+                spaceBefore=10,
+                spaceAfter=4,
+            ),
+            3: ParagraphStyle(
+                "ww-h3",
+                parent=styles["Heading3"],
+                textColor=colors.HexColor(BRAND_SLATE),
+                spaceBefore=8,
+                spaceAfter=3,
+            ),
         }
         quote_style = ParagraphStyle(
-            "ww-quote", parent=base, leftIndent=14, textColor=colors.HexColor("#334155"),
-            borderPadding=(4, 6, 4, 6), backColor=colors.HexColor("#f0f9ff"), borderColor=colors.HexColor(BRAND_SKY), borderWidth=0,
+            "ww-quote",
+            parent=base,
+            leftIndent=14,
+            textColor=colors.HexColor("#334155"),
+            borderPadding=(4, 6, 4, 6),
+            backColor=colors.HexColor("#f0f9ff"),
+            borderColor=colors.HexColor(BRAND_SKY),
+            borderWidth=0,
         )
-        code_style = ParagraphStyle("ww-code", parent=styles["Code"], fontSize=8.5, leading=11, backColor=colors.HexColor("#f1f5f9"), borderPadding=(4, 6, 4, 6))
-        brand_style = ParagraphStyle("ww-brand", parent=base, fontSize=8, textColor=colors.HexColor("#0369a1"), alignment=TA_LEFT)
-        title_style = ParagraphStyle("ww-title", parent=styles["Title"], textColor=colors.HexColor(BRAND_NAVY), alignment=TA_LEFT, fontSize=22, leading=26, spaceAfter=4)
+        code_style = ParagraphStyle(
+            "ww-code",
+            parent=styles["Code"],
+            fontSize=8.5,
+            leading=11,
+            backColor=colors.HexColor("#f1f5f9"),
+            borderPadding=(4, 6, 4, 6),
+        )
+        brand_style = ParagraphStyle(
+            "ww-brand",
+            parent=base,
+            fontSize=8,
+            textColor=colors.HexColor("#0369a1"),
+            alignment=TA_LEFT,
+        )
+        title_style = ParagraphStyle(
+            "ww-title",
+            parent=styles["Title"],
+            textColor=colors.HexColor(BRAND_NAVY),
+            alignment=TA_LEFT,
+            fontSize=22,
+            leading=26,
+            spaceAfter=4,
+        )
 
         buf = io.BytesIO()
         pdf = SimpleDocTemplate(
-            buf, pagesize=letter, leftMargin=0.9 * inch, rightMargin=0.9 * inch, topMargin=0.8 * inch, bottomMargin=0.8 * inch,
-            title=doc.title or "Document", author="Water Workforce 360",
+            buf,
+            pagesize=letter,
+            leftMargin=0.9 * inch,
+            rightMargin=0.9 * inch,
+            topMargin=0.8 * inch,
+            bottomMargin=0.8 * inch,
+            title=doc.title or "Document",
+            author="Water Workforce 360",
         )
         story: list = [
             Paragraph("WATER WORKFORCE 360 · ONE WATER WORKFORCE", brand_style),
@@ -315,17 +378,30 @@ class DocStudioExportService:
 
         for b in parse_markdown(doc.content_markdown or ""):
             if b.kind == "heading":
-                story.append(Paragraph(inline_to_html(b.text), h_styles.get(min(b.level, 3), h_styles[3])))
+                story.append(
+                    Paragraph(inline_to_html(b.text), h_styles.get(min(b.level, 3), h_styles[3]))
+                )
             elif b.kind == "paragraph":
                 story.append(Paragraph(inline_to_html(b.text), base))
                 story.append(Spacer(1, 4))
             elif b.kind in ("bullets", "numbers", "tasks"):
                 if b.kind == "tasks":
-                    items = [ListItem(Paragraph(("☑ " if c else "☐ ") + inline_to_html(t), base), leftIndent=6) for t, c in zip(b.items, b.checked)]
+                    items = [
+                        ListItem(
+                            Paragraph(("☑ " if c else "☐ ") + inline_to_html(t), base), leftIndent=6
+                        )
+                        for t, c in zip(b.items, b.checked, strict=False)
+                    ]
                     story.append(ListFlowable(items, bulletType="bullet", start="", leftIndent=10))
                 else:
                     items = [ListItem(Paragraph(inline_to_html(t), base)) for t in b.items]
-                    story.append(ListFlowable(items, bulletType="1" if b.kind == "numbers" else "bullet", leftIndent=14))
+                    story.append(
+                        ListFlowable(
+                            items,
+                            bulletType="1" if b.kind == "numbers" else "bullet",
+                            leftIndent=14,
+                        )
+                    )
                 story.append(Spacer(1, 4))
             elif b.kind == "quote":
                 story.append(Paragraph(inline_to_html(b.text), quote_style))
@@ -334,7 +410,15 @@ class DocStudioExportService:
                 story.append(Preformatted(b.text, code_style))
                 story.append(Spacer(1, 6))
             elif b.kind == "rule":
-                story.append(HRFlowable(width="100%", thickness=0.6, color=colors.HexColor("#cbd5e1"), spaceBefore=6, spaceAfter=6))
+                story.append(
+                    HRFlowable(
+                        width="100%",
+                        thickness=0.6,
+                        color=colors.HexColor("#cbd5e1"),
+                        spaceBefore=6,
+                        spaceAfter=6,
+                    )
+                )
             elif b.kind == "image":
                 raw = self._asset_bytes(b.src)
                 if raw:
@@ -352,7 +436,10 @@ class DocStudioExportService:
                     story.append(Paragraph(f"<i>[Image: {html.escape(b.alt)}]</i>", base))
             elif b.kind == "table" and b.rows:
                 ncols = max(len(r) for r in b.rows)
-                data = [[Paragraph(inline_to_html(c), base) for c in (r + [""] * (ncols - len(r)))] for r in b.rows]
+                data = [
+                    [Paragraph(inline_to_html(c), base) for c in (r + [""] * (ncols - len(r)))]
+                    for r in b.rows
+                ]
                 t = Table(data, colWidths=[avail_w / ncols] * ncols, repeatRows=1)
                 t.setStyle(
                     TableStyle(
@@ -372,7 +459,9 @@ class DocStudioExportService:
             canvas.saveState()
             canvas.setFont("Helvetica", 8)
             canvas.setFillColor(colors.HexColor("#64748b"))
-            canvas.drawString(d.leftMargin, 0.5 * inch, f"{doc.title or 'Document'} · v{doc.version_no}")
+            canvas.drawString(
+                d.leftMargin, 0.5 * inch, f"{doc.title or 'Document'} · v{doc.version_no}"
+            )
             canvas.drawRightString(letter[0] - d.rightMargin, 0.5 * inch, f"Page {d.page}")
             canvas.restoreState()
 
@@ -428,7 +517,7 @@ class DocStudioExportService:
                 for t in b.items:
                     add_inline(d.add_paragraph(style="List Number"), t)
             elif b.kind == "tasks":
-                for t, c in zip(b.items, b.checked):
+                for t, c in zip(b.items, b.checked, strict=False):
                     add_inline(d.add_paragraph(), ("☑ " if c else "☐ ") + t)
             elif b.kind == "quote":
                 p = d.add_paragraph(style="Intense Quote")
@@ -470,7 +559,7 @@ def _docx_to_markdown(data: bytes) -> str:
     from docx import Document
 
     d = Document(io.BytesIO(data))
-    out: List[str] = []
+    out: list[str] = []
     for p in d.paragraphs:
         text = p.text.strip()
         style = (p.style.name or "").lower() if p.style is not None else ""
@@ -506,7 +595,7 @@ def _pdf_to_markdown(data: bytes) -> str:
     try:
         import pdfplumber
 
-        parts: List[str] = []
+        parts: list[str] = []
         with pdfplumber.open(io.BytesIO(data)) as pdf:
             for page in pdf.pages:
                 txt = page.extract_text() or ""

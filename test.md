@@ -72,3 +72,24 @@ Pipeline QA uses credentials from `~/.openclaw/openclaw.env` with prefix `WW360`
 **Expected:**
 - See "SDWIS"
 - See "refresh"
+
+### Test: Document Studio
+**URL:** ${BASE_URL}/studio
+**Steps:**
+1. Wait 3
+**Expected:**
+- See "Document Studio"
+- See "All documents"
+- See "Program briefs"
+- Button "New document" visible
+- Button "Import" visible
+
+### Test: Document Studio Tour
+**URL:** ${BASE_URL}/studio
+**Steps:**
+1. Wait 3
+2. Click button "Tour"
+3. Wait 1
+**Expected:**
+- See "Welcome to Document Studio"
+- Button "Next" visible

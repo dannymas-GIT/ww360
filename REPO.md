@@ -68,3 +68,8 @@ bash scripts/staging/apply-host-nginx.sh
 - Nightly EPA state refresh (03:00 UTC) for `WW360_SDWIS_STATES` (default `NY`)
 - On-demand: `POST /api/v1/sdwis/refresh-state?state=NY` (platform_admin)
 - Executive dashboard section: `GET /api/v1/sdwis/workforce-insights?state=NY`
+- Last verified refresh: **26,704** NY systems (2026-09-05)
+
+## Design system
+
+Primitives live under `frontend/src/components/ww360/` (hero, section, KPI tiles, chips, empty states). Formatters: `frontend/src/lib/format.ts`. Applied across SDWIS, admin, continuity, and OWW executive dashboard. See TheHelm runbook `docs/ww360-extraction-runbook.md` § Design system.

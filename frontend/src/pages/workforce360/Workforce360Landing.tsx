@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { applyBrandDocumentHead, getWw360LogoPath, WW360_LOGO_SIZE } from '@/utils/brandHost';
+import { Ww360PoweredBy } from '@/components/ww360/Ww360PoweredBy';
 import {
   WW360_SLIDE_INTERVAL_MS,
   WW360_SLIDES,
@@ -386,6 +387,7 @@ const Workforce360Landing: React.FC = () => {
             src={getWw360LogoPath('dark')}
             alt="Workforce 360"
           />
+          <Ww360PoweredBy surface="dark" className="ww360-nav__powered" />
         </a>
         <ul className="ww360-nav__links ww360-nav__links--desktop">
           <li>
@@ -742,18 +744,21 @@ const Workforce360Landing: React.FC = () => {
 
       <footer className="ww360-footer">
         <div className="ww360-footer__inner">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.35rem' }}>
             <img
               className="ww360-footer__logo"
               src={getWw360LogoPath('dark')}
               alt="Workforce 360"
               style={{ height: WW360_LOGO_SIZE.navMinPx, minHeight: WW360_LOGO_SIZE.navMinPx }}
             />
-            <span>waterworkforce360.org</span>
+            <Ww360PoweredBy surface="dark" className="!text-left" />
+            <span style={{ fontSize: '0.95rem', color: 'var(--ww360-on-dark-muted)' }}>
+              waterworkforce360.org
+            </span>
           </div>
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
             <Link to="/login">Log in</Link>
-            <span>Powered by AquaSafe · Partnered with One Water Workforce</span>
+            <span style={{ fontSize: '1rem' }}>Partnered with One Water Workforce</span>
           </div>
         </div>
       </footer>

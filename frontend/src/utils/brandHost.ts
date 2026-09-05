@@ -20,13 +20,15 @@ const AQUASAFE_FAVICON = '/aquasafe-favicon.svg';
  */
 export const WW360_LOGO_SIZE = {
   /** Sticky / app chrome — absolute floor (wordmark + AquaSafe tagline still readable) */
-  navMinPx: 96,
+  navMinPx: 120,
   /** Preferred sticky-nav / expanded sidebar height */
-  navPx: 120,
+  navPx: 148,
   /** Marketing hero / stage lockup — hero-level signal, not a caption mark */
-  heroPx: 220,
+  heroPx: 260,
   /** Login card / split-panel column */
-  loginPx: 280,
+  loginPx: 320,
+  /** Separate "Powered by AquaSafe" caption (px) — do not shrink below this */
+  poweredByMinPx: 18,
 } as const;
 
 export type BrandLogoSurface = 'light' | 'dark';

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, LogOut, Menu } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { getWw360LogoPath } from '@/utils/brandHost';
+import { getWw360LogoPath, WW360_LOGO_SIZE } from '@/utils/brandHost';
 import { ww360NavGroups, navItemTo } from './navConfig';
 import { Button } from '@/components/ui/button';
 
@@ -31,17 +31,24 @@ export const AppShell: React.FC = () => {
   }, []);
 
   const logo = getWw360LogoPath('dark');
+  const sidebarLogoH = collapsed ? WW360_LOGO_SIZE.navMinPx : WW360_LOGO_SIZE.navPx;
 
   return (
     <div className="ww360-app-shell min-h-screen flex bg-[#EEF3F9]">
       <aside
         className={`${
-          collapsed ? 'w-[72px]' : 'w-64'
+          collapsed ? 'w-[132px]' : 'w-64'
         } hidden md:flex flex-col bg-[#07111f] text-white transition-all duration-200`}
       >
-        <div className="p-4 border-b border-white/10 flex items-center gap-3">
-          <img src={logo} alt="Workforce 360" className="h-8 w-auto" />
-          {!collapsed && <span className="font-semibold text-sm tracking-wide">Workforce 360</span>}
+        <div className="px-3 py-4 border-b border-white/10 flex items-center justify-center">
+          <Link to="/dashboard" className="block w-full">
+            <img
+              src={logo}
+              alt="Workforce 360"
+              className="mx-auto w-auto max-w-full object-contain"
+              style={{ height: sidebarLogoH, minHeight: sidebarLogoH }}
+            />
+          </Link>
         </div>
         <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-6">
           {ww360NavGroups.map(group => (
@@ -104,9 +111,17 @@ export const AppShell: React.FC = () => {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="md:hidden flex items-center justify-between px-4 py-3 bg-[#07111f] text-white">
-          <Link to="/dashboard">
-            <img src={logo} alt="Workforce 360" className="h-7" />
+        <header className="md:hidden flex items-center justify-between gap-3 px-4 py-3 bg-[#07111f] text-white">
+          <Link to="/dashboard" className="min-w-0 flex-1">
+            <img
+              src={logo}
+              alt="Workforce 360"
+              className="w-auto max-w-full object-contain"
+              style={{
+                height: WW360_LOGO_SIZE.navMinPx,
+                minHeight: WW360_LOGO_SIZE.navMinPx,
+              }}
+            />
           </Link>
           <button type="button" onClick={() => setMobileOpen(o => !o)} aria-label="Menu">
             <Menu className="h-6 w-6" />
@@ -118,7 +133,7 @@ export const AppShell: React.FC = () => {
               <Link
                 key={item.label}
                 to={navItemTo(item)}
-                className="block py-2 text-sm"
+                className="block py-2 text-sm min-h-[44px]"
                 onClick={() => setMobileOpen(false)}
               >
                 {item.label}

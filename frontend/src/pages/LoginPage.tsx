@@ -4,7 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { getWw360LogoPath } from '@/utils/brandHost';
+import { getWw360LogoPath, WW360_LOGO_SIZE } from '@/utils/brandHost';
 
 export default function LoginPage() {
   const { login, isAuthenticated, loading } = useAuth();
@@ -44,7 +44,12 @@ export default function LoginPage() {
     >
       <div className="w-full max-w-md rounded-2xl bg-white/95 shadow-xl p-8">
         <div className="flex flex-col items-center mb-8">
-          <img src={getWw360LogoPath('dark')} alt="Workforce 360" className="h-12 mb-4" />
+          <img
+            src={getWw360LogoPath('light')}
+            alt="Workforce 360"
+            className="mb-4 w-auto max-w-[min(100%,280px)] object-contain"
+            style={{ height: WW360_LOGO_SIZE.navMinPx, minHeight: WW360_LOGO_SIZE.navMinPx }}
+          />
           <h1 className="text-xl font-semibold text-[#07111f]">Sign in to Workforce 360</h1>
           <p className="text-sm text-slate-500 mt-1 text-center">One Water Workforce program workspace</p>
         </div>

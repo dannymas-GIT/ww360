@@ -4,7 +4,6 @@ import { ChevronLeft, ChevronRight, LogOut, Menu } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { getWw360LogoPath, WW360_LOGO_SIZE } from '@/utils/brandHost';
 import { ww360NavGroups, navItemTo } from './navConfig';
-import { Ww360PoweredBy } from './Ww360PoweredBy';
 import { Button } from '@/components/ui/button';
 
 function ensureWw360Fonts() {
@@ -41,7 +40,7 @@ export const AppShell: React.FC = () => {
           collapsed ? 'w-[196px]' : 'w-80'
         } hidden md:flex flex-col bg-[#07111f] text-white transition-all duration-200`}
       >
-        <div className="px-3 py-4 border-b border-white/10 flex flex-col items-center justify-center gap-2">
+        <div className="px-3 py-4 border-b border-white/10 flex flex-col items-center justify-center">
           <Link to="/dashboard" className="block w-full">
             <img
               src={logo}
@@ -50,7 +49,6 @@ export const AppShell: React.FC = () => {
               style={{ height: sidebarLogoH, minHeight: sidebarLogoH }}
             />
           </Link>
-          <Ww360PoweredBy surface="dark" />
         </div>
         <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-6">
           {ww360NavGroups.map(group => (
@@ -114,7 +112,7 @@ export const AppShell: React.FC = () => {
 
       <div className="flex-1 flex flex-col min-w-0">
         <header className="md:hidden flex items-center justify-between gap-3 px-4 py-3 bg-[#07111f] text-white">
-          <Link to="/dashboard" className="min-w-0 flex-1 flex flex-col items-start gap-1">
+          <Link to="/dashboard" className="min-w-0 flex-1 flex items-center">
             <img
               src={logo}
               alt="Workforce 360"
@@ -124,7 +122,6 @@ export const AppShell: React.FC = () => {
                 minHeight: WW360_LOGO_SIZE.navMinPx,
               }}
             />
-            <Ww360PoweredBy surface="dark" className="!text-left" />
           </Link>
           <button type="button" onClick={() => setMobileOpen(o => !o)} aria-label="Menu">
             <Menu className="h-6 w-6" />

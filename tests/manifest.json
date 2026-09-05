@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "suites": [
+    {
+      "id": "ww360-landing",
+      "specFile": "frontend/e2e/ww360_landing.spec.ts",
+      "pathPatterns": [
+        "frontend/src/pages/workforce360/**",
+        "backend/app/api/v1/endpoints/ww360_public.py"
+      ],
+      "defaultRunOn": ["staging", "pr"],
+      "flakeBudget": 2,
+      "tags": ["ww360", "landing"]
+    },
+    {
+      "id": "oww-exec-dashboard",
+      "specFile": "frontend/e2e/oww_exec_dashboard.spec.ts",
+      "pathPatterns": [
+        "frontend/src/pages/oww/**",
+        "backend/scripts/db/seed_oww_partner_exec.py"
+      ],
+      "defaultRunOn": ["staging", "pr"],
+      "flakeBudget": 2,
+      "tags": ["ww360", "oww"]
+    },
+    {
+      "id": "workforce-continuity",
+      "specFile": "frontend/e2e/workforce_continuity.spec.ts",
+      "pathPatterns": [
+        "frontend/src/pages/WorkforceContinuityPage.tsx",
+        "backend/app/api/endpoints/workforce_succession.py",
+        "backend/app/services/workforce_succession/**"
+      ],
+      "defaultRunOn": ["staging"],
+      "flakeBudget": 3,
+      "tags": ["workforce"]
+    },
+    {
+      "id": "sync-contract",
+      "specFile": "backend/tests/test_sync_contract.py",
+      "pathPatterns": [
+        "backend/app/api/v1/endpoints/sync.py",
+        "backend/app/services/sync_processor.py",
+        "backend/app/models/sync.py"
+      ],
+      "alwaysRun": true,
+      "defaultRunOn": ["pr", "staging"],
+      "flakeBudget": 0,
+      "tags": ["sync", "contract"]
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+services:
+  db:
+    image: postgres:15
+    container_name: ww360_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ww360}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-ww360}
+    volumes:
+      - ww360_postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ww360} -d ${POSTGRES_DB:-ww360}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - ww360_network
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    container_name: ww360_backend
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-ww360}
+      POSTGRES_USER: ${POSTGRES_USER:-ww360}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      APP_DOMAIN: ${APP_DOMAIN:-waterworkforce360.org}
+      AQUASAFE_INTEGRATION_BASE_URL: ${AQUASAFE_INTEGRATION_BASE_URL}
+      WW360_SERVICE_TOKEN: ${WW360_SERVICE_TOKEN}
+      WW360_SYNC_HMAC_SECRET: ${WW360_SYNC_HMAC_SECRET}
+      EMAIL_ENABLED: ${EMAIL_ENABLED:-false}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      WW360_ACCESS_REQUEST_TO: ${WW360_ACCESS_REQUEST_TO:-}
+    ports:
+      - "127.0.0.1:8002:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - ww360_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: ww360_frontend
+    ports:
+      - "127.0.0.1:8082:80"
+    depends_on:
+      - backend
+    networks:
+      - ww360_network
+    restart: unless-stopped
+    environment:
+      BACKEND_URL: "http://backend:8000"
+
+volumes:
+  ww360_postgres_data:
+
+networks:
+  ww360_network:
+    driver: bridge

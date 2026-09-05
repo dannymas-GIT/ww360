@@ -1,0 +1,96 @@
+# Water Workforce 360 - Nginx reverse proxy (staging template)
+# Public HTTPS: waterworkforce360.org
+# Same AquaSafe stack as staging.aquasafe-solutions.us (frontend :8080, API :8001)
+# Deploy: scripts/staging/apply-host-nginx.sh (enables only when TLS cert exists)
+# IP allowlist: same snippet as aquasafe-staging / workforce-continuity-staging
+# (ACME challenge stays open; all app locations are gated).
+
+server {
+    server_name waterworkforce360.org www.waterworkforce360.org;
+
+    location /.well-known/acme-challenge/ {
+        allow all;
+        root /var/www/html;
+    }
+
+    location / {
+        include /etc/nginx/snippets/aquasafe-staging-ip-whitelist.conf;
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    location /api/ {
+        include /etc/nginx/snippets/aquasafe-staging-ip-whitelist.conf;
+        proxy_pass http://127.0.0.1:8001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        client_max_body_size 100m;
+        client_body_buffer_size 128k;
+        proxy_buffers 4 256k;
+        proxy_buffer_size 128k;
+        proxy_busy_buffers_size 256k;
+        proxy_connect_timeout 600s;
+        proxy_send_timeout 600s;
+        proxy_read_timeout 600s;
+    }
+
+    location /health {
+        include /etc/nginx/snippets/aquasafe-staging-ip-whitelist.conf;
+        proxy_pass http://127.0.0.1:8001/health;
+        proxy_set_header Host $host;
+        access_log off;
+    }
+
+    location /docs {
+        include /etc/nginx/snippets/aquasafe-staging-ip-whitelist.conf;
+        proxy_pass http://127.0.0.1:8001/docs;
+        proxy_set_header Host $host;
+    }
+
+    location /redoc {
+        include /etc/nginx/snippets/aquasafe-staging-ip-whitelist.conf;
+        proxy_pass http://127.0.0.1:8001/redoc;
+        proxy_set_header Host $host;
+    }
+
+    location /openapi.json {
+        include /etc/nginx/snippets/aquasafe-staging-ip-whitelist.conf;
+        proxy_pass http://127.0.0.1:8001/openapi.json;
+        proxy_set_header Host $host;
+    }
+
+    listen [::]:443 ssl ipv6only=on;
+    listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/waterworkforce360.org/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/waterworkforce360.org/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name waterworkforce360.org www.waterworkforce360.org;
+
+    location /.well-known/acme-challenge/ {
+        allow all;
+        root /var/www/html;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}

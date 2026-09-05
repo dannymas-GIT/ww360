@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/aquasafe-favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0f172a" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <title>Aquasafe Solutions</title>
+    <script src="/offline-sw-bootstrap.js"></script>
+  </head>
+  <body>
+    <div id="root">
+      <div
+        id="boot-splash"
+        style="
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-family: system-ui, sans-serif;
+          background: #f1f5f9;
+          color: #334155;
+        "
+      >
+        <p id="boot-splash-msg" style="margin: 0">Loading AquaSafe…</p>
+      </div>
+    </div>
+    <noscript>
+      <div style="padding: 1.5rem; font-family: system-ui, sans-serif">
+        JavaScript is required to run this application.
+      </div>
+    </noscript>
+    <script>
+      (function () {
+        var host = (location.hostname || '').toLowerCase();
+        var msg = document.getElementById('boot-splash-msg');
+        var icon = document.querySelector('link[rel="icon"]');
+        if (host === 'waterworkforce360.org' || host.endsWith('.waterworkforce360.org')) {
+          if (msg) msg.textContent = 'Loading Workforce360…';
+          document.title = 'Workforce 360';
+          if (icon) icon.href = '/workforce-360-favicon.png';
+        } else if (host === 'workforce-continuity.org' || host.endsWith('.workforce-continuity.org')) {
+          if (msg) msg.textContent = 'Loading Workforce Continuity…';
+          document.title = 'Workforce Continuity';
+          if (icon) icon.href = '/workforce-continuity-favicon.png';
+        }
+      })();
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

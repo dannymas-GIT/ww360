@@ -1,0 +1,91 @@
+# PR quality gate (Layer 2). Required check name: "quality" (see docs/github-branch-protection.md).
+name: PR checks
+
+on:
+  pull_request:
+    branches: [main, staging, develop]
+
+jobs:
+  quality:
+    name: quality
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect npm root
+        id: npm_root
+        run: |
+          if [ -f frontend/package.json ]; then echo "dir=frontend" >> $GITHUB_OUTPUT
+          elif [ -f package.json ]; then echo "dir=." >> $GITHUB_OUTPUT
+          else echo "dir=" >> $GITHUB_OUTPUT; fi
+
+      - name: Setup Node
+        if: steps.npm_root.outputs.dir != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install JS dependencies
+        if: steps.npm_root.outputs.dir != ''
+        run: npm ci || npm install
+        working-directory: ${{ steps.npm_root.outputs.dir }}
+
+      - name: Lint
+        if: steps.npm_root.outputs.dir != ''
+        run: npm run lint
+        working-directory: ${{ steps.npm_root.outputs.dir }}
+
+      - name: Typecheck
+        if: steps.npm_root.outputs.dir != ''
+        run: npm run typecheck --if-present
+        working-directory: ${{ steps.npm_root.outputs.dir }}
+
+      - name: Build
+        if: steps.npm_root.outputs.dir != ''
+        run: npm run build
+        working-directory: ${{ steps.npm_root.outputs.dir }}
+
+      - name: Start preview for E2E
+        if: steps.npm_root.outputs.dir != ''
+        run: |
+          nohup npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/vite-preview.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:4173/ >/dev/null; then echo "preview up"; exit 0; fi
+            sleep 2
+          done
+          echo "preview failed to start"; cat /tmp/vite-preview.log || true; exit 1
+        working-directory: ${{ steps.npm_root.outputs.dir }}
+
+      - name: Install Playwright browsers
+        if: steps.npm_root.outputs.dir != ''
+        run: npx playwright install --with-deps chromium
+        working-directory: ${{ steps.npm_root.outputs.dir }}
+
+      - name: Playwright smoke
+        if: steps.npm_root.outputs.dir != ''
+        env:
+          CI: "true"
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:4173
+        run: npx playwright test e2e/smoke/ --project=chromium --reporter=list
+        working-directory: ${{ steps.npm_root.outputs.dir }}
+
+      - name: Upload Playwright report
+        if: failure() && steps.npm_root.outputs.dir != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: ${{ steps.npm_root.outputs.dir }}/playwright-report/
+
+      - name: Setup Python
+        if: hashFiles('**/requirements*.txt') != '' || hashFiles('**/pyproject.toml') != ''
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Ruff (backend)
+        if: hashFiles('**/pyproject.toml') != '' || hashFiles('ruff.toml') != ''
+        run: |
+          pip install ruff -q
+          ruff check . --output-format=concise

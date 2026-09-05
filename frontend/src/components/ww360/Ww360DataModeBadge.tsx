@@ -10,9 +10,9 @@ export interface Ww360DataModeBadgeProps {
 }
 
 const MODE_COPY: Record<Ww360DataMode, string> = {
-  sample: 'Sample data · shaped to live API contracts',
+  sample: 'Sample data',
   live: 'Live data',
-  mixed: 'Mixed · sample program metrics · live compliance',
+  mixed: 'Mixed · live SDWIS + sample program metrics',
 };
 
 export function Ww360DataModeBadge({ mode, lastSynced, className = '' }: Ww360DataModeBadgeProps) {

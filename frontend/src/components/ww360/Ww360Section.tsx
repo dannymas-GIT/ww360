@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Ww360DataModeBadgeLight, type Ww360DataMode } from './Ww360DataModeBadge';
 import { Ww360SourceChip } from './Ww360SourceChip';
 import type { Ww360SourceId } from './ww360SourceTokens';
 
@@ -8,6 +9,9 @@ export interface Ww360SectionProps {
   title: string;
   eyebrow?: string;
   sources?: Ww360SourceId[];
+  /** Live vs sample fidelity for this section */
+  dataMode?: Ww360DataMode;
+  lastSynced?: string | null;
   action?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
@@ -18,6 +22,8 @@ export function Ww360Section({
   title,
   eyebrow,
   sources,
+  dataMode,
+  lastSynced,
   action,
   children,
   className = '',
@@ -33,7 +39,12 @@ export function Ww360Section({
           {eyebrow ? (
             <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-600">{eyebrow}</p>
           ) : null}
-          <CardTitle className="text-base font-semibold text-slate-900">{title}</CardTitle>
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle className="text-base font-semibold text-slate-900">{title}</CardTitle>
+            {dataMode ? (
+              <Ww360DataModeBadgeLight mode={dataMode} lastSynced={lastSynced} />
+            ) : null}
+          </div>
           {sources?.length ? (
             <div className="mt-1.5 flex flex-wrap gap-1">
               {sources.map(s => (

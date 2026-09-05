@@ -1,0 +1,93 @@
+# Pipeline on Push - WW360 (see TheHelm skills/github-qa/templates for canonical copy)
+
+name: Pipeline on Push
+
+on:
+  push:
+    branches: [main, develop, staging]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect npm root
+        id: npm_root
+        run: |
+          if [ -f frontend/package.json ]; then echo "dir=frontend" >> $GITHUB_OUTPUT; else echo "dir=." >> $GITHUB_OUTPUT; fi
+
+      - name: Setup Node
+        if: hashFiles('package.json') != '' || hashFiles('frontend/package.json') != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: ${{ steps.npm_root.outputs.dir }}/package-lock.json
+
+      - name: Install dependencies
+        if: hashFiles('package.json') != '' || hashFiles('frontend/package.json') != ''
+        run: npm ci
+        working-directory: ${{ steps.npm_root.outputs.dir }}
+
+      - name: Lint frontend
+        if: hashFiles('package.json') != '' || hashFiles('frontend/package.json') != ''
+        run: npm run lint
+        working-directory: ${{ steps.npm_root.outputs.dir }}
+
+      - name: Build frontend
+        if: hashFiles('package.json') != '' || hashFiles('frontend/package.json') != ''
+        run: npm run build
+        working-directory: ${{ steps.npm_root.outputs.dir }}
+
+      - name: Setup Python
+        if: hashFiles('**/requirements*.txt') != '' || hashFiles('**/pyproject.toml') != ''
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Lint backend
+        if: hashFiles('**/requirements*.txt') != '' || hashFiles('**/pyproject.toml') != ''
+        run: |
+          pip install ruff 2>/dev/null || true
+          ruff check . --output-format=concise
+
+  trigger-pipeline:
+    runs-on: ubuntu-latest
+    needs: build
+    continue-on-error: true
+    steps:
+      - name: Trigger mission-control pipeline
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          WEBHOOK_URL: ${{ secrets.PIPELINE_WEBHOOK_URL }}
+          WEBHOOK_SECRET: ${{ secrets.PIPELINE_WEBHOOK_SECRET }}
+          APP_SLUG: ${{ secrets.APP_SLUG }}
+          PUSH_REPO: ${{ github.repository }}
+          PUSH_BRANCH: ${{ github.ref_name }}
+          PUSH_SHA: ${{ github.sha }}
+          PR_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          PR_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [ -z "$WEBHOOK_SECRET" ] || [ -z "$APP_SLUG" ]; then
+            echo "Skipping mission-control trigger (github-poll handles outbound triggers)."
+            exit 0
+          fi
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "PIPELINE_WEBHOOK_URL unset; github-poll on mission-control will trigger pipeline."
+            exit 0
+          fi
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            REPO="$PR_REPO"; BRANCH="$PR_BRANCH"; SHA="$PR_SHA"; PR="$PR_NUMBER"
+          else
+            REPO="$PUSH_REPO"; BRANCH="$PUSH_BRANCH"; SHA="$PUSH_SHA"; PR="0"
+          fi
+          URL="${WEBHOOK_URL%/}/api/pipeline/trigger"
+          PAYLOAD=$(jq -n --arg app "$APP_SLUG" --arg repo "$REPO" --arg branch "$BRANCH" --arg sha "$SHA" --argjson pr "$PR" '{app: $app, repo: $repo, branch: $branch, sha: $sha, pr: $pr}')
+          curl -sS -X POST "$URL" -H "Content-Type: application/json" -H "X-Webhook-Secret: $WEBHOOK_SECRET" -d "$PAYLOAD"

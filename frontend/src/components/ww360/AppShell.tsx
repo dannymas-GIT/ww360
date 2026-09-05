@@ -37,7 +37,7 @@ export const AppShell: React.FC = () => {
     <div className="ww360-app-shell min-h-screen flex bg-[#EEF3F9]">
       <aside
         className={`${
-          collapsed ? 'w-[132px]' : 'w-64'
+          collapsed ? 'w-[168px]' : 'w-72'
         } hidden md:flex flex-col bg-[#07111f] text-white transition-all duration-200`}
       >
         <div className="px-3 py-4 border-b border-white/10 flex items-center justify-center">

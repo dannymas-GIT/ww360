@@ -66,8 +66,8 @@
 }
 
 .ww360-nav__logo {
-  height: 80px;
-  min-height: 80px;
+  height: 96px;
+  min-height: 96px;
   width: auto;
   max-width: min(340px, 80vw);
   object-fit: contain;
@@ -76,9 +76,9 @@
 
 @media (min-width: 768px) {
   .ww360-nav__logo {
-    height: 100px;
-    min-height: 100px;
-    max-height: 108px;
+    height: 120px;
+    min-height: 120px;
+    max-height: 128px;
     max-width: min(440px, 46vw);
     margin-block: 0.15rem;
   }
@@ -522,10 +522,10 @@
 
 .ww360-stage__logo {
   display: block;
-  height: 112px;
-  min-height: 112px;
+  height: 160px;
+  min-height: 160px;
   width: auto;
-  max-width: min(360px, 88vw);
+  max-width: min(420px, 88vw);
   object-fit: contain;
   filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.35));
 }
@@ -536,9 +536,9 @@
   }
 
   .ww360-stage__logo {
-    height: 148px;
-    min-height: 148px;
-    max-width: min(460px, 52vw);
+    height: 220px;
+    min-height: 220px;
+    max-width: min(520px, 52vw);
   }
 }
 
@@ -1512,8 +1512,8 @@
 }
 
 .ww360-footer__logo {
-  height: 56px;
-  min-height: 56px;
+  height: 96px;
+  min-height: 96px;
   width: auto;
   opacity: 0.95;
 }

@@ -19,14 +19,14 @@ const AQUASAFE_FAVICON = '/aquasafe-favicon.svg';
  * Floors are intentional; do not “tighten” for denser nav without an explicit brand review.
  */
 export const WW360_LOGO_SIZE = {
-  /** Sticky / app chrome — absolute floor (wordmark + tagline still readable) */
-  navMinPx: 80,
-  /** Preferred sticky-nav / landing-nav height */
-  navPx: 100,
+  /** Sticky / app chrome — absolute floor (wordmark + AquaSafe tagline still readable) */
+  navMinPx: 96,
+  /** Preferred sticky-nav / expanded sidebar height */
+  navPx: 120,
   /** Marketing hero / stage lockup — hero-level signal, not a caption mark */
-  heroPx: 196,
-  /** Login split-panel column */
-  loginPx: 260,
+  heroPx: 220,
+  /** Login card / split-panel column */
+  loginPx: 280,
 } as const;
 
 export type BrandLogoSurface = 'light' | 'dark';
@@ -147,7 +147,10 @@ export function getBrandLogoPath(forDarkSurface = false): string {
     : '/workforce-continuity-logo.png';
 }
 
-/** Prefer this at WW360 call sites: surface = background behind the logo. */
+/** Prefer this at WW360 call sites: surface = background behind the logo.
+ *  - light → navy ink lockup (`workforce-360-logo.png`) for cream/white surfaces
+ *  - dark  → white ink lockup (`workforce-360-logo-on-dark.png`) for navy/black chrome
+ */
 export function getWw360LogoPath(surface: BrandLogoSurface): string {
   return surface === 'dark'
     ? '/workforce-360-logo-on-dark.png'

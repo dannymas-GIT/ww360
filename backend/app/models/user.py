@@ -10,7 +10,7 @@ from app.core.security import get_password_hash
 
 
 class WW360User(Base):
-    __tablename__ = "ww360_users"
+    __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(255), unique=True, nullable=False, index=True)

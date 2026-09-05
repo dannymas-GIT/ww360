@@ -25,3 +25,7 @@ class WW360User(Base):
 
     def set_password(self, password: str) -> None:
         self.hashed_password = get_password_hash(password)
+
+
+# Compatibility alias for workforce importer
+User = WW360User

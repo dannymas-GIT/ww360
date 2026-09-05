@@ -14,3 +14,4 @@ def import_models() -> None:
     import app.models.sdwis_enforcement_action  # noqa: F401
     import app.models.sdwis_district_remembered_pwsid  # noqa: F401
     import app.models.sdwis_state_system  # noqa: F401
+    import app.models.alert  # noqa: F401

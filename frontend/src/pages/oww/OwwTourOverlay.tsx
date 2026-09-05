@@ -16,9 +16,11 @@ export function requestOpenOwwTour(slideIndex = 0): void {
 }
 
 const HIGHLIGHT_CLASS = 'oww-tour-highlight';
-/** Approximate dialog footprint used when scrolling the highlight clear of it. */
-const DIALOG_H = 360;
+/** Fallback dialog footprint when the live panel has not mounted yet. */
+const DIALOG_H_FALLBACK = 380;
 const DIALOG_MARGIN = 16;
+/** Approximate width of the fixed tour panel (right-docked). */
+const DIALOG_W_FALLBACK = 384;
 
 type DialogDock = 'top' | 'bottom';
 
@@ -78,46 +80,81 @@ function getScrollParent(el: Element): HTMLElement | Window {
   return window;
 }
 
+function measureDialog(dialogEl: HTMLElement | null): { h: number; w: number } {
+  if (!dialogEl) return { h: DIALOG_H_FALLBACK, w: DIALOG_W_FALLBACK };
+  const r = dialogEl.getBoundingClientRect();
+  return {
+    h: Math.max(r.height, 240),
+    w: Math.max(r.width, 280),
+  };
+}
+
+function scrollByDelta(el: Element, delta: number): void {
+  if (Math.abs(delta) <= 4) return;
+  const parent = getScrollParent(el);
+  if (parent === window) {
+    window.scrollBy({ top: delta, behavior: 'smooth' });
+  } else {
+    (parent as HTMLElement).scrollBy({ top: delta, behavior: 'smooth' });
+  }
+}
+
 /**
- * Scroll the highlighted section into the viewport band that is NOT covered by
- * the tour dialog, and return where the dialog should dock (opposite side).
+ * Pick a dock and scroll so the highlight is not buried under the tour panel.
+ * Tall sections (chart + callout cards) prefer a top-docked dialog so the
+ * bottom of the section — usually the insight cards — stays readable.
  */
-function scrollHighlightClearOfDialog(el: Element): DialogDock {
+function scrollHighlightClearOfDialog(
+  el: Element,
+  dialogEl: HTMLElement | null
+): DialogDock {
   const rect = el.getBoundingClientRect();
   const vh = window.innerHeight;
-  // If the target sits in the lower half, dock the dialog on top so we can
-  // scroll the section into the lower clear band — and vice versa.
-  const dock: DialogDock = rect.top + rect.height / 2 > vh * 0.48 ? 'top' : 'bottom';
+  const { h: dialogH } = measureDialog(dialogEl);
+  const reserve = dialogH + DIALOG_MARGIN * 2;
+  const clearBand = Math.max(140, vh - reserve - DIALOG_MARGIN);
 
-  const clearTop = dock === 'top' ? DIALOG_H + DIALOG_MARGIN * 2 : DIALOG_MARGIN + 8;
-  const clearBottom = dock === 'bottom' ? DIALOG_H + DIALOG_MARGIN * 2 : DIALOG_MARGIN + 8;
+  // Prefer top dock when the section is taller than the clear band or its
+  // bottom already sits in the bottom-dialog zone (insight cards under charts).
+  const tall = rect.height > clearBand * 0.85;
+  const bottomInDialogZone = rect.bottom > vh - reserve;
+  const dock: DialogDock = tall || bottomInDialogZone ? 'top' : 'bottom';
+
+  const clearTop = dock === 'top' ? reserve : DIALOG_MARGIN + 8;
+  const clearBottom = dock === 'bottom' ? reserve : DIALOG_MARGIN + 8;
   const band = Math.max(120, vh - clearTop - clearBottom);
 
-  // Prefer the top of the section near the start of the clear band so long
-  // sections aren't buried under the dialog.
-  const desiredTop = clearTop + Math.min(20, band * 0.08);
-  const delta = rect.top - desiredTop;
-
-  if (Math.abs(delta) > 4) {
-    const parent = getScrollParent(el);
-    if (parent === window) {
-      window.scrollBy({ top: delta, behavior: 'smooth' });
-    } else {
-      (parent as HTMLElement).scrollBy({ top: delta, behavior: 'smooth' });
-    }
+  let delta: number;
+  if (rect.height <= band) {
+    // Fit the whole section into the clear band, centered.
+    const desiredTop = clearTop + (band - rect.height) / 2;
+    delta = rect.top - desiredTop;
+  } else if (dock === 'top') {
+    // Tall + top dock: pin the bottom of the section into the lower clear
+    // band so callout cards under charts stay visible.
+    const desiredBottom = vh - clearBottom - 8;
+    delta = rect.bottom - desiredBottom;
+  } else {
+    // Tall + bottom dock: pin the top into the upper clear band.
+    const desiredTop = clearTop + 12;
+    delta = rect.top - desiredTop;
   }
 
+  scrollByDelta(el, delta);
   return dock;
 }
 
-function applyHighlight(slide: OwwTourSlide | undefined): DialogDock {
+function applyHighlight(
+  slide: OwwTourSlide | undefined,
+  dialogEl: HTMLElement | null
+): DialogDock {
   clearHighlight();
   if (!slide?.highlight) return 'bottom';
   try {
     const el = document.querySelector(slide.highlight);
     if (!el) return 'bottom';
     el.classList.add(HIGHLIGHT_CLASS);
-    return scrollHighlightClearOfDialog(el);
+    return scrollHighlightClearOfDialog(el, dialogEl);
   } catch {
     return 'bottom';
   }
@@ -135,6 +172,7 @@ export function OwwTourOverlay({ autoOpen = true }: OwwTourOverlayProps) {
   const [dock, setDock] = useState<DialogDock>('bottom');
   const firedRef = useRef(false);
   const highlightTimer = useRef<number | null>(null);
+  const dialogRef = useRef<HTMLElement | null>(null);
 
   const slides = OWW_TOUR_SLIDES;
   const slide = slides[index];
@@ -143,15 +181,15 @@ export function OwwTourOverlay({ autoOpen = true }: OwwTourOverlayProps) {
   const scheduleHighlight = useCallback((slideIdx: number, delay = 50) => {
     if (highlightTimer.current) window.clearTimeout(highlightTimer.current);
     highlightTimer.current = window.setTimeout(() => {
-      const nextDock = applyHighlight(slides[slideIdx]);
+      const nextDock = applyHighlight(slides[slideIdx], dialogRef.current);
       setDock(nextDock);
-      // After smooth scroll settles, nudge once more so the section stays clear.
+      // After smooth scroll + dock flip settle, measure the live dialog and nudge again.
       highlightTimer.current = window.setTimeout(() => {
         const el = slides[slideIdx]?.highlight
           ? document.querySelector(slides[slideIdx].highlight!)
           : null;
-        if (el) setDock(scrollHighlightClearOfDialog(el));
-      }, 320);
+        if (el) setDock(scrollHighlightClearOfDialog(el, dialogRef.current));
+      }, 380);
     }, delay);
   }, [slides]);
 
@@ -266,11 +304,12 @@ export function OwwTourOverlay({ autoOpen = true }: OwwTourOverlayProps) {
           position: relative;
           z-index: 55;
           transition: box-shadow 200ms ease;
-          scroll-margin-top: 1.5rem;
-          scroll-margin-bottom: ${DIALOG_H + DIALOG_MARGIN * 2}px;
+          scroll-margin-top: ${DIALOG_H_FALLBACK + DIALOG_MARGIN * 2}px;
+          scroll-margin-bottom: ${DIALOG_H_FALLBACK + DIALOG_MARGIN * 2}px;
         }
       `}</style>
       <aside
+        ref={dialogRef}
         className={`fixed right-4 ${dockClass} z-[60] w-[min(100vw-2rem,24rem)] max-h-[min(70vh,28rem)] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl`}
         role="dialog"
         aria-label="One Water Workforce workspace tour"

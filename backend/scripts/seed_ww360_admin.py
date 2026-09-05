@@ -13,7 +13,6 @@ from app.models.water_district import WaterDistrict
 
 
 def main() -> None:
-    init_db()
     password = os.environ.get("WW360_SEED_ADMIN_PASSWORD", "ChangeMe-WW360!")
     db = SessionLocal()
     try:

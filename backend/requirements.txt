@@ -71,7 +71,7 @@ azure-identity>=1.15.0
 azure-core>=1.38.0  # Security update (CVE-2026-21226)
 
 # Azure Blob Storage (self-hosted tutorial video storage)
-azure-storage-blob>=12.19.0
+azure-storage-blob>=12.30.1
 
 # Transitive pins — keep above minimum safe version
 pyasn1>=0.6.3  # CVE-2026-30922

@@ -8,5 +8,5 @@ from app.db.base_class import Base
 class DocDocument(Base):
     __tablename__ = "doc_documents"
 
-    id = Column(Integer, primary_key=True)
+    id = Column(String(36), primary_key=True)
     title = Column(String(500), nullable=True)

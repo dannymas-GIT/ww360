@@ -22,7 +22,12 @@ export interface NewDocumentDialogProps {
   open: boolean;
   folders: DocFolder[];
   defaultFolderId: string | null;
-  busy?: boolean;
+  busy?: boolean | undefined;
+  /**
+   * While the guided tour is showing, render non-modal so the tour card stays
+   * clickable and outside clicks don't dismiss the gallery.
+   */
+  tourActive?: boolean | undefined;
   onClose: () => void;
   onCreate: (payload: { title: string; folder_id: string | null; template: StudioTemplate }) => void;
 }
@@ -34,6 +39,7 @@ export function NewDocumentDialog({
   folders,
   defaultFolderId,
   busy,
+  tourActive = false,
   onClose,
   onCreate,
 }: NewDocumentDialogProps) {
@@ -67,8 +73,13 @@ export function NewDocumentDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={v => (!v ? onClose() : null)}>
-      <DialogContent className="max-w-3xl" data-tour="studio-new-dialog">
+    <Dialog open={open} modal={!tourActive} onOpenChange={v => (!v ? onClose() : null)}>
+      <DialogContent
+        className="max-w-3xl"
+        data-tour="studio-new-dialog"
+        onInteractOutside={tourActive ? e => e.preventDefault() : undefined}
+        onPointerDownOutside={tourActive ? e => e.preventDefault() : undefined}
+      >
         <form onSubmit={submit}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">

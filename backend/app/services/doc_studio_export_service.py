@@ -531,11 +531,18 @@ def file_to_markdown(filename: str, content_type: str, data: bytes) -> str:
     raise ValueError("Unsupported file type — upload .docx, .pdf, .md or .txt")
 
 
+_BRAND_LINE = "WATER WORKFORCE 360"
+
+
 def title_from_markdown(markdown: str, fallback: str) -> str:
-    for line in (markdown or "").splitlines():
-        s = line.strip()
+    """Prefer the first H1 in the opening lines; otherwise the first real line."""
+    lines = [ln.strip() for ln in (markdown or "").splitlines()]
+    head = [ln for ln in lines[:20] if ln]
+    for s in head:
         if s.startswith("# "):
             return s[2:].strip()[:200]
-        if s:
-            return s[:120]
+    for s in head:
+        if s.upper().startswith(_BRAND_LINE):
+            continue
+        return s.lstrip("#").strip()[:120]
     return fallback

@@ -168,9 +168,16 @@ export interface Ww360TourOverlayProps {
   autoOpen?: boolean;
   /** Delay before auto-open (ms) — allow data to render first. */
   autoOpenDelayMs?: number;
+  /** Notified when the tour card opens/closes (pages can relax modal dialogs while touring). */
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function Ww360TourOverlay({ config, autoOpen = true, autoOpenDelayMs = 600 }: Ww360TourOverlayProps) {
+export function Ww360TourOverlay({
+  config,
+  autoOpen = true,
+  autoOpenDelayMs = 600,
+  onOpenChange,
+}: Ww360TourOverlayProps) {
   const [open, setOpen] = useState(false);
   const [minimized, setMinimized] = useState(false);
   const [index, setIndex] = useState(0);
@@ -178,6 +185,12 @@ export function Ww360TourOverlay({ config, autoOpen = true, autoOpenDelayMs = 60
   const firedRef = useRef(false);
   const highlightTimer = useRef<number | null>(null);
   const dialogRef = useRef<HTMLElement | null>(null);
+  const onOpenChangeRef = useRef(onOpenChange);
+  onOpenChangeRef.current = onOpenChange;
+
+  useEffect(() => {
+    onOpenChangeRef.current?.(open);
+  }, [open]);
 
   const { slides, dismissedKey, stepKey, eventName } = config;
   const slide = slides[index];
@@ -262,6 +275,12 @@ export function Ww360TourOverlay({ config, autoOpen = true, autoOpenDelayMs = 60
     return () => window.removeEventListener(eventName, handler);
   }, [eventName, openAt, stepKey, total]);
 
+  // Auto-open once per mount. `openAt` is read through a ref so a page that
+  // rebuilds its tour config while data loads cannot cancel the pending timer.
+  const openAtRef = useRef(openAt);
+  openAtRef.current = openAt;
+  const totalRef = useRef(total);
+  totalRef.current = total;
   useEffect(() => {
     if (!autoOpen || firedRef.current) return;
     firedRef.current = true;
@@ -269,9 +288,12 @@ export function Ww360TourOverlay({ config, autoOpen = true, autoOpenDelayMs = 60
       setMinimized(true);
       return;
     }
-    const t = window.setTimeout(() => openAt(readStep(stepKey, total)), autoOpenDelayMs);
+    const t = window.setTimeout(
+      () => openAtRef.current(readStep(stepKey, totalRef.current)),
+      autoOpenDelayMs
+    );
     return () => window.clearTimeout(t);
-  }, [autoOpen, autoOpenDelayMs, dismissedKey, openAt, stepKey, total]);
+  }, [autoOpen, autoOpenDelayMs, dismissedKey, stepKey]);
 
   useEffect(
     () => () => {
@@ -296,7 +318,7 @@ export function Ww360TourOverlay({ config, autoOpen = true, autoOpenDelayMs = 60
     return createPortal(
       <button
         type="button"
-        className="fixed bottom-4 right-4 z-[60] inline-flex min-h-[44px] items-center gap-2 rounded-full border border-sky-200 bg-white px-4 py-2 text-sm font-medium text-sky-800 shadow-lg hover:bg-sky-50"
+        className="fixed bottom-4 right-4 z-[10000] inline-flex min-h-[44px] items-center gap-2 rounded-full border border-sky-200 bg-white px-4 py-2 text-sm font-medium text-sky-800 shadow-lg hover:bg-sky-50"
         onClick={() => openAt(readStep(stepKey, total))}
         aria-label={`Open ${config.label} tour`}
       >
@@ -331,7 +353,7 @@ export function Ww360TourOverlay({ config, autoOpen = true, autoOpenDelayMs = 60
       <aside
         ref={dialogRef}
         data-ww360-tour={config.id}
-        className={`fixed right-4 ${dockClass} z-[60] w-[min(100vw-2rem,24rem)] max-h-[min(70vh,28rem)] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl`}
+        className={`fixed right-4 ${dockClass} z-[10000] w-[min(100vw-2rem,24rem)] max-h-[min(70vh,28rem)] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl`}
         role="dialog"
         aria-label={`${config.label} tour`}
         aria-modal="false"

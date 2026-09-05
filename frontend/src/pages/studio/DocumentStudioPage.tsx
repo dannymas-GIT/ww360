@@ -66,6 +66,7 @@ export default function DocumentStudioPage() {
   const [selectedId, setSelectedId] = useState<string | null>(params.get('doc'));
   const [showVersions, setShowVersions] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [titleDraft, setTitleDraft] = useState('');
   const [restoringVersion, setRestoringVersion] = useState<number | null>(null);
@@ -738,13 +739,14 @@ export default function DocumentStudioPage() {
         folders={folders}
         defaultFolderId={defaultFolderForNew}
         busy={busy}
+        tourActive={tourOpen}
         onClose={() => setNewOpen(false)}
         onCreate={({ title, folder_id, template }) =>
           createMut.mutate({ title, folder_id, template_id: template.id, markdown: template.markdown })
         }
       />
 
-      <Ww360TourOverlay config={tourConfig} autoOpen autoOpenDelayMs={900} />
+      <Ww360TourOverlay config={tourConfig} autoOpen autoOpenDelayMs={900} onOpenChange={setTourOpen} />
     </div>
   );
 }

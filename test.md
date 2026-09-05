@@ -32,7 +32,7 @@ Pipeline QA uses credentials from `~/.openclaw/openclaw.env` with prefix `WW360`
 **Steps:**
 1. Wait 2
 **Expected:**
-- Sign in form visible
+- Sign in to Workforce 360 heading or Sign in button visible
 - Workforce 360 branding present
 
 ## Authenticated (Required when credentials set)

@@ -32,8 +32,8 @@ Pipeline QA uses credentials from `~/.openclaw/openclaw.env` with prefix `WW360`
 **Steps:**
 1. Wait 2
 **Expected:**
-- Sign in to Workforce 360 heading or Sign in button visible
-- Workforce 360 branding present
+- See "Sign in to Workforce 360"
+- input[name="password"] visible
 
 ## Authenticated (Required when credentials set)
 
@@ -55,19 +55,20 @@ Pipeline QA uses credentials from `~/.openclaw/openclaw.env` with prefix `WW360`
 **Steps:**
 1. Wait 2
 **Expected:**
-- Heading mentions water system landscape
-- Navy hero header visible (WW360 design system)
+- See "water system landscape"
+- See "Live"
 
 ### Test: Continuity Workspace
 **URL:** ${BASE_URL}/continuity
 **Steps:**
 1. Wait 2
 **Expected:**
-- Workforce continuity content loads
+- See "Workforce continuity"
 
 ### Test: Admin Settings
 **URL:** ${BASE_URL}/admin/settings
 **Steps:**
 1. Wait 2
 **Expected:**
-- SDWIS refresh control visible for platform admin
+- See "SDWIS"
+- See "refresh"

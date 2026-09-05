@@ -159,10 +159,18 @@ const DropdownMenuSeparator: React.FC<{ className?: string }> = ({ className }) 
   <div className={cn('-mx-1 my-1 h-px bg-gray-200', className)} />
 );
 
+const DropdownMenuLabel: React.FC<{ children: React.ReactNode; className?: string }> = ({
+  children,
+  className,
+}) => (
+  <div className={cn('px-2 py-1.5 text-xs font-semibold text-gray-500', className)}>{children}</div>
+);
+
 export {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 };

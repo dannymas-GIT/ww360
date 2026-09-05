@@ -24,3 +24,8 @@ def init_db() -> None:
 
     base.import_models()
     Base.metadata.create_all(bind=engine)
+
+    # Patch tables that pre-date their current model (no Alembic history yet).
+    from app.models.doc_document import ensure_doc_studio_schema
+
+    ensure_doc_studio_schema(engine)

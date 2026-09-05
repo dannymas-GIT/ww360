@@ -151,6 +151,13 @@ export const OWW_PRIVILEGE_GROUPS: OwwPrivilegeGroup[] = [
         status: 'granted',
       },
       {
+        id: 'doc-studio',
+        capability: 'Author and publish program content in Document Studio',
+        scope: 'One Water Workforce program library · PDF / Word export',
+        status: 'granted',
+        note: 'Utility libraries are separate; utilities author their own.',
+      },
+      {
         id: 'aquasafe-core',
         capability: 'AquaSafe compliance, water-quality and facility modules',
         scope: 'Not shown on waterworkforce360.org',

@@ -1,11 +1,6 @@
-export interface OwwTourSlide {
-  id: string;
-  title: string;
-  body: string;
-  tip?: string;
-  /** CSS selector — usually a `[data-tour="…"]` hook on the dashboard. */
-  highlight?: string;
-}
+import type { Ww360TourSlide } from '@/components/ww360/Ww360TourOverlay';
+
+export type OwwTourSlide = Ww360TourSlide;
 
 export const OWW_TOUR_DISMISSED_KEY = 'ww360-oww-tour-dismissed';
 export const OWW_TOUR_STEP_KEY = 'ww360-oww-tour-step';

@@ -58,7 +58,8 @@ class Settings(BaseSettings):
     SDWIS_LOOKUP_UNFILTERED_MAX_PAGES: int = 5
     SDWIS_LOOKUP_MIN_QUERY_LEN: int = 2
     WW360_SDWIS_STATES: str = "NY"
-    WW360_DOC_STUDIO_ENABLED: bool = False
+    # Document Studio (rich content library for OWW partners and utilities)
+    WW360_DOC_STUDIO_ENABLED: bool = True
 
     @property
     def sdwis_states(self) -> List[str]:

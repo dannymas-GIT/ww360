@@ -6,6 +6,7 @@ import {
   Droplets,
   GraduationCap,
   LayoutDashboard,
+  PenSquare,
   Link2,
   Map,
   Settings,
@@ -69,6 +70,11 @@ export const ww360NavGroups: NavGroup[] = [
         search: 'tab=training',
       },
     ],
+  },
+  {
+    id: 'content',
+    label: 'Content',
+    items: [{ label: 'Document Studio', path: '/studio', icon: PenSquare }],
   },
   {
     id: 'reporting',

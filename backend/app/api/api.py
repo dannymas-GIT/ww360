@@ -3,7 +3,15 @@
 from fastapi import APIRouter
 
 from app.api.endpoints import sdwis, workforce_crud_routes, workforce_succession
-from app.api.v1.endpoints import admin_users, auth, districts, sync, tenant, ww360_public
+from app.api.v1.endpoints import (
+    admin_users,
+    auth,
+    districts,
+    doc_studio,
+    sync,
+    tenant,
+    ww360_public,
+)
 
 api_router = APIRouter()
 
@@ -37,6 +45,11 @@ api_router.include_router(
     sdwis.router,
     prefix="/sdwis",
     tags=["sdwis"],
+)
+api_router.include_router(
+    doc_studio.router,
+    prefix="/doc-studio",
+    tags=["doc-studio"],
 )
 api_router.include_router(
     workforce_succession.router,

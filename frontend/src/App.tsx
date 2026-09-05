@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { AppShell } from '@/components/ww360/AppShell';
@@ -14,6 +14,17 @@ import SdwisCompliancePage from '@/pages/sdwis/SdwisCompliancePage';
 import AdminPwsidLinksPage from '@/pages/admin/AdminPwsidLinksPage';
 import AdminUsersPage from '@/pages/admin/AdminUsersPage';
 import AdminSettingsPage from '@/pages/admin/AdminSettingsPage';
+
+// Document Studio carries the TipTap editor bundle — load it only when visited.
+const DocumentStudioPage = lazy(() => import('@/pages/studio/DocumentStudioPage'));
+
+function StudioFallback() {
+  return (
+    <div className="flex h-full min-h-[50vh] items-center justify-center text-sm text-slate-500">
+      Loading Document Studio…
+    </div>
+  );
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuth();
@@ -54,6 +65,14 @@ export default function App() {
         <Route path="/water-systems/watchlist" element={<SdwisWatchlistPage />} />
         <Route path="/water-systems/lookup" element={<SdwisLookupPage />} />
         <Route path="/water-systems/compliance" element={<SdwisCompliancePage />} />
+        <Route
+          path="/studio"
+          element={
+            <Suspense fallback={<StudioFallback />}>
+              <DocumentStudioPage />
+            </Suspense>
+          }
+        />
         <Route path="/admin/pwsid-links" element={<AdminPwsidLinksPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/admin/settings" element={<AdminSettingsPage />} />

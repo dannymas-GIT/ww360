@@ -19,7 +19,6 @@
     "test:report:post": "node ../scripts/post-test-results.js test-results.json"
   },
   "dependencies": {
-    "@aquasafe/doc-editor": "file:../packages/doc-editor",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",

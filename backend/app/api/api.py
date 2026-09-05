@@ -1,10 +1,9 @@
-"""WW360 API router (workforce + public + sync)."""
+"""WW360 API router (workforce + public + sync + auth + sdwis)."""
 
 from fastapi import APIRouter
 
-from app.api.endpoints import workforce_crud_routes, workforce_succession
-from app.api.v1.endpoints import districts, sync, ww360_public
-from app.core.config import settings
+from app.api.endpoints import sdwis, workforce_crud_routes, workforce_succession
+from app.api.v1.endpoints import auth, districts, sync, ww360_public
 
 api_router = APIRouter()
 
@@ -14,12 +13,22 @@ api_router.include_router(
     tags=["ww360-public"],
 )
 api_router.include_router(
+    auth.router,
+    prefix="/auth",
+    tags=["auth"],
+)
+api_router.include_router(
     sync.router,
     tags=["sync"],
 )
 api_router.include_router(
     districts.router,
     tags=["districts"],
+)
+api_router.include_router(
+    sdwis.router,
+    prefix="/sdwis",
+    tags=["sdwis"],
 )
 api_router.include_router(
     workforce_succession.router,

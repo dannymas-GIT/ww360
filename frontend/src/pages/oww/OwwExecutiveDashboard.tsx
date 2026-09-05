@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Area,
   AreaChart,
@@ -71,6 +71,8 @@ import {
   regionRisk,
   type OwwSourceStatus,
 } from './owwMockData';
+import { fetchWorkforceInsights, type SDWISWorkforceInsights } from '@/services/sdwisService';
+import { Droplets } from 'lucide-react';
 
 /* ------------------------------------------------------------------ */
 /* Palette (WW360 chrome: deep navy, electric blue, sky accent)         */
@@ -240,6 +242,25 @@ export default function OwwExecutiveDashboard() {
   const { userRoles } = useAuth();
   const [range, setRange] = useState<Range>('12mo');
   const [regionSort, setRegionSort] = useState<'gap' | 'retirements' | 'utilities'>('gap');
+  const [sdwisInsights, setSdwisInsights] = useState<SDWISWorkforceInsights | null>(null);
+  const [sdwisLoading, setSdwisLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchWorkforceInsights('NY')
+      .then(data => {
+        if (!cancelled) setSdwisInsights(data);
+      })
+      .catch(() => {
+        if (!cancelled) setSdwisInsights(null);
+      })
+      .finally(() => {
+        if (!cancelled) setSdwisLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const kpis: Kpi[] = useMemo(
     () => [
@@ -449,6 +470,82 @@ export default function OwwExecutiveDashboard() {
           <KpiCard key={k.id} kpi={k} />
         ))}
       </div>
+
+      {/* Water System Landscape (EPA SDWIS — live data) */}
+      <Section
+        tourId="sdwis-landscape"
+        eyebrow="EPA SDWIS · ECHO"
+        title="Water system landscape"
+        sources={['ww360']}
+      >
+        {sdwisLoading ? (
+          <p className="text-sm text-slate-500">Loading state compliance landscape…</p>
+        ) : sdwisInsights ? (
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                { label: 'Active CWS', value: sdwisInsights.active_cws_count.toLocaleString() },
+                {
+                  label: 'Population served',
+                  value: formatCompact(sdwisInsights.total_population_served),
+                },
+                {
+                  label: 'Health-based violations',
+                  value: sdwisInsights.health_violation_systems.toLocaleString(),
+                },
+                { label: 'Serious / SNC', value: sdwisInsights.snc_count.toLocaleString() },
+              ].map(tile => (
+                <div
+                  key={tile.label}
+                  className="rounded-xl border border-sky-100 bg-sky-50/50 px-4 py-3"
+                >
+                  <p className="text-xs font-medium text-sky-800">{tile.label}</p>
+                  <p className="text-2xl font-semibold tabular-nums text-[#07111f]">{tile.value}</p>
+                </div>
+              ))}
+            </div>
+            {sdwisInsights.member_watchlist.length > 0 && (
+              <div>
+                <p className="mb-2 text-sm font-medium text-slate-800 flex items-center gap-2">
+                  <Droplets className="h-4 w-4 text-sky-600" /> Member utility watchlist
+                </p>
+                <div className="overflow-x-auto rounded-lg border">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Utility</th>
+                        <th className="px-3 py-2">PWSID</th>
+                        <th className="px-3 py-2">Open violations</th>
+                        <th className="px-3 py-2">Suggested training</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sdwisInsights.member_watchlist.slice(0, 8).map(row => (
+                        <tr key={String(row.pwsid)} className="border-t">
+                          <td className="px-3 py-2 font-medium">{String(row.pws_name || row.district_code)}</td>
+                          <td className="px-3 py-2 font-mono text-xs">{String(row.pwsid)}</td>
+                          <td className="px-3 py-2">{String(row.open_violations)}</td>
+                          <td className="px-3 py-2 text-slate-600">
+                            {((row.suggested_training_topics as string[]) || []).join(' · ') || '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+            <p className="text-xs text-slate-500">
+              Member coverage: {String(sdwisInsights.coverage.member_utilities)} utilities ·{' '}
+              {String(sdwisInsights.coverage.coverage_pct_population)}% of state population in landscape.
+            </p>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-500">
+            SDWIS landscape unavailable — run state refresh from Administration or wait for nightly sync.
+          </p>
+        )}
+      </Section>
 
       {/* Pipeline + Supply/Demand */}
       <div className="grid gap-6 lg:grid-cols-5">

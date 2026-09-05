@@ -1,0 +1,87 @@
+# WW360 staging — ww360.aquasafe-solutions.us
+# Frontend :8082, API :8002
+# IP allowlist: same snippet as aquasafe-staging (ACME open; app gated)
+
+server {
+    server_name ww360.aquasafe-solutions.us;
+
+    location /.well-known/acme-challenge/ {
+        allow all;
+        root /var/www/html;
+    }
+
+    location / {
+        include /etc/nginx/snippets/aquasafe-staging-ip-whitelist.conf;
+        proxy_pass http://127.0.0.1:8082;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    location /api/ {
+        include /etc/nginx/snippets/aquasafe-staging-ip-whitelist.conf;
+        proxy_pass http://127.0.0.1:8002;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        client_max_body_size 100m;
+        proxy_connect_timeout 600s;
+        proxy_send_timeout 600s;
+        proxy_read_timeout 600s;
+    }
+
+    location /health {
+        include /etc/nginx/snippets/aquasafe-staging-ip-whitelist.conf;
+        proxy_pass http://127.0.0.1:8002/health;
+        proxy_set_header Host $host;
+        access_log off;
+    }
+
+    location /docs {
+        include /etc/nginx/snippets/aquasafe-staging-ip-whitelist.conf;
+        proxy_pass http://127.0.0.1:8002/docs;
+        proxy_set_header Host $host;
+    }
+
+    location /redoc {
+        include /etc/nginx/snippets/aquasafe-staging-ip-whitelist.conf;
+        proxy_pass http://127.0.0.1:8002/redoc;
+        proxy_set_header Host $host;
+    }
+
+    location /openapi.json {
+        include /etc/nginx/snippets/aquasafe-staging-ip-whitelist.conf;
+        proxy_pass http://127.0.0.1:8002/openapi.json;
+        proxy_set_header Host $host;
+    }
+
+    listen [::]:443 ssl ipv6only=on;
+    listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/ww360.aquasafe-solutions.us/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/ww360.aquasafe-solutions.us/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ww360.aquasafe-solutions.us;
+
+    location /.well-known/acme-challenge/ {
+        allow all;
+        root /var/www/html;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}

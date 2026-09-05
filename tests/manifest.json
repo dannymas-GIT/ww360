@@ -13,15 +13,42 @@
       "tags": ["ww360", "landing"]
     },
     {
+      "id": "ww360-auth",
+      "specFile": "frontend/e2e/ww360_auth.spec.ts",
+      "pathPatterns": [
+        "frontend/src/pages/LoginPage.tsx",
+        "frontend/src/context/AuthContext.tsx",
+        "backend/app/api/v1/endpoints/auth.py"
+      ],
+      "defaultRunOn": ["staging", "pr"],
+      "flakeBudget": 2,
+      "tags": ["ww360", "auth"]
+    },
+    {
       "id": "oww-exec-dashboard",
       "specFile": "frontend/e2e/oww_exec_dashboard.spec.ts",
       "pathPatterns": [
         "frontend/src/pages/oww/**",
-        "backend/scripts/db/seed_oww_partner_exec.py"
+        "frontend/src/components/ww360/**",
+        "backend/app/api/endpoints/sdwis.py",
+        "backend/app/services/sdwis_workforce_insights.py",
+        "backend/scripts/seed_ww360_admin.py"
       ],
       "defaultRunOn": ["staging", "pr"],
       "flakeBudget": 2,
       "tags": ["ww360", "oww"]
+    },
+    {
+      "id": "sdwis-insights",
+      "specFile": "backend/tests/test_sdwis_insights.py",
+      "pathPatterns": [
+        "backend/app/services/sdwis_workforce_insights.py",
+        "backend/app/services/sdwis_state_refresh_service.py",
+        "backend/app/models/sdwis_state_system.py"
+      ],
+      "defaultRunOn": ["pr", "staging"],
+      "flakeBudget": 1,
+      "tags": ["sdwis"]
     },
     {
       "id": "workforce-continuity",

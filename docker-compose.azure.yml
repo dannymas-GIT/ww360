@@ -29,7 +29,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-ww360}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
-      APP_DOMAIN: ${APP_DOMAIN:-waterworkforce360.org}
+      APP_DOMAIN: ${APP_DOMAIN:-ww360.aquasafe-solutions.us}
       AQUASAFE_INTEGRATION_BASE_URL: ${AQUASAFE_INTEGRATION_BASE_URL}
       WW360_SERVICE_TOKEN: ${WW360_SERVICE_TOKEN}
       WW360_SYNC_HMAC_SECRET: ${WW360_SYNC_HMAC_SECRET}
@@ -53,9 +53,7 @@ services:
       retries: 3
 
   frontend:
-    build:
-      context: .
-      dockerfile: frontend/Dockerfile
+    build: ./frontend
     container_name: ww360_frontend
     ports:
       - "127.0.0.1:8082:80"
@@ -64,8 +62,6 @@ services:
     networks:
       - ww360_network
     restart: unless-stopped
-    environment:
-      BACKEND_URL: "http://backend:8000"
 
 volumes:
   ww360_postgres_data:

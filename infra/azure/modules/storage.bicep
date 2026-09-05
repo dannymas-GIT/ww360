@@ -33,7 +33,7 @@ resource blobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01'
 
 resource backupsContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
   parent: blobService
-  name: 'aquasafe-backups'
+  name: 'ww360-backups'
   properties: {
     publicAccess: 'None'
   }
@@ -41,4 +41,4 @@ resource backupsContainer 'Microsoft.Storage/storageAccounts/blobServices/contai
 
 output storageAccountName string = storageAccount.name
 output storageAccountId string = storageAccount.id
-output backupsContainerName string = 'aquasafe-backups'
+output backupsContainerName string = 'ww360-backups'

@@ -1,8 +1,12 @@
 import { MODULE_CORE, MODULE_WORKFORCE } from '@/services/authService';
 
 /** Hostnames that activate Workforce Continuity branding (login chrome, logos, nav). */
-const WORKFORCE_HOSTS = ['workforce-continuity.org', 'waterworkforce360.org'] as const;
-const WATERWORKFORCE360_HOSTS = ['waterworkforce360.org'] as const;
+const WORKFORCE_HOSTS = [
+  'workforce-continuity.org',
+  'waterworkforce360.org',
+  'ww360.aquasafe-solutions.us',
+] as const;
+const WATERWORKFORCE360_HOSTS = ['waterworkforce360.org', 'ww360.aquasafe-solutions.us'] as const;
 const DEV_OVERRIDE_KEY = 'dev_workforce_host';
 
 const WORKFORCE_360_FAVICON = '/workforce-360-favicon.png';

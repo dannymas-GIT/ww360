@@ -3,6 +3,7 @@
 import logging
 from contextlib import asynccontextmanager
 
+from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -10,22 +11,49 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from app.api.api import api_router
 from app.core.config import settings
 from app.db import base
-from app.db.database import init_db
+from app.db.database import SessionLocal, init_db
+from app.services.sdwis_state_refresh_service import refresh_configured_states
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 base.import_models()
 
+_scheduler: BackgroundScheduler | None = None
+
+
+def _run_sdwis_refresh() -> None:
+    if not settings.SDWIS_SYNC_ENABLED:
+        return
+    db = SessionLocal()
+    try:
+        results = refresh_configured_states(db)
+        logger.info("SDWIS state refresh completed: %s", results)
+    except Exception as exc:
+        logger.warning("SDWIS state refresh failed: %s", exc)
+    finally:
+        db.close()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global _scheduler
     logger.info("WW360 backend starting")
     try:
         init_db()
     except Exception as exc:
         logger.warning("DB init skipped or failed: %s", exc)
+
+    if settings.SDWIS_SYNC_ENABLED:
+        _scheduler = BackgroundScheduler()
+        _scheduler.add_job(_run_sdwis_refresh, "cron", hour=3, minute=0, id="sdwis_state_refresh")
+        _scheduler.start()
+        logger.info("SDWIS nightly refresh scheduled (03:00 UTC)")
+
     yield
+
+    if _scheduler:
+        _scheduler.shutdown(wait=False)
     logger.info("WW360 backend stopped")
 
 

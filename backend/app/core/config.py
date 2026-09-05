@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     # JWT (WW360-issued after AquaSafe handoff redeem)
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "change-me-in-production")
     JWT_ALGORITHM: str = "HS256"
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "")
+    ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
 
     # AquaSafe integration
@@ -52,6 +54,25 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
     SMTP_FROM_EMAIL: str = os.getenv("SMTP_FROM_EMAIL", "noreply@waterworkforce360.org")
     SMTP_FROM_NAME: str = os.getenv("SMTP_FROM_NAME", "Water Workforce 360")
+
+    # SDWIS / EPA ECHO
+    SDWIS_API_BASE_URL: str = os.getenv("SDWIS_API_BASE_URL", "https://echodata.epa.gov/echo")
+    SDWIS_SYNC_ENABLED: bool = os.getenv("SDWIS_SYNC_ENABLED", "true").lower() in ("1", "true", "yes")
+    SDWIS_REQUEST_TIMEOUT_SECONDS: float = float(os.getenv("SDWIS_REQUEST_TIMEOUT_SECONDS", "45"))
+    SDWIS_MAX_LOOKUP_PAGES: int = int(os.getenv("SDWIS_MAX_LOOKUP_PAGES", "50"))
+    SDWIS_LOOKUP_FILTERED_MAX_PAGES: int = int(os.getenv("SDWIS_LOOKUP_FILTERED_MAX_PAGES", "3"))
+    SDWIS_LOOKUP_UNFILTERED_MAX_PAGES: int = int(os.getenv("SDWIS_LOOKUP_UNFILTERED_MAX_PAGES", "5"))
+    SDWIS_LOOKUP_MIN_QUERY_LEN: int = int(os.getenv("SDWIS_LOOKUP_MIN_QUERY_LEN", "2"))
+    WW360_SDWIS_STATES: str = os.getenv("WW360_SDWIS_STATES", "NY")
+    WW360_DOC_STUDIO_ENABLED: bool = os.getenv("WW360_DOC_STUDIO_ENABLED", "false").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+
+    @property
+    def sdwis_states(self) -> List[str]:
+        return [s.strip().upper() for s in self.WW360_SDWIS_STATES.split(",") if s.strip()]
 
     @property
     def cors_origins(self) -> List[str]:
@@ -77,3 +98,8 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def jwt_signing_key() -> str:
+    """JWT verify/sign key (JWT_SECRET_KEY, else SECRET_KEY)."""
+    return settings.JWT_SECRET_KEY or settings.SECRET_KEY or "change-me-in-production"

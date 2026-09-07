@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" fill="none">
+  <circle cx="120" cy="120" r="102" stroke="#0060E0" stroke-width="11"/>
+
+  <!-- Pointed open-tip droplet (blue stroke) -->
+  <path
+    d="M112 38
+       C78 78 58 108 58 140
+       C58 176 84 200 120 200
+       C156 200 182 176 182 140
+       C182 108 162 78 128 38"
+    stroke="#0060E0"
+    stroke-width="10"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"/>
+
+  <!-- Water body -->
+  <path
+    d="M68 148
+       C72 176 92 192 120 192
+       C148 192 168 176 172 148
+       C152 158 136 162 120 162
+       C104 162 88 158 68 148Z"
+    fill="#FFFFFF"/>
+
+  <!-- Waterline -->
+  <path
+    d="M70 148 C96 160 144 160 170 148"
+    stroke="#3AA0FF"
+    stroke-width="5.5"
+    stroke-linecap="round"
+    fill="none"/>
+</svg>

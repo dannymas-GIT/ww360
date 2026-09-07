@@ -3,6 +3,7 @@
  */
 import axios from 'axios';
 import { API_BASE_URL } from '@/lib/constants';
+import type { StepAnnotation } from '@/utils/stepAnnotations';
 import { getAuthHeader } from './authService';
 
 const BASE = `${API_BASE_URL}/doc-studio`;
@@ -16,6 +17,8 @@ export interface DocStudioAccess {
   can_author: boolean;
   can_publish: boolean;
   can_manage_folders: boolean;
+  can_connect_library?: boolean;
+  can_custody_transfer?: boolean;
   roles: string[];
 }
 
@@ -50,11 +53,49 @@ export interface DocSummary {
   created_at?: string | null;
   updated_at?: string | null;
   published_at?: string | null;
+  custody_status?: string;
+}
+
+export interface TutorialStep {
+  id: string;
+  caption?: string;
+  title?: string;
+  description?: string;
+  screenshot_asset_id?: string;
+  screenshot_url?: string;
+  order: number;
+  annotations?: StepAnnotation[];
+  tMs?: number;
+}
+
+export interface TutorialData {
+  steps: TutorialStep[];
+  video_asset_id?: string;
+  mode?: string;
+}
+
+export interface TutorialGenerateResult {
+  title: string;
+  markdown: string;
+  stepCount: number;
+  usedAi: boolean;
+  usedTranscript: boolean;
 }
 
 export interface DocDetail extends DocSummary {
   content_markdown: string;
   content_json?: Record<string, unknown> | null;
+  tutorial_data?: TutorialData | null;
+  custody_status?: string;
+  external_ref?: DocExternalRef | null;
+}
+
+export interface DocExternalRef {
+  id: string;
+  provider: string;
+  external_item_id: string;
+  external_web_url?: string | null;
+  external_mime_type?: string | null;
 }
 
 export interface DocVersion {
@@ -135,6 +176,7 @@ export async function fetchDocuments(
     folder_id?: string | null | undefined;
     q?: string | undefined;
     status?: DocStatus | undefined;
+    review_state?: string | undefined;
     include_archived?: boolean | undefined;
   } = {},
   scope?: string
@@ -153,9 +195,11 @@ export async function createDocument(
     title: string;
     folder_id?: string | null | undefined;
     template_id?: string | null | undefined;
+    doc_type?: string | undefined;
     content_markdown?: string | undefined;
     summary?: string | null | undefined;
     tags?: string[] | null | undefined;
+    tutorial_data?: TutorialData | null | undefined;
   },
   scope?: string
 ): Promise<DocDetail> {
@@ -190,6 +234,7 @@ export async function saveContent(
   payload: {
     content_markdown: string;
     content_json?: Record<string, unknown> | null | undefined;
+    tutorial_data?: TutorialData | null | undefined;
     title?: string | undefined;
     note?: string | undefined;
     force_version?: boolean | undefined;
@@ -203,6 +248,20 @@ export async function saveContent(
 
 export async function publishDocument(id: string, scope?: string): Promise<DocDetail> {
   const { data } = await axios.post(`${BASE}/documents/${id}/publish`, null, cfg({ scope }));
+  return data;
+}
+
+export async function setDocumentReviewState(
+  id: string,
+  reviewState: 'none' | 'submitted' | 'changes_requested' | 'approved',
+  scope?: string
+): Promise<DocDetail> {
+  const params: Record<string, string> = { review_state: reviewState };
+  if (scope) params.scope = scope;
+  const { data } = await axios.patch(`${BASE}/documents/${id}/review-state`, null, {
+    headers: getAuthHeader(),
+    params,
+  });
   return data;
 }
 
@@ -228,6 +287,40 @@ export async function fetchVersion(id: string, versionNo: number, scope?: string
 export async function restoreVersion(id: string, versionNo: number, scope?: string): Promise<DocDetail> {
   const { data } = await axios.post(`${BASE}/documents/${id}/versions/${versionNo}/restore`, null, cfg({ scope }));
   return data;
+}
+
+export async function generateStudioTutorial(
+  events: Record<string, unknown>,
+  audio?: Blob | null,
+  baseTitle?: string,
+  scope?: string
+): Promise<TutorialGenerateResult> {
+  const form = new FormData();
+  form.append('events', JSON.stringify(events));
+  if (baseTitle) form.append('base_title', baseTitle);
+  if (audio) form.append('audio', audio, 'narration.webm');
+
+  const params = new URLSearchParams();
+  if (scope) params.set('scope', scope);
+  const qs = params.toString();
+  const url = `${BASE}/tutorials/generate${qs ? `?${qs}` : ''}`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: getAuthHeader(),
+    body: form,
+  });
+  if (!response.ok) {
+    let detail = `Generate failed (${response.status})`;
+    try {
+      const err = await response.json();
+      detail = err.detail || detail;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(detail);
+  }
+  return response.json();
 }
 
 export async function uploadAsset(file: File, documentId?: string | null, scope?: string): Promise<DocAsset> {
@@ -276,4 +369,186 @@ export function openPrintPreview(id: string, scope?: string): void {
   if (scope) params.set('scope', scope);
   if (token) params.set('access_token', token);
   window.open(`${BASE}/documents/${id}/export/html?${params}`, '_blank', 'noopener');
+}
+
+// ── External library + custody ─────────────────────────────────────────────
+
+export interface DocLibraryConnection {
+  id: string;
+  owner_type: string;
+  owner_code: string;
+  provider: string;
+  display_name?: string | null;
+  account_email?: string | null;
+  default_folder_id?: string | null;
+  default_folder_path?: string | null;
+  is_active?: boolean;
+}
+
+export interface CustodyPolicy {
+  version: string;
+  markdown: string;
+  default_retention_days: number;
+}
+
+export interface CustodyAcknowledgment {
+  id: string;
+  owner_type: string;
+  owner_code: string;
+  policy_version: string;
+  acknowledgment_text: string;
+  acknowledged_by_name: string;
+  acknowledged_at: string;
+}
+
+export interface CustodyTransfer {
+  id: string;
+  scope: string;
+  destination_owner_type: string;
+  destination_owner_code: string;
+  status: string;
+  retention_days: number;
+  purge_scheduled_at?: string | null;
+  purged_at?: string | null;
+  items: Array<{
+    id: string;
+    document_id?: string | null;
+    filename: string;
+    sha256_checksum: string;
+  }>;
+}
+
+export const LIBRARY_OAUTH_PENDING_KEY = 'ww360.doc-studio.library-oauth';
+
+export const CUSTODY_ELIGIBLE_FOLDER_NAMES = new Set([
+  'Workforce & succession',
+  'Compliance',
+  'Operations',
+]);
+
+export function ownerFromScope(scope: string): { ownerType: string; ownerCode: string } {
+  if (scope === 'program') return { ownerType: 'program', ownerCode: 'program' };
+  return { ownerType: 'district', ownerCode: scope };
+}
+
+export function isCustodyTransferEligible(
+  doc: Pick<DocSummary, 'folder_id'> & { custody_status?: string },
+  folder: Pick<DocFolder, 'name'> | null | undefined
+): boolean {
+  if ((doc.custody_status || 'local') !== 'local') return false;
+  if (!doc.folder_id || !folder?.name) return false;
+  return CUSTODY_ELIGIBLE_FOLDER_NAMES.has(folder.name);
+}
+
+export async function fetchLibraryConnections(scope: string): Promise<DocLibraryConnection[]> {
+  const { data } = await axios.get(`${BASE}/library/connections`, cfg({ scope }));
+  return data;
+}
+
+export async function updateLibraryConnectionFolder(
+  scope: string,
+  connectionId: string,
+  params: { defaultFolderId: string; defaultFolderPath: string }
+): Promise<DocLibraryConnection> {
+  const { data } = await axios.patch(
+    `${BASE}/library/connections/${connectionId}`,
+    {
+      default_folder_id: params.defaultFolderId,
+      default_folder_path: params.defaultFolderPath,
+    },
+    cfg({ scope, ensure_structure: true })
+  );
+  return data;
+}
+
+export async function disconnectLibraryConnection(
+  scope: string,
+  connectionId: string
+): Promise<void> {
+  await axios.delete(`${BASE}/library/connections/${connectionId}`, cfg({ scope }));
+}
+
+export async function getLibraryAuthUrl(
+  scope: string,
+  provider: string,
+  redirectUri: string
+): Promise<{ auth_url: string }> {
+  const { data } = await axios.get(
+    `${BASE}/library/auth-url`,
+    cfg({ scope, provider, redirect_uri: redirectUri })
+  );
+  return data;
+}
+
+export async function completeLibraryOAuthCallback(params: {
+  provider: string;
+  code: string;
+  redirectUri: string;
+  scope: string;
+  state?: string;
+}): Promise<DocLibraryConnection> {
+  const qs = new URLSearchParams({
+    provider: params.provider,
+    code: params.code,
+    redirect_uri: params.redirectUri,
+  });
+  if (params.state) qs.set('state', params.state);
+  const { data } = await axios.post(
+    `${BASE}/library/callback?${qs.toString()}&scope=${encodeURIComponent(params.scope)}`,
+    null,
+    cfg({ scope: params.scope })
+  );
+  return data;
+}
+
+export async function fetchCustodyPolicy(scope: string): Promise<CustodyPolicy> {
+  const { data } = await axios.get(`${BASE}/custody/policy`, cfg({ scope }));
+  return data;
+}
+
+export async function fetchCustodyAcknowledgment(
+  scope: string,
+  ownerType: string,
+  ownerCode: string
+): Promise<CustodyAcknowledgment | null> {
+  const { data } = await axios.get(
+    `${BASE}/custody/acknowledgment`,
+    cfg({ scope, owner_type: ownerType, owner_code: ownerCode })
+  );
+  return data;
+}
+
+export async function recordCustodyAcknowledgment(
+  scope: string,
+  ownerType: string,
+  ownerCode: string,
+  confirmed: boolean
+): Promise<CustodyAcknowledgment> {
+  const { data } = await axios.post(
+    `${BASE}/custody/acknowledgment`,
+    { owner_type: ownerType, owner_code: ownerCode, confirmed },
+    cfg({ scope })
+  );
+  return data;
+}
+
+export async function createCustodyTransfer(
+  scope: string,
+  payload: {
+    document_ids: string[];
+    destination_owner_type: string;
+    destination_owner_code: string;
+    connection_id: string;
+    external_folder_id?: string;
+    export_format?: string;
+    retention_days?: number;
+  }
+): Promise<CustodyTransfer> {
+  const { data } = await axios.post(`${BASE}/custody/transfers`, payload, cfg({ scope }));
+  return data;
+}
+
+export async function fetchCustodyTransfers(scope: string): Promise<CustodyTransfer[]> {
+  const { data } = await axios.get(`${BASE}/custody/transfers`, cfg({ scope }));
+  return data;
 }

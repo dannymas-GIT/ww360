@@ -19,6 +19,8 @@ import type { LucideIcon } from 'lucide-react';
 import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { WorkforceBenchBoard } from '@/components/workforce/WorkforceBenchBoard';
+import { ResponsiveTabsList } from '@/components/ui/responsive-tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { WorkforceCeuArea } from '@/components/workforce/WorkforceCeuArea';
 import {
@@ -1518,12 +1520,19 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
                       </Button>
                     </div>
                   ) : null}
-                  <WorkforceEntityArea
-                    {...entityAreaCallbacks}
+                  <WorkforceBenchBoard
                     districtCode={districtCode}
-                    entityType="succession_candidates"
-                    showSampleTemplates={showSampleTemplates}
+                    canManage={canManageWorkforce}
+                    onAssign={() => goToTab('coverage')}
                   />
+                  <div className="mt-6">
+                    <WorkforceEntityArea
+                      {...entityAreaCallbacks}
+                      districtCode={districtCode}
+                      entityType="succession_candidates"
+                      showSampleTemplates={showSampleTemplates}
+                    />
+                  </div>
                 </TabsContent>
                 <TabsContent value="knowledge">
                   <WorkforceEntityArea
@@ -1633,13 +1642,18 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
                     value={trainingSubTab}
                     onValueChange={v => goToTab('training', { sub: parseTrainingSubTab(v) })}
                   >
-                    <TabsList className="mb-4">
-                      <TabsTrigger value="catalog">All courses</TabsTrigger>
-                      <TabsTrigger value="sessions">District sessions</TabsTrigger>
-                      {isWorkforceOperator ? (
-                        <TabsTrigger value="my-signups">My sign-ups</TabsTrigger>
-                      ) : null}
-                    </TabsList>
+                    <ResponsiveTabsList
+                      items={[
+                        { value: 'catalog', label: 'All courses' },
+                        { value: 'sessions', label: 'District sessions' },
+                        ...(isWorkforceOperator
+                          ? [{ value: 'my-signups', label: 'My sign-ups' }]
+                          : []),
+                      ]}
+                      value={trainingSubTab}
+                      onValueChange={v => goToTab('training', { sub: parseTrainingSubTab(v) })}
+                      selectLabel="Training section"
+                    />
                     <TabsContent value="catalog">
                       <WorkforceTrainingArea
                         districtCode={districtCode}

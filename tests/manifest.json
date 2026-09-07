@@ -18,11 +18,32 @@
       "pathPatterns": [
         "frontend/src/pages/LoginPage.tsx",
         "frontend/src/context/AuthContext.tsx",
-        "backend/app/api/v1/endpoints/auth.py"
+        "frontend/src/services/authService.ts",
+        "backend/app/api/v1/endpoints/auth.py",
+        "backend/app/services/sso_auth_service.py",
+        "backend/app/models/user.py"
       ],
       "defaultRunOn": ["staging", "pr"],
       "flakeBudget": 2,
       "tags": ["ww360", "auth"]
+    },
+    {
+      "id": "digital-reach",
+      "specFile": "frontend/e2e/digital_reach.spec.ts",
+      "pathPatterns": [
+        "frontend/src/pages/analytics/**",
+        "frontend/src/services/digitalAnalyticsService.ts",
+        "frontend/src/lib/ga4.ts",
+        "frontend/src/components/analytics/**",
+        "backend/app/api/v1/endpoints/digital_analytics.py",
+        "backend/app/services/digital_analytics_fixtures.py",
+        "backend/app/services/digital_analytics_fixture_detail.py",
+        "backend/app/services/ga4_data_service.py",
+        "backend/app/schemas/digital_analytics.py"
+      ],
+      "defaultRunOn": ["staging", "pr"],
+      "flakeBudget": 2,
+      "tags": ["ww360", "analytics"]
     },
     {
       "id": "oww-exec-dashboard",
@@ -66,8 +87,22 @@
         "backend/app/api/v1/endpoints/doc_studio.py",
         "backend/app/services/doc_studio_service.py",
         "backend/app/services/doc_studio_export_service.py",
+        "backend/app/services/external_library_provider.py",
+        "backend/app/services/doc_custody_service.py",
+        "backend/app/services/doc_custody_policy.py",
+        "backend/app/services/doc_studio_library_constants.py",
+        "backend/app/utils/token_encryption.py",
         "backend/app/models/doc_document.py",
-        "backend/app/schemas/doc_studio.py"
+        "backend/app/schemas/doc_studio.py",
+        "backend/app/services/tutorial_generation_service.py",
+        "frontend/src/components/tutorial/**",
+        "frontend/src/context/TutorialRecorderContext.tsx",
+        "frontend/src/utils/recorderUtils.ts",
+        "frontend/src/utils/tutorial*.ts",
+        "frontend/src/utils/stepMarkdown.ts",
+        "frontend/src/utils/stepAnnotations.ts",
+        "frontend/src/utils/screenshotCapture.ts",
+        "frontend/src/main.tsx"
       ],
       "defaultRunOn": ["staging", "pr"],
       "flakeBudget": 2,
@@ -96,6 +131,30 @@
       "defaultRunOn": ["staging"],
       "flakeBudget": 3,
       "tags": ["workforce"]
+    },
+    {
+      "id": "district-roles",
+      "specFile": "frontend/e2e/district_roles.spec.ts",
+      "pathPatterns": [
+        "frontend/src/pages/district/**",
+        "frontend/src/context/AuthContext.tsx",
+        "frontend/src/components/ww360/navConfig.ts",
+        "frontend/src/services/documentationTaskService.ts",
+        "frontend/src/services/notificationService.ts",
+        "frontend/src/components/ww360/NotificationBell.tsx",
+        "backend/scripts/seed_hudson_falls_district.py",
+        "backend/app/models/user.py",
+        "backend/app/models/documentation_task.py",
+        "backend/app/models/notification.py",
+        "backend/app/api/endpoints/documentation_tasks.py",
+        "backend/app/api/endpoints/notifications.py",
+        "backend/app/services/documentation_task_service.py",
+        "backend/app/services/documentation_task_notifier.py",
+        "backend/app/services/workforce_succession/alert_scanner.py"
+      ],
+      "defaultRunOn": ["staging", "pr"],
+      "flakeBudget": 2,
+      "tags": ["ww360", "district", "hfwd"]
     },
     {
       "id": "sync-contract",

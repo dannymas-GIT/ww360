@@ -8,6 +8,7 @@ test.describe('WW360 routes', () => {
   const api = process.env.WW360_API_URL || 'http://127.0.0.1:8002';
   const username = process.env.WW360_E2E_USERNAME || 'jingrao-aman-OWW';
   const password = process.env.WW360_E2E_PASSWORD;
+  let e2eUserId = 0;
 
   test.beforeEach(async ({ page, request }) => {
     test.skip(!password, 'WW360_E2E_PASSWORD not configured');
@@ -18,14 +19,15 @@ test.describe('WW360 routes', () => {
     expect(login.ok()).toBeTruthy();
     const body = await login.json();
     const token: string = body.access_token;
+    e2eUserId = body.user.id as number;
     expect(token).toBeTruthy();
 
     await page.addInitScript(
-      ({ tok }) => {
+      ({ tok, uid }) => {
         localStorage.setItem('ww360-auth-token', tok);
-        localStorage.setItem('ww360-oww-tour-dismissed', '1');
+        localStorage.setItem(`ww360-oww-tour-dismissed:u${uid}`, '1');
       },
-      { tok: token }
+      { tok: token, uid: e2eUserId }
     );
   });
 
@@ -73,7 +75,10 @@ test.describe('WW360 routes', () => {
   });
 
   test('document studio route loads', async ({ page }) => {
-    await page.addInitScript(() => localStorage.setItem('ww360-studio-tour-dismissed', '1'));
+    await page.addInitScript(
+      ({ uid }) => localStorage.setItem(`ww360-studio-tour-dismissed:u${uid}`, '1'),
+      { uid: e2eUserId }
+    );
     await page.goto('/studio');
     await expect(page.locator('[data-tour="studio-workspace"]')).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole('heading', { name: /create rich/i })).toBeVisible();

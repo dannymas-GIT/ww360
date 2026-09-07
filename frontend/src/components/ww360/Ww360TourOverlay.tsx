@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CircleHelp, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { trackEvent } from '@/lib/ga4';
 
 export interface Ww360TourSlide {
   id: string;
@@ -16,6 +17,13 @@ export interface Ww360TourSlide {
   tip?: string;
   /** CSS selector — usually a `[data-tour="…"]` hook on the page. */
   highlight?: string;
+  /**
+   * Force the tour card to the left or right of the viewport.
+   * Default `auto` docks opposite the highlight (right-side targets → left card).
+   */
+  preferredSide?: 'auto' | 'left' | 'right';
+  /** Force vertical dock. Default `auto` picks top for tall targets. */
+  preferredDock?: 'auto' | 'top' | 'bottom';
   /**
    * Optional hook run before highlighting (e.g. open a dialog or switch a tab).
    * Return a promise to delay highlighting until the UI has rendered.
@@ -47,6 +55,12 @@ const DIALOG_MARGIN = 16;
 const DIALOG_W_FALLBACK = 384;
 
 type DialogDock = 'top' | 'bottom';
+type DialogSide = 'left' | 'right';
+
+interface DialogPlacement {
+  dock: DialogDock;
+  side: DialogSide;
+}
 
 function readFlag(key: string): boolean {
   try {
@@ -77,6 +91,57 @@ function readStep(key: string, max: number): number {
 function writeStep(key: string, i: number): void {
   try {
     localStorage.setItem(key, String(i));
+  } catch {
+    /* ignore */
+  }
+}
+
+function sessionAutoKey(tourId: string): string {
+  return `ww360-tour-session-auto:${tourId}`;
+}
+
+function readSessionFlag(key: string): boolean {
+  try {
+    return sessionStorage.getItem(key) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeSessionFlag(key: string, v = true): void {
+  try {
+    if (v) sessionStorage.setItem(key, '1');
+    else sessionStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Scope tour storage to the signed-in user so accounts don't share progress. */
+export function tourStorageKey(base: string, userId?: string | number | null): string {
+  if (userId == null || userId === '') return base;
+  return `${base}:u${userId}`;
+}
+
+const TOUR_STORAGE_PREFIXES = [
+  'ww360-studio-tour-',
+  'ww360-oww-tour-',
+  'ww360-tour-session-auto:',
+];
+
+/** Clear tour progress/dismiss flags (call on logout so the next account starts fresh). */
+export function clearWw360TourStorage(): void {
+  const sweep = (store: Storage) => {
+    const keys: string[] = [];
+    for (let i = 0; i < store.length; i += 1) {
+      const k = store.key(i);
+      if (k && TOUR_STORAGE_PREFIXES.some(p => k.startsWith(p))) keys.push(k);
+    }
+    keys.forEach(k => store.removeItem(k));
+  };
+  try {
+    sweep(localStorage);
+    sweep(sessionStorage);
   } catch {
     /* ignore */
   }
@@ -113,19 +178,35 @@ function scrollByDelta(el: Element, delta: number): void {
 }
 
 /**
- * Pick a dock and scroll so the highlight is not buried under the tour panel.
- * Tall sections prefer a top-docked dialog so the bottom of the section stays readable.
+ * Pick a dock/side and scroll so the highlight is not buried under the tour panel.
+ * Tall sections prefer a top-docked dialog; targets on the right half dock the card left.
  */
-function scrollHighlightClearOfDialog(el: Element, dialogEl: HTMLElement | null): DialogDock {
+function scrollHighlightClearOfDialog(
+  el: Element,
+  dialogEl: HTMLElement | null,
+  preferredSide: Ww360TourSlide['preferredSide'] = 'auto',
+  preferredDock: Ww360TourSlide['preferredDock'] = 'auto'
+): DialogPlacement {
   const rect = el.getBoundingClientRect();
   const vh = window.innerHeight;
+  const vw = window.innerWidth;
   const { h: dialogH } = measureDialog(dialogEl);
   const reserve = dialogH + DIALOG_MARGIN * 2;
   const clearBand = Math.max(140, vh - reserve - DIALOG_MARGIN);
 
   const tall = rect.height > clearBand * 0.85;
   const bottomInDialogZone = rect.bottom > vh - reserve;
-  const dock: DialogDock = tall || bottomInDialogZone ? 'top' : 'bottom';
+  let dock: DialogDock = tall || bottomInDialogZone ? 'top' : 'bottom';
+  if (preferredDock === 'top' || preferredDock === 'bottom') dock = preferredDock;
+
+  let side: DialogSide = 'right';
+  if (preferredSide === 'left' || preferredSide === 'right') {
+    side = preferredSide;
+  } else {
+    // Auto: keep the card opposite the highlight so right-side panels stay visible.
+    const targetCenterX = rect.left + rect.width / 2;
+    side = targetCenterX > vw * 0.55 ? 'left' : 'right';
+  }
 
   const clearTop = dock === 'top' ? reserve : DIALOG_MARGIN + 8;
   const clearBottom = dock === 'bottom' ? reserve : DIALOG_MARGIN + 8;
@@ -146,19 +227,34 @@ function scrollHighlightClearOfDialog(el: Element, dialogEl: HTMLElement | null)
   // Elements inside fixed dialogs (e.g. a modal) shouldn't scroll the page.
   const inFixedLayer = !!(el as HTMLElement).closest('[role="dialog"]:not([data-ww360-tour])');
   if (!inFixedLayer) scrollByDelta(el, delta);
-  return dock;
+  return { dock, side };
 }
 
-function applyHighlight(slide: Ww360TourSlide | undefined, dialogEl: HTMLElement | null): DialogDock {
+function fallbackPlacement(slide: Ww360TourSlide | undefined): DialogPlacement {
+  const side: DialogSide =
+    slide?.preferredSide === 'left' || slide?.preferredSide === 'right'
+      ? slide.preferredSide
+      : 'right';
+  const dock: DialogDock =
+    slide?.preferredDock === 'top' || slide?.preferredDock === 'bottom'
+      ? slide.preferredDock
+      : 'bottom';
+  return { dock, side };
+}
+
+function applyHighlight(
+  slide: Ww360TourSlide | undefined,
+  dialogEl: HTMLElement | null
+): DialogPlacement {
   clearHighlight();
-  if (!slide?.highlight) return 'bottom';
+  if (!slide?.highlight) return fallbackPlacement(slide);
   try {
     const el = document.querySelector(slide.highlight);
-    if (!el) return 'bottom';
+    if (!el) return fallbackPlacement(slide);
     el.classList.add(HIGHLIGHT_CLASS);
-    return scrollHighlightClearOfDialog(el, dialogEl);
+    return scrollHighlightClearOfDialog(el, dialogEl, slide.preferredSide, slide.preferredDock);
   } catch {
-    return 'bottom';
+    return fallbackPlacement(slide);
   }
 }
 
@@ -181,8 +277,7 @@ export function Ww360TourOverlay({
   const [open, setOpen] = useState(false);
   const [minimized, setMinimized] = useState(false);
   const [index, setIndex] = useState(0);
-  const [dock, setDock] = useState<DialogDock>('bottom');
-  const firedRef = useRef(false);
+  const [placement, setPlacement] = useState<DialogPlacement>({ dock: 'bottom', side: 'right' });
   const highlightTimer = useRef<number | null>(null);
   const dialogRef = useRef<HTMLElement | null>(null);
   const onOpenChangeRef = useRef(onOpenChange);
@@ -200,19 +295,29 @@ export function Ww360TourOverlay({
     (slideIdx: number, delay = 50) => {
       if (highlightTimer.current) window.clearTimeout(highlightTimer.current);
       const run = () => {
-        const nextDock = applyHighlight(slides[slideIdx], dialogRef.current);
-        setDock(nextDock);
+        const next = applyHighlight(slides[slideIdx], dialogRef.current);
+        setPlacement(next);
         highlightTimer.current = window.setTimeout(() => {
           const sel = slides[slideIdx]?.highlight;
           const el = sel ? document.querySelector(sel) : null;
-          if (el) setDock(scrollHighlightClearOfDialog(el, dialogRef.current));
+          if (el) {
+            setPlacement(
+              scrollHighlightClearOfDialog(
+                el,
+                dialogRef.current,
+                slides[slideIdx]?.preferredSide,
+                slides[slideIdx]?.preferredDock
+              )
+            );
+          }
         }, 380);
       };
       highlightTimer.current = window.setTimeout(() => {
         const before = slides[slideIdx]?.before;
         if (before) {
           Promise.resolve(before()).then(() => {
-            highlightTimer.current = window.setTimeout(run, 120);
+            const settleMs = slides[slideIdx]?.preferredSide && slides[slideIdx]?.preferredSide !== 'auto' ? 220 : 120;
+            highlightTimer.current = window.setTimeout(run, settleMs);
           });
         } else {
           run();
@@ -242,12 +347,13 @@ export function Ww360TourOverlay({
       setOpen(false);
       if (permanent) {
         writeFlag(dismissedKey, true);
+        writeStep(stepKey, 0);
         setMinimized(false);
       } else {
         setMinimized(true);
       }
     },
-    [dismissedKey]
+    [dismissedKey, stepKey]
   );
 
   const go = useCallback(
@@ -256,6 +362,7 @@ export function Ww360TourOverlay({
       if (next < 0) return;
       if (next >= total) {
         writeStep(stepKey, 0);
+        trackEvent('tour_completed', { tour_id: config.id });
         dismiss(false);
         return;
       }
@@ -263,7 +370,7 @@ export function Ww360TourOverlay({
       writeStep(stepKey, next);
       scheduleHighlight(next, 30);
     },
-    [dismiss, index, scheduleHighlight, stepKey, total]
+    [dismiss, index, scheduleHighlight, stepKey, total, config.id]
   );
 
   useEffect(() => {
@@ -275,25 +382,32 @@ export function Ww360TourOverlay({
     return () => window.removeEventListener(eventName, handler);
   }, [eventName, openAt, stepKey, total]);
 
-  // Auto-open once per mount. `openAt` is read through a ref so a page that
-  // rebuilds its tour config while data loads cannot cancel the pending timer.
+  // Auto-open once per browser tab session. Always start at slide 0 so a prior
+  // mid-tour (or another account's cached step) never lands users on step 4+.
+  // Same-page hash nav remounts must not pop the tour again — sessionStorage is
+  // the gate (not a component ref), so remounts after #regions / #epa stay quiet.
   const openAtRef = useRef(openAt);
   openAtRef.current = openAt;
-  const totalRef = useRef(total);
-  totalRef.current = total;
   useEffect(() => {
-    if (!autoOpen || firedRef.current) return;
-    firedRef.current = true;
-    if (readFlag(dismissedKey)) {
+    if (!autoOpen) return;
+    if (readFlag(dismissedKey)) return;
+    const autoKey = sessionAutoKey(config.id);
+    if (readSessionFlag(autoKey)) {
       setMinimized(true);
       return;
     }
-    const t = window.setTimeout(
-      () => openAtRef.current(readStep(stepKey, totalRef.current)),
-      autoOpenDelayMs
-    );
-    return () => window.clearTimeout(t);
-  }, [autoOpen, autoOpenDelayMs, dismissedKey, stepKey]);
+    let cancelled = false;
+    const t = window.setTimeout(() => {
+      if (cancelled) return;
+      writeSessionFlag(autoKey);
+      writeStep(stepKey, 0);
+      openAtRef.current(0);
+    }, autoOpenDelayMs);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [autoOpen, autoOpenDelayMs, dismissedKey, stepKey, config.id]);
 
   useEffect(
     () => () => {
@@ -331,7 +445,6 @@ export function Ww360TourOverlay({
 
   if (!slide) return null;
   const isLast = index + 1 >= total;
-  const dockClass = dock === 'top' ? 'top-4 bottom-auto' : 'bottom-4 top-auto';
 
   return createPortal(
     <>
@@ -353,7 +466,15 @@ export function Ww360TourOverlay({
       <aside
         ref={dialogRef}
         data-ww360-tour={config.id}
-        className={`fixed right-4 ${dockClass} z-[10000] w-[min(100vw-2rem,24rem)] max-h-[min(70vh,28rem)] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl`}
+        data-tour-side={placement.side}
+        data-tour-dock={placement.dock}
+        className={`fixed z-[10000] w-[min(100vw-2rem,24rem)] max-h-[min(70vh,28rem)] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-2xl`}
+        style={{
+          top: placement.dock === 'top' ? 16 : 'auto',
+          bottom: placement.dock === 'bottom' ? 16 : 'auto',
+          left: placement.side === 'left' ? 16 : 'auto',
+          right: placement.side === 'right' ? 16 : 'auto',
+        }}
         role="dialog"
         aria-label={`${config.label} tour`}
         aria-modal="false"

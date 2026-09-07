@@ -60,6 +60,15 @@ class Settings(BaseSettings):
     WW360_SDWIS_STATES: str = "NY"
     # Document Studio (rich content library for OWW partners and utilities)
     WW360_DOC_STUDIO_ENABLED: bool = True
+    # Optional OpenAI-compatible API for tutorial guide generation (Groq, OpenAI, etc.)
+    WW360_OPENAI_API_KEY: str = ""
+    WW360_OPENAI_BASE_URL: str = ""
+    WW360_OPENAI_CHAT_MODEL: str = "gpt-4o-mini"
+    WW360_OPENAI_TRANSCRIBE_MODEL: str = "whisper-1"
+
+    # Optional live GA4 self-analytics (WW360 property only)
+    GA4_PROPERTY_ID: str = ""
+    GA4_ACCESS_TOKEN: str = ""
 
     @property
     def sdwis_states(self) -> List[str]:

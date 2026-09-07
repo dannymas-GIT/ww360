@@ -18,13 +18,30 @@ class User(Base):
     hashed_password = Column(String(255), nullable=True)
     full_name = Column(String(255), nullable=True)
     roles = Column(JSONB, nullable=False, default=list)
+    district_memberships = Column(JSONB, nullable=False, default=list)
     is_active = Column(Boolean, default=True, nullable=False)
     aquasafe_user_id = Column(Integer, nullable=True, index=True)
+    sso_provider = Column(String(50), nullable=True, index=True)
+    sso_subject = Column(String(255), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def set_password(self, password: str) -> None:
         self.hashed_password = get_password_hash(password)
+
+
+def ensure_user_schema(engine) -> None:
+    """Idempotently add columns introduced after the original users table."""
+    from sqlalchemy import text
+
+    statements = [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS district_memberships JSONB NOT NULL DEFAULT '[]'::jsonb",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS sso_provider VARCHAR(50)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS sso_subject VARCHAR(255)",
+    ]
+    with engine.begin() as conn:
+        for stmt in statements:
+            conn.execute(text(stmt))
 
 
 WW360User = User  # compatibility alias

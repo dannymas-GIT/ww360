@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { trackEvent } from '@/lib/ga4';
 import { API_BASE_URL } from '@/lib/constants';
 
 type FormState = {
@@ -65,6 +66,7 @@ const Workforce360AccessForm: React.FC = () => {
       setEmailDelivered(Boolean(data.sent));
       setPreviewHtml(data.previewHtml || null);
       setForm(EMPTY);
+      trackEvent('access_request_submitted');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not submit request.');
     } finally {

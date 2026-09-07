@@ -15,6 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatCompact } from '@/lib/format';
+import { trackEvent } from '@/lib/ga4';
 import { fetchWorkforceInsights, type SDWISWorkforceInsights } from '@/services/sdwisService';
 
 export default function SdwisLandscapePage() {
@@ -26,7 +27,10 @@ export default function SdwisLandscapePage() {
     setLoading(true);
     setError(null);
     void fetchWorkforceInsights('NY')
-      .then(setInsights)
+      .then(data => {
+        setInsights(data);
+        trackEvent('sdwis_viewed', { surface: 'landscape' });
+      })
       .catch(() => setError('Could not load SDWIS landscape.'))
       .finally(() => setLoading(false));
   };

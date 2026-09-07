@@ -2,10 +2,14 @@ import React, { Suspense, lazy } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { AppShell } from '@/components/ww360/AppShell';
+import { AnalyticsRouteTracker } from '@/components/analytics/AnalyticsRouteTracker';
 import LoginPage from '@/pages/LoginPage';
 import HandoffPage from '@/pages/HandoffPage';
 import Workforce360Landing from '@/pages/workforce360/Workforce360Landing';
 import OwwExecutiveDashboard from '@/pages/oww/OwwExecutiveDashboard';
+import DistrictDashboardPage from '@/pages/district/DistrictDashboardPage';
+import OperatorHomePage from '@/pages/district/OperatorHomePage';
+import DigitalReachPage from '@/pages/analytics/DigitalReachPage';
 import WorkforceContinuityPage from '@/pages/WorkforceContinuityPage';
 import SdwisLandscapePage from '@/pages/sdwis/SdwisLandscapePage';
 import SdwisWatchlistPage from '@/pages/sdwis/SdwisWatchlistPage';
@@ -14,6 +18,7 @@ import SdwisCompliancePage from '@/pages/sdwis/SdwisCompliancePage';
 import AdminPwsidLinksPage from '@/pages/admin/AdminPwsidLinksPage';
 import AdminUsersPage from '@/pages/admin/AdminUsersPage';
 import AdminSettingsPage from '@/pages/admin/AdminSettingsPage';
+import { resolveLandingKind } from '@/utils/resolveLandingKind';
 
 // Document Studio carries the TipTap editor bundle — load it only when visited.
 const DocumentStudioPage = lazy(() => import('@/pages/studio/DocumentStudioPage'));
@@ -42,6 +47,21 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function RoleLanding() {
+  const { user, loading } = useAuth();
+  if (loading || !user) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center text-sm text-slate-500">
+        Loading your workspace…
+      </div>
+    );
+  }
+  const kind = resolveLandingKind(user);
+  if (kind === 'operator') return <OperatorHomePage />;
+  if (kind === 'district') return <DistrictDashboardPage />;
+  return <OwwExecutiveDashboard />;
+}
+
 export default function App() {
   return (
     <Routes>
@@ -51,11 +71,13 @@ export default function App() {
       <Route
         element={
           <ProtectedRoute>
+            <AnalyticsRouteTracker />
             <AppShell />
           </ProtectedRoute>
         }
       >
-        <Route path="/dashboard" element={<OwwExecutiveDashboard />} />
+        <Route path="/dashboard" element={<RoleLanding />} />
+        <Route path="/analytics" element={<DigitalReachPage />} />
         <Route path="/continuity" element={<WorkforceContinuityPage workspace="continuity" />} />
         <Route
           path="/continuity/ceu-training"

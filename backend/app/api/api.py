@@ -2,10 +2,11 @@
 
 from fastapi import APIRouter
 
-from app.api.endpoints import sdwis, workforce_crud_routes, workforce_succession
+from app.api.endpoints import documentation_tasks, notifications, sdwis, workforce_crud_routes, workforce_succession
 from app.api.v1.endpoints import (
     admin_users,
     auth,
+    digital_analytics,
     districts,
     doc_studio,
     sync,
@@ -47,6 +48,11 @@ api_router.include_router(
     tags=["sdwis"],
 )
 api_router.include_router(
+    digital_analytics.router,
+    prefix="/analytics",
+    tags=["analytics"],
+)
+api_router.include_router(
     doc_studio.router,
     prefix="/doc-studio",
     tags=["doc-studio"],
@@ -60,4 +66,14 @@ api_router.include_router(
     workforce_crud_routes.router,
     prefix="/workforce-succession",
     tags=["workforce-crud"],
+)
+api_router.include_router(
+    documentation_tasks.router,
+    prefix="/documentation-tasks",
+    tags=["documentation-tasks"],
+)
+api_router.include_router(
+    notifications.router,
+    prefix="/notifications",
+    tags=["notifications"],
 )

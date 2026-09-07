@@ -111,7 +111,7 @@ export function getBrandTitle(): string {
   if (!isWorkforceBrand()) {
     return 'Aquasafe Solutions';
   }
-  return isWaterWorkforce360Host() ? 'Workforce 360' : 'Workforce Continuity';
+  return isWaterWorkforce360Host() ? 'Water Workforce 360' : 'Workforce Continuity';
 }
 
 export function getBrandSubtitle(): string {
@@ -127,7 +127,7 @@ export function getDocumentTitle(): string {
   if (!isWorkforceBrand()) {
     return 'AquaSafe';
   }
-  return isWaterWorkforce360Host() ? 'Workforce 360' : 'Workforce Continuity';
+  return isWaterWorkforce360Host() ? 'Water Workforce 360' : 'Workforce Continuity';
 }
 
 /**
@@ -150,8 +150,9 @@ export function getBrandLogoPath(forDarkSurface = false): string {
 }
 
 /** Prefer this at WW360 call sites: surface = background behind the logo.
- *  - light → navy ink lockup (`workforce-360-logo.png`) for cream/white surfaces
- *  - dark  → white ink lockup (`workforce-360-logo-on-dark.png`) for navy/black chrome
+ *  Designed transparent lockups (real alpha — do not knockout/recolor):
+ *  - light → `/workforce-360-logo.png` for cream/white UI
+ *  - dark  → `/workforce-360-logo-on-dark.png` for navy chrome / photo heroes
  */
 export function getWw360LogoPath(surface: BrandLogoSurface): string {
   return surface === 'dark'

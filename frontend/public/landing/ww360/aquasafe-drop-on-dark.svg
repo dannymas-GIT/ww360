@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 208 270" fill="none" aria-hidden="true">
+  <defs>
+    <linearGradient id="asDropGradInline" x1="22%" y1="6%" x2="72%" y2="94%">
+      <stop offset="0%" stop-color="#4F8CFF"/>
+      <stop offset="42%" stop-color="#2F6FE8"/>
+      <stop offset="100%" stop-color="#1E4FC7"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#asDropGradInline)" d="M104 4C104 4 196 108 196 172C196 223.9 155.9 266 104 266C52.1 266 12 223.9 12 172C12 108 104 4 104 4Z"/>
+  <path fill="#FFFFFF" d="M148 64C162 84 168 118 164 154C160 188 146 216 128 234C156 208 172 164 166 120C163 96 157 78 148 64Z"/>
+</svg>

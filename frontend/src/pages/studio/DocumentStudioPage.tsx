@@ -4,22 +4,28 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { trackEvent } from '@/lib/ga4';
 import {
   CheckCircle2,
   ChevronDown,
   CircleHelp,
+  Cloud,
+  CloudUpload,
   Copy,
   Download,
   FilePlus2,
   FileText,
   FileUp,
   History,
+  Link2,
   Loader2,
   MoreHorizontal,
   Printer,
   Save,
   Send,
   Trash2,
+  Video,
+  PlayCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +38,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/context/AuthContext';
 import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
 import { Ww360TourOverlay, requestOpenTour } from '@/components/ww360/Ww360TourOverlay';
 import { StudioEditor, type StudioEditorHandle } from '@/components/doc-studio/StudioEditor';
@@ -39,10 +46,21 @@ import { ALL_DOCS, FolderTree, UNFILED } from '@/components/doc-studio/FolderTre
 import { DocumentList, relativeTime, statusTone } from '@/components/doc-studio/DocumentList';
 import { VersionHistoryPanel } from '@/components/doc-studio/VersionHistoryPanel';
 import { NewDocumentDialog } from '@/components/doc-studio/NewDocumentDialog';
+import { ExternalLibraryDialog } from '@/components/doc-studio/ExternalLibraryDialog';
+import { CustodyTransferDialog } from '@/components/doc-studio/CustodyTransferDialog';
+import { ApplicationStepsOverviewDialog } from '@/components/doc-studio/ApplicationStepsOverviewDialog';
+import { TutorialPlayer } from '@/components/doc-studio/TutorialPlayer';
+import { useTutorialRecorder } from '@/context/TutorialRecorderContext';
 import * as api from '@/services/docStudioService';
 import type { DocDetail, DocFolder, DocSummary } from '@/services/docStudioService';
-import { templateById } from '@/config/studioTemplates';
-import { buildStudioTourConfig, STUDIO_TOUR_OPEN_EVENT } from './studioTourContent';
+import { templateById, templateAudienceFromTour, tourSampleTemplateId } from '@/config/studioTemplates';
+import {
+  buildStudioTourConfig,
+  resolveStudioTourAudience,
+  studioHeroCopy,
+  STUDIO_TOUR_OPEN_EVENT,
+} from './studioTourContent';
+import { resolveLandingKind } from '@/utils/resolveLandingKind';
 
 const AUTOSAVE_MS = 2500;
 
@@ -58,7 +76,9 @@ function errMessage(err: unknown): string {
 
 export default function DocumentStudioPage() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const qc = useQueryClient();
+  const { openRecorder } = useTutorialRecorder();
   const [params, setParams] = useSearchParams();
 
   const [folderSel, setFolderSel] = useState<string>(ALL_DOCS);
@@ -66,6 +86,9 @@ export default function DocumentStudioPage() {
   const [selectedId, setSelectedId] = useState<string | null>(params.get('doc'));
   const [showVersions, setShowVersions] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [custodyOpen, setCustodyOpen] = useState(false);
+  const [overviewOpen, setOverviewOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [titleDraft, setTitleDraft] = useState('');
@@ -75,12 +98,25 @@ export default function DocumentStudioPage() {
   const importInputRef = useRef<HTMLInputElement>(null);
   const autosaveTimer = useRef<number | null>(null);
   const pendingMarkdown = useRef<string | null>(null);
+  const oauthHandledRef = useRef(false);
 
   // ── Queries ────────────────────────────────────────────────────────────
   const accessQ = useQuery({ queryKey: ['studio', 'access'], queryFn: () => api.fetchAccess() });
   const canAuthor = !!accessQ.data?.can_author;
   const canPublish = !!accessQ.data?.can_publish;
+  // Older backends omit the flag — authors should still see the control.
+  const canConnectLibrary = accessQ.data?.can_connect_library ?? canAuthor;
+  const canCustodyTransfer = !!accessQ.data?.can_custody_transfer;
   const scopeLabel = accessQ.data?.scope_label ?? 'Program library';
+  const studioScope = accessQ.data?.scope ?? 'program';
+  const tourAudience = resolveStudioTourAudience({
+    landingKind: resolveLandingKind(user),
+    canAuthor: accessQ.isSuccess ? canAuthor : true,
+    scope: studioScope,
+  });
+  const templateAudience = templateAudienceFromTour(tourAudience);
+  const hero = studioHeroCopy(tourAudience);
+  const tourSampleId = tourSampleTemplateId(templateAudience);
 
   const foldersQ = useQuery({
     queryKey: ['studio', 'folders'],
@@ -128,6 +164,42 @@ export default function DocumentStudioPage() {
     else next.delete('doc');
     if (next.toString() !== params.toString()) setParams(next, { replace: true });
   }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Complete OAuth return from cloud provider (?code= on /studio).
+  useEffect(() => {
+    if (oauthHandledRef.current || !accessQ.isSuccess) return;
+    const code = params.get('code');
+    if (!code) return;
+    const raw = sessionStorage.getItem(api.LIBRARY_OAUTH_PENDING_KEY);
+    if (!raw) return;
+    oauthHandledRef.current = true;
+    let pending: { provider: string; redirectUri: string; scope: string };
+    try {
+      pending = JSON.parse(raw) as { provider: string; redirectUri: string; scope: string };
+    } catch {
+      return;
+    }
+    sessionStorage.removeItem(api.LIBRARY_OAUTH_PENDING_KEY);
+    const next = new URLSearchParams(params);
+    next.delete('code');
+    next.delete('state');
+    setParams(next, { replace: true });
+    void api
+      .completeLibraryOAuthCallback({
+        provider: pending.provider,
+        code,
+        redirectUri: pending.redirectUri,
+        scope: pending.scope || studioScope,
+        state: params.get('state') ?? undefined,
+      })
+      .then(() => {
+        toast({ title: 'Cloud library connected', description: 'Browse or import files from External library.' });
+        setLibraryOpen(true);
+      })
+      .catch(err =>
+        toast({ title: 'Connection failed', description: errMessage(err), variant: 'destructive' })
+      );
+  }, [accessQ.isSuccess, params, setParams, studioScope, toast]);
 
   const invalidateLists = useCallback(() => {
     qc.invalidateQueries({ queryKey: ['studio', 'documents'] });
@@ -240,6 +312,27 @@ export default function DocumentStudioPage() {
     [flushAutosave]
   );
 
+  const startTutorialRecording = useCallback(
+    (existingDocumentId?: string) => {
+      const folderId =
+        folderSel !== ALL_DOCS && folderSel !== UNFILED ? folderSel : doc?.folder_id ?? null;
+      openRecorder({
+        documentTitle: existingDocumentId && doc ? doc.title : 'New tutorial',
+        studioTarget: {
+          scope: studioScope,
+          folderId: folderId ?? undefined,
+          existingDocumentId,
+        },
+        onPublished: async docId => {
+          invalidateLists();
+          await selectDocument(docId);
+          toast({ title: 'Tutorial published', description: 'Saved to Document Studio.' });
+        },
+      });
+    },
+    [doc, folderSel, invalidateLists, openRecorder, selectDocument, studioScope, toast]
+  );
+
   // ── Title ──────────────────────────────────────────────────────────────
   const titleMut = useMutation({
     mutationFn: (vars: { id: string; title: string }) => api.updateDocument(vars.id, { title: vars.title }),
@@ -268,7 +361,8 @@ export default function DocumentStudioPage() {
       api.createDocument({
         title: vars.title,
         folder_id: vars.folder_id,
-        template_id: vars.template_id === 'blank' ? null : vars.template_id,
+        template_id: vars.template_id === 'blank' || vars.template_id === 'tutorial' ? null : vars.template_id,
+        doc_type: vars.template_id === 'tutorial' ? 'tutorial' : undefined,
         content_markdown: vars.markdown,
       }),
     onSuccess: async data => {
@@ -299,6 +393,7 @@ export default function DocumentStudioPage() {
       qc.invalidateQueries({ queryKey: ['studio', 'versions', data.id] });
       invalidateLists();
       toast({ title: 'Published', description: `${data.title} · v${data.version_no}` });
+      trackEvent('studio_published', { doc_type: data.doc_type || 'document' });
     },
     onError: err => toast({ title: 'Publish failed', description: errMessage(err), variant: 'destructive' }),
   });
@@ -411,11 +506,11 @@ export default function DocumentStudioPage() {
             return;
           }
           if (!canAuthor) return;
-          const tpl = templateById('regional-brief');
+          const tpl = templateById(tourSampleId);
           try {
             const created = await api.createDocument({
-              title: 'Sample — Regional workforce brief',
-              template_id: 'regional-brief',
+              title: `Sample — ${tpl?.name ?? 'Document'}`,
+              template_id: tourSampleId,
               content_markdown: tpl?.markdown ?? '',
             });
             invalidateLists();
@@ -424,22 +519,120 @@ export default function DocumentStudioPage() {
             /* ignore */
           }
         },
+        ensureSampleVersions: async () => {
+          const SAMPLE_PREFIX = 'Sample —';
+          const waitForVersionsPanel = async () => {
+            // Document switch remounts the editor pane; wait until versions is actually painted.
+            for (let i = 0; i < 40; i++) {
+              const panel = document.querySelector('[data-tour="studio-versions"]');
+              const editor = document.querySelector('[data-tour="studio-editor"] .ProseMirror');
+              if (panel && editor) return;
+              await new Promise(r => window.setTimeout(r, 75));
+            }
+          };
+
+          // Prefer (or create) a sample doc so we never append tour notes to a real document.
+          let docId = selectedId;
+          const openDoc = docId
+            ? ((allDocsQ.data ?? []).find(d => d.id === docId) ?? null)
+            : null;
+          const isSample = !!openDoc?.title?.startsWith(SAMPLE_PREFIX);
+          if (!docId || !isSample) {
+            const sample = (allDocsQ.data ?? []).find(d => d.title.startsWith(SAMPLE_PREFIX));
+            if (sample) {
+              docId = sample.id;
+              await selectDocument(sample.id);
+            } else if (canAuthor) {
+              const tpl = templateById(tourSampleId);
+              try {
+                const created = await api.createDocument({
+                  title: `Sample — ${tpl?.name ?? 'Document'}`,
+                  template_id: tourSampleId,
+                  content_markdown: tpl?.markdown ?? '',
+                });
+                invalidateLists();
+                docId = created.id;
+                await selectDocument(created.id);
+              } catch {
+                setShowVersions(true);
+                await waitForVersionsPanel();
+                return;
+              }
+            }
+          }
+
+          setShowVersions(true);
+          if (!docId || !canAuthor) {
+            await waitForVersionsPanel();
+            return;
+          }
+
+          try {
+            let versions = await api.fetchVersions(docId);
+            // Seed named saves so the panel shows a short history (v1, v2, v3).
+            const seedNotes = ['Tour sample — first draft', 'Tour sample — revised for partners'];
+            let markdown =
+              (await api.fetchDocument(docId)).content_markdown ||
+              templateById(tourSampleId)?.markdown ||
+              '';
+            for (const note of seedNotes) {
+              if (versions.length >= 3) break;
+              if (versions.some(v => v.note === note)) continue;
+              markdown = `${markdown.trimEnd()}\n\n> ${note}\n`;
+              await api.saveContent(docId, {
+                content_markdown: markdown,
+                autosave: false,
+                note,
+              });
+              versions = await api.fetchVersions(docId);
+            }
+            qc.setQueryData(['studio', 'document', docId], await api.fetchDocument(docId));
+            await qc.invalidateQueries({ queryKey: ['studio', 'versions', docId] });
+            await waitForVersionsPanel();
+            // Extra beat so React Query can paint the seeded rows.
+            await new Promise(r => window.setTimeout(r, 200));
+          } catch {
+            await waitForVersionsPanel();
+          }
+        },
+        userId: user?.id,
+        audience: tourAudience,
+        canAuthor,
+        canPublish,
+        canConnectLibrary,
+        canCustodyTransfer,
+        scopeLabel,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectedId, allDocsQ.data, canAuthor]
+    [selectedId, allDocsQ.data, canAuthor, canPublish, canConnectLibrary, canCustodyTransfer, qc, user?.id, tourAudience, scopeLabel, tourSampleId]
   );
 
   // ── Render ─────────────────────────────────────────────────────────────
   const selectedFolder = folders.find(f => f.id === folderSel);
   const defaultFolderForNew = folderSel !== ALL_DOCS && folderSel !== UNFILED ? folderSel : null;
   const busy = createMut.isPending || importMut.isPending;
+  const custodyDocs: DocSummary[] = doc
+    ? [
+        {
+          id: doc.id,
+          title: doc.title,
+          folder_id: doc.folder_id,
+          status: doc.status,
+          doc_type: doc.doc_type,
+          version_no: doc.version_no,
+          word_count: doc.word_count,
+          updated_at: doc.updated_at,
+          custody_status: doc.custody_status,
+        },
+      ]
+    : documents;
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4 p-4 md:p-6">
       <Ww360PageHero
         eyebrow="Document Studio"
-        title="Create rich content for the One Water Workforce program"
-        description="Briefs, cohort plans, grant narratives, invitations and newsletters — written once, versioned, and exported to PDF or Word with Water Workforce 360 branding."
+        title={hero.title}
+        description={hero.description}
         badges={
           <>
             <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs text-slate-200 ring-1 ring-white/15">{scopeLabel}</span>
@@ -462,8 +655,42 @@ export default function DocumentStudioPage() {
             >
               <CircleHelp className="mr-1.5 h-4 w-4" aria-hidden /> Tour
             </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              data-tour="studio-application-steps-overview"
+              className="min-h-[44px] border-white/20 bg-white/5 text-white hover:bg-white/15 hover:text-white md:min-h-9"
+              onClick={() => setOverviewOpen(true)}
+            >
+              <PlayCircle className="mr-1.5 h-4 w-4" aria-hidden /> Watch overview
+            </Button>
             {canAuthor ? (
               <>
+                {canConnectLibrary ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    data-tour="studio-external-library"
+                    className="min-h-[44px] border-white/20 bg-white/5 text-white hover:bg-white/15 hover:text-white md:min-h-9"
+                    onClick={() => setLibraryOpen(true)}
+                  >
+                    <Cloud className="mr-1.5 h-4 w-4" aria-hidden /> Add cloud storage
+                  </Button>
+                ) : null}
+                {canCustodyTransfer ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    data-tour="studio-custody-transfer"
+                    className="min-h-[44px] border-white/20 bg-white/5 text-white hover:bg-white/15 hover:text-white md:min-h-9"
+                    onClick={() => setCustodyOpen(true)}
+                  >
+                    <CloudUpload className="mr-1.5 h-4 w-4" aria-hidden /> Transfer custody
+                  </Button>
+                ) : null}
                 <input
                   ref={importInputRef}
                   type="file"
@@ -475,6 +702,17 @@ export default function DocumentStudioPage() {
                     e.target.value = '';
                   }}
                 />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  data-tour="studio-record"
+                  className="min-h-[44px] border-white/20 bg-white/5 text-white hover:bg-white/15 hover:text-white md:min-h-9"
+                  onClick={() => startTutorialRecording()}
+                >
+                  <Video className="mr-1.5 h-4 w-4" aria-hidden />
+                  Record tutorial
+                </Button>
                 <Button
                   type="button"
                   variant="outline"
@@ -518,25 +756,45 @@ export default function DocumentStudioPage() {
           className="flex min-h-0 flex-col rounded-xl border border-slate-200 bg-white p-2 shadow-sm"
           aria-label="Library folders"
         >
-          <FolderTree
-            folders={folders}
-            selectedId={folderSel}
-            totalCount={totalCount}
-            unfiledCount={unfiledCount}
-            canManage={canAuthor}
-            onSelect={setFolderSel}
-            onCreate={parentId => {
-              const name = window.prompt(parentId ? 'New subfolder name' : 'New folder name');
-              if (name?.trim()) folderCreateMut.mutate({ name: name.trim(), parent_id: parentId });
-            }}
-            onRename={f => {
-              const name = window.prompt('Rename folder', f.name);
-              if (name?.trim() && name.trim() !== f.name) folderRenameMut.mutate({ id: f.id, name: name.trim() });
-            }}
-            onDelete={f => {
-              if (window.confirm(`Delete folder "${f.name}"? Documents inside move up one level.`)) folderDeleteMut.mutate(f.id);
-            }}
-          />
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <FolderTree
+              folders={folders}
+              selectedId={folderSel}
+              totalCount={totalCount}
+              unfiledCount={unfiledCount}
+              canManage={canAuthor}
+              onSelect={setFolderSel}
+              onCreate={parentId => {
+                const name = window.prompt(parentId ? 'New subfolder name' : 'New folder name');
+                if (name?.trim()) folderCreateMut.mutate({ name: name.trim(), parent_id: parentId });
+              }}
+              onRename={f => {
+                const name = window.prompt('Rename folder', f.name);
+                if (name?.trim() && name.trim() !== f.name) folderRenameMut.mutate({ id: f.id, name: name.trim() });
+              }}
+              onDelete={f => {
+                if (window.confirm(`Delete folder "${f.name}"? Documents inside move up one level.`)) folderDeleteMut.mutate(f.id);
+              }}
+            />
+          </div>
+          {canConnectLibrary ? (
+            <div className="mt-2 shrink-0 border-t border-slate-100 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                data-tour="studio-external-library-sidebar"
+                className="h-9 w-full justify-start text-slate-700"
+                onClick={() => setLibraryOpen(true)}
+              >
+                <Cloud className="mr-2 h-4 w-4 text-sky-600" aria-hidden />
+                Add cloud storage
+              </Button>
+              <p className="mt-1 px-1 text-[10px] leading-snug text-slate-500">
+                OneDrive, Google Drive, or Dropbox
+              </p>
+            </div>
+          ) : null}
         </aside>
 
         {/* Documents */}
@@ -597,11 +855,50 @@ export default function DocumentStudioPage() {
                   className="h-9 min-w-[200px] flex-1 border-transparent bg-transparent px-2 text-base font-semibold text-slate-900 shadow-none hover:border-slate-200 focus:border-sky-300"
                 />
                 <div className="flex items-center gap-2" data-tour="studio-status">
+                  {doc.doc_type === 'tutorial' ? (
+                    <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-800 ring-1 ring-sky-200">
+                      Tutorial
+                    </span>
+                  ) : null}
+                  {doc.external_ref ? (
+                    doc.external_ref.external_web_url ? (
+                      <a
+                        href={doc.external_ref.external_web_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-800 ring-1 ring-violet-200 hover:bg-violet-100"
+                        title={`Linked in ${doc.external_ref.provider}`}
+                      >
+                        <Link2 className="h-3 w-3" aria-hidden /> External link
+                      </a>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-800 ring-1 ring-violet-200">
+                        <Link2 className="h-3 w-3" aria-hidden /> Linked ({doc.external_ref.provider})
+                      </span>
+                    )
+                  ) : null}
+                  {(doc.custody_status && doc.custody_status !== 'local') ? (
+                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-900 ring-1 ring-amber-200">
+                      {doc.custody_status.replace(/_/g, ' ')}
+                    </span>
+                  ) : null}
                   <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ${statusTone(doc.status)}`}>{doc.status}</span>
                   <span className="text-[11px] text-slate-500">v{doc.version_no}</span>
                   <SaveIndicator state={saveState} updatedAt={doc.updated_at} />
                 </div>
                 <div className="ml-auto flex items-center gap-1">
+                  {canAuthor && doc.doc_type === 'tutorial' ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-9"
+                      data-tour="studio-rerecord"
+                      onClick={() => startTutorialRecording(doc.id)}
+                    >
+                      <Video className="mr-1 h-4 w-4" /> Re-record
+                    </Button>
+                  ) : null}
                   {canAuthor ? (
                     <Button type="button" size="sm" variant="outline" className="h-9" onClick={() => void handleExplicitSave()} disabled={saveMut.isPending} data-tour="studio-save">
                       {saveMut.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Save className="mr-1 h-4 w-4" />} Save
@@ -694,7 +991,13 @@ export default function DocumentStudioPage() {
                 </div>
               </header>
 
-              <div className="flex min-h-0 flex-1">
+              <div className="flex min-h-0 flex-1 flex-col">
+                {doc.doc_type === 'tutorial' && doc.tutorial_data?.steps?.length ? (
+                  <div className="border-b border-slate-200 px-3 py-3" data-tour="studio-tutorial-player">
+                    <TutorialPlayer document={doc} scope={studioScope} compact />
+                  </div>
+                ) : null}
+                <div className="flex min-h-0 flex-1">
                 <div className="min-h-0 min-w-0 flex-1 p-2">
                   <StudioEditor
                     key={doc.id}
@@ -702,6 +1005,7 @@ export default function DocumentStudioPage() {
                     initialMarkdown={doc.content_markdown || ''}
                     readOnly={!canAuthor}
                     documentId={doc.id}
+                    templateAudience={templateAudience}
                     onChange={handleEditorChange}
                     onUploadError={msg => toast({ title: 'Image upload failed', description: msg, variant: 'destructive' })}
                   />
@@ -733,6 +1037,7 @@ export default function DocumentStudioPage() {
                     </div>
                   </aside>
                 ) : null}
+                </div>
               </div>
             </>
           )}
@@ -745,11 +1050,38 @@ export default function DocumentStudioPage() {
         defaultFolderId={defaultFolderForNew}
         busy={busy}
         tourActive={tourOpen}
+        audience={templateAudience}
         onClose={() => setNewOpen(false)}
         onCreate={({ title, folder_id, template }) =>
           createMut.mutate({ title, folder_id, template_id: template.id, markdown: template.markdown })
         }
       />
+
+      {canConnectLibrary ? (
+        <ExternalLibraryDialog
+          open={libraryOpen}
+          onOpenChange={setLibraryOpen}
+          studioScope={studioScope}
+          folderId={defaultFolderForNew ?? undefined}
+          onImported={() => invalidateLists()}
+        />
+      ) : null}
+
+      {canCustodyTransfer ? (
+        <CustodyTransferDialog
+          open={custodyOpen}
+          onOpenChange={setCustodyOpen}
+          studioScope={studioScope}
+          documents={custodyDocs}
+          folders={folders}
+          onTransferred={() => {
+            invalidateLists();
+            if (selectedId) qc.invalidateQueries({ queryKey: ['studio', 'document', selectedId] });
+          }}
+        />
+      ) : null}
+
+      <ApplicationStepsOverviewDialog open={overviewOpen} onOpenChange={setOverviewOpen} />
 
       <Ww360TourOverlay config={tourConfig} autoOpen autoOpenDelayMs={900} onOpenChange={setTourOpen} />
     </div>

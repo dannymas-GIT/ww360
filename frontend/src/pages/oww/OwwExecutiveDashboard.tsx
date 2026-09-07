@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   Area,
   AreaChart,
@@ -22,6 +22,7 @@ import {
   Clock3,
   Download,
   ExternalLink,
+  Globe,
   GraduationCap,
   Lock,
   RefreshCw,
@@ -66,6 +67,7 @@ import {
   regionRisk,
 } from './owwMockData';
 import { fetchWorkforceInsights, type SDWISWorkforceInsights } from '@/services/sdwisService';
+import { fetchDigitalTeaser, type DigitalTeaser } from '@/services/digitalAnalyticsService';
 import { Ww360KpiTile } from '@/components/ww360/Ww360KpiTile';
 import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
 import { Ww360Section } from '@/components/ww360/Ww360Section';
@@ -127,6 +129,7 @@ export default function OwwExecutiveDashboard() {
   const [regionSort, setRegionSort] = useState<'gap' | 'retirements' | 'utilities'>('gap');
   const [sdwisInsights, setSdwisInsights] = useState<SDWISWorkforceInsights | null>(null);
   const [sdwisLoading, setSdwisLoading] = useState(true);
+  const [digitalTeaser, setDigitalTeaser] = useState<DigitalTeaser | null>(null);
 
   useEffect(() => {
     const id = (location.hash || '').replace(/^#/, '');
@@ -148,6 +151,20 @@ export default function OwwExecutiveDashboard() {
       })
       .finally(() => {
         if (!cancelled) setSdwisLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchDigitalTeaser()
+      .then(data => {
+        if (!cancelled) setDigitalTeaser(data);
+      })
+      .catch(() => {
+        if (!cancelled) setDigitalTeaser(null);
       });
     return () => {
       cancelled = true;
@@ -442,6 +459,52 @@ export default function OwwExecutiveDashboard() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Digital reach teaser */}
+      <div
+        data-tour="digital-teaser"
+        className="flex flex-col gap-4 rounded-xl border border-sky-100 bg-gradient-to-r from-sky-50/80 to-white px-5 py-4 shadow-sm md:flex-row md:items-center md:justify-between"
+      >
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-700">
+            Digital reach · GA4 + SEO
+          </p>
+          <p className="mt-1 text-sm text-slate-600">
+            How WW360, onewaterworkforce.org, and Learning Stream show up in search and site
+            analytics — last 30 days (sample for OWW &amp; LS until connected).
+          </p>
+          {digitalTeaser ? (
+            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs tabular-nums text-slate-700">
+              <span>
+                <strong className="text-slate-900">{formatCompact(digitalTeaser.ww360Sessions30d)}</strong>{' '}
+                WW360 sessions
+              </span>
+              <span>
+                <strong className="text-slate-900">{formatCompact(digitalTeaser.owwOrganicClicks30d)}</strong>{' '}
+                OWW organic clicks
+              </span>
+              <span>
+                <strong className="text-slate-900">{formatCompact(digitalTeaser.lsCatalogSessions30d)}</strong>{' '}
+                LS catalog sessions
+              </span>
+              <span>
+                <strong className="text-slate-900">{formatCompact(digitalTeaser.blendedSeoImpressions30d)}</strong>{' '}
+                SEO impressions
+              </span>
+            </div>
+          ) : null}
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          className="shrink-0 bg-sky-600 hover:bg-sky-700 min-h-[44px] md:min-h-9"
+          asChild
+        >
+          <Link to="/analytics">
+            <Globe className="mr-1.5 h-4 w-4" aria-hidden /> Open Digital reach
+          </Link>
+        </Button>
       </div>
 
       {/* KPIs */}

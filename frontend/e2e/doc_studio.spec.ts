@@ -26,12 +26,12 @@ test.describe('Document Studio', () => {
     expect(token).toBeTruthy();
 
     await page.addInitScript(
-      ({ tok }) => {
+      ({ tok, uid }) => {
         localStorage.setItem('ww360-auth-token', tok);
-        localStorage.setItem('ww360-oww-tour-dismissed', '1');
-        localStorage.setItem('ww360-studio-tour-dismissed', '1');
+        localStorage.setItem(`ww360-oww-tour-dismissed:u${uid}`, '1');
+        localStorage.setItem(`ww360-studio-tour-dismissed:u${uid}`, '1');
       },
-      { tok: token }
+      { tok: token, uid: body.user.id as number }
     );
   });
 
@@ -52,6 +52,7 @@ test.describe('Document Studio', () => {
     const a = await access.json();
     expect(a.can_view).toBeTruthy();
     expect(a.can_author).toBeTruthy();
+    expect(a.can_connect_library).toBeTruthy();
 
     const folders = await request.get(`${api}/api/v1/doc-studio/folders`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -61,6 +62,41 @@ test.describe('Document Studio', () => {
     expect(names).toEqual(expect.arrayContaining(['Program briefs', 'Training & cohorts']));
   });
 
+  test('external library + custody endpoints and header actions', async ({ page, request }) => {
+    const access = await request.get(`${api}/api/v1/doc-studio/access`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(access.ok()).toBeTruthy();
+    const a = await access.json();
+    expect(a.can_connect_library).toBeTruthy();
+
+    const policy = await request.get(
+      `${api}/api/v1/doc-studio/custody/policy?scope=${encodeURIComponent(a.scope)}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    expect(policy.ok()).toBeTruthy();
+    const policyBody = await policy.json();
+    expect(policyBody.markdown).toContain('Water Workforce 360');
+
+    const connections = await request.get(
+      `${api}/api/v1/doc-studio/library/connections?scope=${encodeURIComponent(a.scope)}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    expect(connections.ok()).toBeTruthy();
+
+    await page.goto('/studio');
+    await expect(page.locator('[data-tour="studio-workspace"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('[data-tour="studio-external-library"]')).toBeVisible();
+    await expect(page.locator('[data-tour="studio-external-library-sidebar"]')).toBeVisible();
+    if (a.can_custody_transfer) {
+      await expect(page.locator('[data-tour="studio-custody-transfer"]')).toBeVisible();
+    }
+
+    await page.locator('[data-tour="studio-external-library-sidebar"]').click();
+    await expect(page.getByRole('dialog', { name: /external library/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /connect account/i })).toBeVisible();
+  });
+
   test('studio page renders the three-pane workspace', async ({ page }) => {
     await page.goto('/studio');
     await expect(page.locator('[data-tour="studio-workspace"]')).toBeVisible({ timeout: 20_000 });
@@ -68,6 +104,39 @@ test.describe('Document Studio', () => {
     await expect(page.locator('[data-tour="studio-documents"]')).toBeVisible();
     await expect(page.locator('[data-tour="studio-new-button"]')).toBeVisible();
     await expect(page.locator('[data-tour="studio-import"]')).toBeVisible();
+    await expect(page.locator('[data-tour="studio-record"]')).toBeVisible();
+    await expect(page.locator('[data-tour="studio-application-steps-overview"]')).toBeVisible();
+  });
+
+  test('watch overview opens avatar sample player', async ({ page }) => {
+    await page.goto('/studio');
+    await expect(page.locator('[data-tour="studio-workspace"]')).toBeVisible({ timeout: 20_000 });
+    await page.locator('[data-tour="studio-application-steps-overview"]').click();
+    const dialog = page.getByRole('dialog', { name: /record application steps/i });
+    await expect(dialog).toBeVisible();
+    await expect(page.locator('[data-tour="studio-application-steps-player"] video')).toBeVisible();
+    await expect(page.locator('[data-tour="studio-application-steps-player"] source')).toHaveAttribute(
+      'src',
+      /application-steps-sample\.mp4/
+    );
+  });
+
+  test('record tutorial opens mode picker with five modes', async ({ page }) => {
+    await page.goto('/studio');
+    await expect(page.locator('[data-tour="studio-workspace"]')).toBeVisible({ timeout: 20_000 });
+    await page.locator('[data-tour="studio-record"]').click();
+    const modal = page.locator('[data-tutorial-recorder]');
+    await expect(modal).toBeVisible();
+    const picker = page.locator('[data-tour="studio-mode-picker"]');
+    await expect(picker).toBeVisible();
+    await expect(picker.locator('button')).toHaveCount(5);
+    await expect(picker).toContainText('Screen + Camera');
+    await expect(picker).toContainText('Camera only');
+    await expect(picker).toContainText('Voice only');
+    await expect(picker).toContainText('Screenshots');
+    await expect(picker).toContainText('Screen + mic narration');
+    await modal.getByRole('button', { name: /close/i }).click();
+    await expect(modal).toBeHidden();
   });
 
   test('create from template, autosave, explicit save creates v2, export works', async ({ page, request }) => {
@@ -145,5 +214,25 @@ test.describe('Document Studio', () => {
     await expect(page.locator('[data-tour="studio-folders"]')).toHaveClass(/ww360-tour-highlight/);
     await tour.getByRole('button', { name: /close tour/i }).click();
     await expect(tour).toBeHidden();
+  });
+
+  test('saves and versions tour docks left and shows version history', async ({ page }) => {
+    await page.goto('/studio');
+    await expect(page.locator('[data-tour="studio-workspace"]')).toBeVisible({ timeout: 20_000 });
+    await page.getByRole('button', { name: /^tour$/i }).click();
+    const tour = page.getByRole('dialog', { name: /document studio tour/i });
+    await expect(tour).toBeVisible();
+
+    // welcome → folders → documents → new → editor → toolbar → save (6 Next clicks)
+    for (let i = 0; i < 6; i++) {
+      await tour.getByRole('button', { name: /next/i }).click();
+      await page.waitForTimeout(400);
+    }
+    await expect(tour).toContainText(/Saves and versions/i);
+    await expect(tour).toHaveAttribute('data-tour-side', 'left');
+    const versions = page.locator('[data-tour="studio-versions"]');
+    await expect(versions).toBeVisible({ timeout: 15_000 });
+    await expect(versions).toHaveClass(/ww360-tour-highlight/);
+    await expect.poll(async () => versions.locator('li').count(), { timeout: 15_000 }).toBeGreaterThanOrEqual(2);
   });
 });

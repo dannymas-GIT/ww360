@@ -58,7 +58,7 @@ import {
   Undo2,
 } from 'lucide-react';
 import { uploadAsset } from '@/services/docStudioService';
-import { STUDIO_TEMPLATES } from '@/config/studioTemplates';
+import { templatesForAudience, type StudioTemplateAudience } from '@/config/studioTemplates';
 import './docStudio.css';
 
 const lowlight = createLowlight(common);
@@ -94,6 +94,8 @@ export interface StudioEditorProps {
   /** Document id for asset uploads (images). */
   documentId?: string | null;
   scope?: string;
+  /** Limits "Insert section from template" to role-appropriate starters. */
+  templateAudience?: StudioTemplateAudience;
   onChange?: (markdown: string, json: Record<string, unknown>) => void;
   onUploadError?: (message: string) => void;
   className?: string;
@@ -111,6 +113,7 @@ export const StudioEditor = forwardRef<StudioEditorHandle, StudioEditorProps>(fu
     placeholder,
     documentId,
     scope,
+    templateAudience = 'program',
     onChange,
     onUploadError,
     className = '',
@@ -396,13 +399,15 @@ export const StudioEditor = forwardRef<StudioEditorHandle, StudioEditorProps>(fu
               className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 min-h-[32px]"
               defaultValue=""
               onChange={e => {
-                const tpl = STUDIO_TEMPLATES.find(t => t.id === e.target.value);
+                const tpl = templatesForAudience(templateAudience).find(t => t.id === e.target.value);
                 if (tpl?.markdown) editor.chain().focus().insertContent(tpl.markdown).run();
                 e.target.value = '';
               }}
             >
               <option value="">Insert section from template…</option>
-              {STUDIO_TEMPLATES.filter(t => t.markdown).map(t => (
+              {templatesForAudience(templateAudience)
+                .filter(t => t.markdown)
+                .map(t => (
                 <option key={t.id} value={t.id}>
                   {t.name}
                 </option>

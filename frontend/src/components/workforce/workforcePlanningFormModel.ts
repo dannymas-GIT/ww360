@@ -1023,3 +1023,44 @@ export function emptyRowForEntity(entityKey: string): Record<string, string> {
   }
   return row;
 }
+
+/** Six-step district wizard (Setup → Positions → People → Coverage → Bench → Review). */
+export const COMPACT_WIZARD_STEP_IDS = [
+  'setup',
+  'positions',
+  'employees',
+  'role_coverage',
+  'succession_candidates',
+  'review',
+] as const;
+
+export const COMPACT_FORM_WIZARD_STEPS: FormWizardStep[] = FORM_WIZARD_STEPS.filter(s =>
+  (COMPACT_WIZARD_STEP_IDS as readonly string[]).includes(s.id)
+);
+
+/** Grouped form sections for resumable employee/position dialogs. */
+export const EMPLOYEE_FORM_SECTIONS = [
+  { id: 'identity', title: 'Identity', fields: ['employee_code', 'full_name', 'operator_grade'] },
+  {
+    id: 'role',
+    title: 'Role & dates',
+    fields: ['position_code', 'hire_date', 'retirement_eligible_date', 'planned_departure_date'],
+  },
+  {
+    id: 'contact',
+    title: 'Contact',
+    fields: ['work_email', 'work_phone', 'home_email', 'home_phone'],
+    collapsedDefault: true,
+  },
+  { id: 'notes', title: 'Continuity notes', fields: ['notes'], collapsedDefault: true },
+] as const;
+
+export const POSITION_FORM_SECTIONS = [
+  { id: 'basics', title: 'Basics', fields: ['position_code', 'title', 'department'] },
+  {
+    id: 'reporting',
+    title: 'Reporting',
+    fields: ['reports_to_position_code', 'civil_service_classification', 'civil_service_grade'],
+  },
+  { id: 'funding', title: 'Funding', fields: ['fte_count', 'is_funded', 'is_vacant'] },
+] as const;

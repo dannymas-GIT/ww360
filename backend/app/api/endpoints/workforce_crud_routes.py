@@ -87,6 +87,7 @@ from app.services.workforce_succession.operator_scope import (
 from app.services.workforce_succession.workforce_alert_settings import (
     load_workforce_alert_settings,
 )
+from app.services.documentation_task_service import maybe_create_task_from_coverage
 from app.services.district_security_service import DistrictSecurityService
 from app.tenant_auth import TenantContext
 
@@ -380,7 +381,11 @@ async def create_role_coverage(
 ):
     _require_district_auth(db, context, body.district_code)
     try:
-        return create_entity(db, entity_type="role_coverage", data=body.model_dump())
+        created = create_entity(db, entity_type="role_coverage", data=body.model_dump())
+        maybe_create_task_from_coverage(
+            db, coverage=created, assigned_by=context.user_id
+        )
+        return created
     except WorkforceCrudError as exc:
         raise _crud_error(exc)
 
@@ -1096,7 +1101,11 @@ async def scrape_training_courses(
     db: Session = Depends(deps.get_db),
     context: TenantContext = Depends(require_workforce_manager),
 ):
+    """Refresh catalog from NYSDOH; fall back to Learning Stream mock seed if live scrape fails."""
     del context
+    from datetime import datetime, timezone
+
+    from app.services.workforce_succession.learning_stream_seed import seed_learning_stream_catalog
     from app.services.workforce_succession.training_scraper import (
         TrainingScrapeError,
         sync_training_courses,
@@ -1104,9 +1113,28 @@ async def scrape_training_courses(
 
     try:
         result = sync_training_courses(db)
-    except TrainingScrapeError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
-    return WorkforceTrainingScrapeResult(**result)
+        return WorkforceTrainingScrapeResult(**result)
+    except TrainingScrapeError as live_exc:
+        logger.warning("Live DOH scrape failed (%s); seeding Learning Stream catalog", live_exc)
+    except Exception as live_exc:
+        logger.warning("Live DOH scrape error (%s); seeding Learning Stream catalog", live_exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+
+    added, updated = seed_learning_stream_catalog(db)
+    now = datetime.now(timezone.utc).isoformat()
+    return WorkforceTrainingScrapeResult(
+        source_url="learning-stream://seed",
+        page_content_hash="learning-stream-seed",
+        courses_parsed=added + updated,
+        courses_added=added,
+        courses_updated=updated,
+        courses_deactivated=0,
+        skipped_unchanged=False,
+        last_synced_at=now,
+    )
 
 
 @router.post("/training-courses/seed-learning-stream", response_model=LearningStreamSeedResult)

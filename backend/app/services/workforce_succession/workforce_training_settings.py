@@ -32,6 +32,10 @@ def load_workforce_training_settings(db: Session, district_code: str) -> Workfor
             {"dc": district_code},
         ).fetchone()
     except Exception:
+        try:
+            db.rollback()
+        except Exception:
+            pass
         return WorkforceTrainingSettings()
     if not row or not row.config_data:
         return WorkforceTrainingSettings()

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { applyBrandDocumentHead, getWw360LogoPath, WW360_LOGO_SIZE } from '@/utils/brandHost';
-import { Ww360PoweredBy } from '@/components/ww360/Ww360PoweredBy';
+import { initGa4, trackPageView } from '@/lib/ga4';
 import {
   WW360_SLIDE_INTERVAL_MS,
   WW360_SLIDES,
@@ -281,6 +281,8 @@ const Workforce360Landing: React.FC = () => {
   useEffect(() => {
     ensureWw360Fonts();
     applyBrandDocumentHead();
+    initGa4();
+    trackPageView('/');
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
     const sync = () => setReducedMotion(mq.matches);
     sync();
@@ -387,7 +389,6 @@ const Workforce360Landing: React.FC = () => {
             src={getWw360LogoPath('dark')}
             alt="Workforce 360"
           />
-          <Ww360PoweredBy surface="dark" className="ww360-nav__powered" />
         </a>
         <ul className="ww360-nav__links ww360-nav__links--desktop">
           <li>
@@ -751,7 +752,6 @@ const Workforce360Landing: React.FC = () => {
               alt="Workforce 360"
               style={{ height: WW360_LOGO_SIZE.navMinPx, minHeight: WW360_LOGO_SIZE.navMinPx }}
             />
-            <Ww360PoweredBy surface="dark" className="!text-left" />
             <span style={{ fontSize: '0.95rem', color: 'var(--ww360-on-dark-muted)' }}>
               waterworkforce360.org
             </span>

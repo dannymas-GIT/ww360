@@ -9,6 +9,17 @@ Pipeline QA uses credentials from `~/.openclaw/openclaw.env` with prefix `WW360`
 - `${TEST_EMAIL}` — from WW360_E2E_USERNAME or WW360_TEST_EMAIL
 - `${TEST_PASSWORD}` — from WW360_E2E_PASSWORD or WW360_TEST_PASSWORD
 
+### Test: Hudson Falls district roles (optional)
+**Prereq:** Run `python backend/scripts/seed_hudson_falls_district.py` on the backend host.
+**Credentials:** `hf-manager` / `hf-operator-1` with `WW360_SEED_DISTRICT_PASSWORD` (default `ChangeMe-HFWD!`).
+**Steps:**
+1. Log in as `hf-manager` → `/dashboard` shows District dashboard + documentation widgets
+2. Log in as `hf-operator-1` → Operator home; no Executive/Admin nav
+3. Assign primary coverage to linked operator → documentation task appears in operator home
+4. Operator submits tutorial for review → manager review queue count increases
+
+Playwright: `frontend/e2e/district_roles.spec.ts` (manifest `district-roles`).
+
 ## Smoke Tests (Required)
 
 ### Test: Landing Load
@@ -32,7 +43,7 @@ Pipeline QA uses credentials from `~/.openclaw/openclaw.env` with prefix `WW360`
 **Steps:**
 1. Wait 2
 **Expected:**
-- See "Sign in to Workforce 360"
+- See "Sign in to Water Workforce 360"
 - input#password visible
 
 ## Authenticated (Required when credentials set)
@@ -49,6 +60,21 @@ Pipeline QA uses credentials from `~/.openclaw/openclaw.env` with prefix `WW360`
 **Expected:**
 - URL contains /dashboard
 - KPI or executive overview content visible
+- Digital reach teaser visible with link "Open Digital reach"
+
+### Test: Digital Reach Analytics
+**URL:** ${BASE_URL}/analytics
+**Steps:**
+1. Wait 3
+2. Click tab "onewaterworkforce.org"
+3. Wait 1
+4. Click tab "Learning Stream"
+5. Wait 1
+**Expected:**
+- See "Digital reach"
+- Property tabs for WW360, onewaterworkforce.org, Learning Stream
+- Top organic queries section visible
+- Sample data badge on OWW / LS tabs
 
 ### Test: Water System Landscape
 **URL:** ${BASE_URL}/water-systems
@@ -83,6 +109,18 @@ Pipeline QA uses credentials from `~/.openclaw/openclaw.env` with prefix `WW360`
 - See "Program briefs"
 - Button "New document" visible
 - Button "Import" visible
+- Button "Record tutorial" visible
+
+### Test: Document Studio — Record tutorial mode picker
+**URL:** ${BASE_URL}/studio
+**Steps:**
+1. Wait 3
+2. Click button "Record tutorial"
+3. Wait 1
+**Expected:**
+- Modal "Record tutorial" visible
+- Five recording modes: Screen, Screen + Camera, Camera only, Voice only, Screenshots
+- Close dismisses the modal (no live screen capture required)
 
 ### Test: Document Studio Tour
 **URL:** ${BASE_URL}/studio

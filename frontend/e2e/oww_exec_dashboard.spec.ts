@@ -21,11 +21,11 @@ test.describe('OWW executive dashboard', () => {
     expect(token).toBeTruthy();
 
     await page.addInitScript(
-      ({ tok }) => {
+      ({ tok, uid }) => {
         localStorage.setItem('ww360-auth-token', tok);
-        localStorage.setItem('ww360-oww-tour-dismissed', '1');
+        localStorage.setItem(`ww360-oww-tour-dismissed:u${uid}`, '1');
       },
-      { tok: token }
+      { tok: token, uid: body.user.id as number }
     );
   });
 
@@ -41,5 +41,11 @@ test.describe('OWW executive dashboard', () => {
     await expect(page.locator('[data-tour="sdwis-landscape"]')).toContainText(
       /water system landscape/i
     );
+  });
+
+  test('shows digital reach teaser with link', async ({ page }) => {
+    await page.goto('/dashboard');
+    await expect(page.locator('[data-tour="digital-teaser"]')).toBeVisible();
+    await expect(page.getByRole('link', { name: /Open Digital reach/i })).toBeVisible();
   });
 });

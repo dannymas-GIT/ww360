@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { API_BASE_URL } from '@/lib/constants';
+import { clearWw360TourStorage } from '@/components/ww360/Ww360TourOverlay';
 
 export const AUTH_TOKEN_KEY = 'ww360-auth-token';
 export const MODULE_CORE = 'core';
@@ -29,6 +30,47 @@ export async function login(username: string, password: string) {
   return data as { access_token: string; user: WW360User };
 }
 
+export const SSO_PENDING_KEY = 'ww360.auth.sso-pending';
+
+export type SsoProviderId = 'microsoft_graph' | 'google_drive';
+
+export async function fetchSsoProviders(): Promise<Array<{ id: SsoProviderId; label: string }>> {
+  try {
+    const { data } = await axios.get(`${API_BASE_URL}/auth/sso/providers`);
+    return (data?.providers || []) as Array<{ id: SsoProviderId; label: string }>;
+  } catch {
+    return [];
+  }
+}
+
+export async function getSsoAuthUrl(provider: SsoProviderId, redirectUri: string, state: string) {
+  const { data } = await axios.get(`${API_BASE_URL}/auth/sso/auth-url`, {
+    params: { provider, redirect_uri: redirectUri, state },
+  });
+  return data as { auth_url: string; provider: string; redirect_uri: string };
+}
+
+export async function completeSsoCallback(params: {
+  provider: SsoProviderId;
+  code: string;
+  redirectUri: string;
+  state?: string;
+}) {
+  const { data } = await axios.post(`${API_BASE_URL}/auth/sso/callback`, {
+    provider: params.provider,
+    code: params.code,
+    redirect_uri: params.redirectUri,
+    state: params.state,
+  });
+  localStorage.setItem(AUTH_TOKEN_KEY, data.access_token);
+  return data as {
+    access_token: string;
+    user: WW360User;
+    library_provider?: string;
+    library_linked?: boolean;
+  };
+}
+
 export async function redeemHandoff(code: string) {
   const { data } = await axios.post(`${API_BASE_URL}/auth/handoff`, { code });
   localStorage.setItem(AUTH_TOKEN_KEY, data.access_token);
@@ -41,5 +83,6 @@ export async function fetchMe(): Promise<WW360User> {
 }
 
 export function logout() {
+  clearWw360TourStorage();
   localStorage.removeItem(AUTH_TOKEN_KEY);
 }

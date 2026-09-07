@@ -35,6 +35,22 @@ def _run_sdwis_refresh() -> None:
         db.close()
 
 
+def _run_documentation_notifier() -> None:
+    db = SessionLocal()
+    try:
+        from app.services.documentation_task_notifier import run_documentation_task_notifier
+        from app.services.documentation_task_service import mark_overdue_tasks
+        from app.services.workforce_succession.alert_scanner import scan_all_districts
+
+        mark_overdue_tasks(db)
+        run_documentation_task_notifier(db)
+        scan_all_districts(db)
+    except Exception as exc:
+        logger.warning("Documentation / alert job failed: %s", exc)
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _scheduler
@@ -47,8 +63,12 @@ async def lifespan(app: FastAPI):
     if settings.SDWIS_SYNC_ENABLED:
         _scheduler = BackgroundScheduler()
         _scheduler.add_job(_run_sdwis_refresh, "cron", hour=3, minute=0, id="sdwis_state_refresh")
+        _scheduler.add_job(
+            _run_documentation_notifier, "cron", hour=8, minute=0, id="documentation_task_notifier"
+        )
         _scheduler.start()
         logger.info("SDWIS nightly refresh scheduled (03:00 UTC)")
+        logger.info("Documentation task notifier scheduled (08:00 UTC)")
 
     yield
 

@@ -3,8 +3,9 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, LogOut, Menu } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { getWw360LogoPath, WW360_LOGO_SIZE } from '@/utils/brandHost';
-import { ww360NavGroups, navItemTo } from './navConfig';
+import { ww360NavGroups, navItemTo, navGroupsForRoles } from './navConfig';
 import { Button } from '@/components/ui/button';
+import { NotificationBell } from './NotificationBell';
 
 function ensureWw360Fonts() {
   if (typeof document === 'undefined') return;
@@ -19,7 +20,8 @@ function ensureWw360Fonts() {
 }
 
 export const AppShell: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, userRoles } = useAuth();
+  const navGroups = navGroupsForRoles(userRoles, user?.districts ?? []);
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -44,14 +46,14 @@ export const AppShell: React.FC = () => {
           <Link to="/dashboard" className="block w-full">
             <img
               src={logo}
-              alt="Workforce 360"
+              alt="Water Workforce 360"
               className="mx-auto w-auto max-w-full object-contain"
               style={{ height: sidebarLogoH, minHeight: sidebarLogoH }}
             />
           </Link>
         </div>
         <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-6">
-          {ww360NavGroups.map(group => (
+          {navGroups.map(group => (
             <div key={group.id}>
               {!collapsed && (
                 <p className="px-3 mb-2 text-[10px] uppercase tracking-wider text-slate-400">
@@ -86,7 +88,10 @@ export const AppShell: React.FC = () => {
             </div>
           ))}
         </nav>
-        <div className="p-3 border-t border-white/10">
+        <div className="p-3 border-t border-white/10 space-y-2">
+          <div className="flex justify-end md:justify-start">
+            <NotificationBell />
+          </div>
           {!collapsed && user && (
             <p className="text-xs text-slate-400 truncate mb-2">{user.username}</p>
           )}
@@ -115,7 +120,7 @@ export const AppShell: React.FC = () => {
           <Link to="/dashboard" className="min-w-0 flex-1 flex items-center">
             <img
               src={logo}
-              alt="Workforce 360"
+              alt="Water Workforce 360"
               className="w-auto max-w-full object-contain"
               style={{
                 height: WW360_LOGO_SIZE.navMinPx,
@@ -129,7 +134,7 @@ export const AppShell: React.FC = () => {
         </header>
         {mobileOpen && (
           <div className="md:hidden bg-[#07111f] text-white px-4 pb-4 space-y-2">
-            {ww360NavGroups.flatMap(g => g.items).map(item => (
+            {navGroups.flatMap(g => g.items).map(item => (
               <Link
                 key={item.label}
                 to={navItemTo(item)}

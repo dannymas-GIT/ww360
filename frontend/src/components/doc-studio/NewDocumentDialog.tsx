@@ -12,9 +12,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   STUDIO_TEMPLATE_CATEGORIES,
-  STUDIO_TEMPLATES,
+  groupedTemplatesForAudience,
+  newDocumentDialogBlurb,
   type StudioTemplate,
-  type StudioTemplateCategory,
+  type StudioTemplateAudience,
 } from '@/config/studioTemplates';
 import type { DocFolder } from '@/services/docStudioService';
 
@@ -28,11 +29,11 @@ export interface NewDocumentDialogProps {
    * clickable and outside clicks don't dismiss the gallery.
    */
   tourActive?: boolean | undefined;
+  /** Filters the gallery to program / district / operator starters. */
+  audience?: StudioTemplateAudience;
   onClose: () => void;
   onCreate: (payload: { title: string; folder_id: string | null; template: StudioTemplate }) => void;
 }
-
-const CATEGORY_ORDER: StudioTemplateCategory[] = ['brief', 'training', 'grant', 'outreach', 'operations'];
 
 export function NewDocumentDialog({
   open,
@@ -40,6 +41,7 @@ export function NewDocumentDialog({
   defaultFolderId,
   busy,
   tourActive = false,
+  audience = 'program',
   onClose,
   onCreate,
 }: NewDocumentDialogProps) {
@@ -55,19 +57,16 @@ export function NewDocumentDialog({
     }
   }, [open, defaultFolderId]);
 
-  const template = useMemo(
-    () => STUDIO_TEMPLATES.find(t => t.id === templateId) ?? STUDIO_TEMPLATES[0],
-    [templateId]
-  );
+  const grouped = useMemo(() => groupedTemplatesForAudience(audience), [audience]);
 
-  const grouped = useMemo(() => {
-    const map = new Map<StudioTemplateCategory, StudioTemplate[]>();
-    STUDIO_TEMPLATES.forEach(t => map.set(t.category, [...(map.get(t.category) ?? []), t]));
-    return CATEGORY_ORDER.filter(c => map.has(c)).map(c => ({ category: c, items: map.get(c)! }));
-  }, []);
+  const template = useMemo(() => {
+    const flat = grouped.flatMap(g => g.items);
+    return flat.find(t => t.id === templateId) ?? flat[0];
+  }, [grouped, templateId]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!template) return;
     const finalTitle = title.trim() || (template.id === 'blank' ? 'Untitled document' : template.name);
     onCreate({ title: finalTitle, folder_id: folderId, template });
   };
@@ -89,10 +88,7 @@ export function NewDocumentDialog({
             <DialogTitle className="flex items-center gap-2">
               <FilePlus2 className="h-5 w-5 text-sky-600" /> New document
             </DialogTitle>
-            <DialogDescription>
-              Pick a starting point. Templates are written for One Water Workforce content — briefs,
-              cohorts, grant narratives and outreach.
-            </DialogDescription>
+            <DialogDescription>{newDocumentDialogBlurb(audience)}</DialogDescription>
           </DialogHeader>
 
           <div className="mt-4 grid gap-4 md:grid-cols-[1fr_260px]">
@@ -138,7 +134,7 @@ export function NewDocumentDialog({
                   autoFocus
                   value={title}
                   onChange={e => setTitle(e.target.value)}
-                  placeholder={template.id === 'blank' ? 'Untitled document' : template.name}
+                  placeholder={template?.id === 'blank' ? 'Untitled document' : template?.name}
                   maxLength={200}
                 />
               </label>
@@ -157,16 +153,18 @@ export function NewDocumentDialog({
                   ))}
                 </select>
               </label>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-                <p className="font-semibold text-slate-800">{template.name}</p>
-                <p className="mt-1">{template.description}</p>
-                {template.markdown ? (
-                  <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap font-sans text-[11px] leading-relaxed text-slate-500">
-                    {template.markdown.slice(0, 600)}
-                    {template.markdown.length > 600 ? '…' : ''}
-                  </pre>
-                ) : null}
-              </div>
+              {template ? (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                  <p className="font-semibold text-slate-800">{template.name}</p>
+                  <p className="mt-1">{template.description}</p>
+                  {template.markdown ? (
+                    <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap font-sans text-[11px] leading-relaxed text-slate-500">
+                      {template.markdown.slice(0, 600)}
+                      {template.markdown.length > 600 ? '…' : ''}
+                    </pre>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </div>
 
@@ -174,7 +172,7 @@ export function NewDocumentDialog({
             <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
               Cancel
             </Button>
-            <Button type="submit" disabled={busy} className="bg-[#07111f] text-white hover:bg-slate-800">
+            <Button type="submit" disabled={busy || !template} className="bg-[#07111f] text-white hover:bg-slate-800">
               {busy ? 'Creating…' : 'Create document'}
             </Button>
           </DialogFooter>

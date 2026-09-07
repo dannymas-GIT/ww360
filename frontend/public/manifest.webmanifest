@@ -1,15 +1,15 @@
 {
-  "name": "AquaSafe Monitor",
-  "short_name": "AquaSafe",
-  "start_url": "/dashboard/today",
+  "name": "Water Workforce 360",
+  "short_name": "WW360",
+  "start_url": "/dashboard",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "background_color": "#07111f",
+  "theme_color": "#2563eb",
   "icons": [
     {
-      "src": "/aquasafe-favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/workforce-360-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any"
     }
   ]

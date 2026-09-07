@@ -21,9 +21,12 @@ interface AuthContextValue {
   isSystemAdmin: boolean;
   isCeuAdmin: boolean;
   isWorkforceOperator: boolean;
+  isDistrictUser: boolean;
+  isDistrictManager: boolean;
   canManageWorkforce: boolean;
   actingDistrictCode: string | null;
   login: (username: string, password: string) => Promise<void>;
+  applySessionUser: (user: WW360User) => void;
   redeemHandoffCode: (code: string) => Promise<void>;
   logout: () => void;
   hasAnyRole: (...roles: string[]) => boolean;
@@ -61,6 +64,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(data.user);
   }, []);
 
+  const applySessionUser = useCallback((next: WW360User) => {
+    setUser(next);
+  }, []);
+
   const redeemHandoffCode = useCallback(async (code: string) => {
     const data = await redeemHandoff(code);
     setUser(data.user);
@@ -72,7 +79,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const hasAnyRole = useCallback(
-    (...roles: string[]) => roles.some(r => user?.roles.includes(r)),
+    (...roles: string[]) => {
+      const mine = Array.isArray(user?.roles) ? user!.roles : [];
+      return roles.some(r => mine.includes(r));
+    },
     [user]
   );
 
@@ -91,16 +101,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isGlobalAdmin: isPlatformAdmin,
       isSystemAdmin: isPlatformAdmin,
       isCeuAdmin: hasAnyRole('ceu_admin'),
-      isWorkforceOperator: hasAnyRole('workforce_operator'),
+      isWorkforceOperator: hasAnyRole('workforce_operator', 'ceu_user', 'district_operator'),
+      isDistrictUser: hasAnyRole(
+        'district_admin',
+        'district_manager',
+        'district_operator',
+        'ceu_user',
+        'district_viewer'
+      ),
+      isDistrictManager: hasAnyRole('district_admin', 'district_manager', 'ceu_manager', 'workforce_manager'),
       canManageWorkforce:
-        isPlatformAdmin || hasAnyRole('district_admin', 'admin', 'ceu_admin', 'workforce_manager'),
+        isPlatformAdmin ||
+        hasAnyRole('district_admin', 'admin', 'ceu_admin', 'workforce_manager', 'district_manager', 'ceu_manager'),
       actingDistrictCode: user?.districts?.[0] ?? null,
       login,
+      applySessionUser,
       redeemHandoffCode,
       logout,
       hasAnyRole,
     }),
-    [user, loading, login, redeemHandoffCode, logout, hasAnyRole, userRoles, isPlatformAdmin]
+    [user, loading, login, applySessionUser, redeemHandoffCode, logout, hasAnyRole, userRoles, isPlatformAdmin]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

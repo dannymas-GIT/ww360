@@ -7,10 +7,12 @@ images, ``**bold**`` / ``*em*`` / `` `code` `` inline marks and ``---`` rules.
 
 from __future__ import annotations
 
+import base64
 import html
 import io
 import logging
 import re
+from pathlib import Path
 from dataclasses import dataclass, field
 
 from app.models.doc_document import DocAsset, DocDocument
@@ -19,9 +21,39 @@ from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
+
 BRAND_NAVY = "#07111f"
 BRAND_SKY = "#38bdf8"
 BRAND_SLATE = "#475569"
+BRAND_LINE = "WATER WORKFORCE 360 · NYSAWWA · ONE WATER WORKFORCE"
+
+# Logo for printables — prefer the light-background lockup shipped with the backend image.
+_BRAND_LOGO_CANDIDATES = (
+    Path(__file__).resolve().parent.parent / "assets" / "brand" / "workforce-360-logo.png",
+    Path(__file__).resolve().parents[3] / "frontend" / "public" / "workforce-360-logo.png",
+)
+
+
+def brand_logo_path() -> Path | None:
+    for candidate in _BRAND_LOGO_CANDIDATES:
+        try:
+            if candidate.is_file():
+                return candidate
+        except OSError:
+            continue
+    return None
+
+
+def brand_logo_data_uri() -> str | None:
+    path = brand_logo_path()
+    if not path:
+        return None
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return None
+    return "data:image/png;base64," + base64.b64encode(data).decode("ascii")
+
 
 
 # ── Markdown block parser (small, dependency-free) ──────────────────────────
@@ -230,10 +262,22 @@ class DocStudioExportService:
             "table{border-collapse:collapse;width:100%} td,th{border:1px solid #cbd5e1;padding:.35rem .5rem} th{background:#e0f2fe;text-align:left} "
             "blockquote{border-left:4px solid #38bdf8;margin:0;padding:.25rem 1rem;color:#334155;background:#f0f9ff} "
             "pre{background:#0f172a;color:#e2e8f0;padding:.75rem;border-radius:.5rem;overflow:auto} img{max-width:100%} "
-            ".brand{font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;color:#0369a1;font-weight:600}</style></head><body>",
-            "<p class='brand'>Water Workforce 360 · One Water Workforce</p>",
-            f"<h1>{html.escape(doc.title or '')}</h1>",
+            ".brand{font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;color:#0369a1;font-weight:600;margin:.5rem 0 0}"
+            ".brand-lockup{display:flex;flex-direction:column;align-items:flex-start;gap:.15rem;margin:0 0 1.35rem}"
+            ".brand-lockup img{height:96px;width:auto;max-width:min(100%,360px);display:block}"
+            "@media print{.brand-lockup img{height:88px}}</style></head><body>",
         ]
+        logo_uri = brand_logo_data_uri()
+        if logo_uri:
+            parts.append(
+                "<div class='brand-lockup'>"
+                f"<img src='{logo_uri}' alt='Water Workforce 360'/>"
+                f"<p class='brand'>{html.escape(BRAND_LINE)}</p>"
+                "</div>"
+            )
+        else:
+            parts.append(f"<p class='brand'>{html.escape(BRAND_LINE)}</p>")
+        parts.append(f"<h1>{html.escape(doc.title or '')}</h1>")
         for b in parse_markdown(doc.content_markdown or ""):
             if b.kind == "heading":
                 lvl = min(6, max(1, b.level + 1))
@@ -344,9 +388,10 @@ class DocStudioExportService:
         brand_style = ParagraphStyle(
             "ww-brand",
             parent=base,
-            fontSize=8,
+            fontSize=9,
             textColor=colors.HexColor("#0369a1"),
             alignment=TA_LEFT,
+            spaceAfter=2,
         )
         title_style = ParagraphStyle(
             "ww-title",
@@ -369,11 +414,26 @@ class DocStudioExportService:
             title=doc.title or "Document",
             author="Water Workforce 360",
         )
-        story: list = [
-            Paragraph("WATER WORKFORCE 360 · ONE WATER WORKFORCE", brand_style),
-            Paragraph(html.escape(doc.title or "Document"), title_style),
-            HRFlowable(width="100%", thickness=2, color=colors.HexColor(BRAND_SKY), spaceAfter=10),
-        ]
+        story: list = []
+        logo_path = brand_logo_path()
+        if logo_path:
+            try:
+                # ~3.25" wide lockup; height from intrinsic 1200×867 aspect ratio.
+                logo_w = 3.25 * inch
+                logo_h = logo_w * (867 / 1200)
+                story.append(Image(str(logo_path), width=logo_w, height=logo_h))
+                story.append(Spacer(1, 6))
+            except Exception:
+                logger.exception("Failed to embed brand logo in PDF export")
+        story.extend(
+            [
+                Paragraph(BRAND_LINE, brand_style),
+                Paragraph(html.escape(doc.title or "Document"), title_style),
+                HRFlowable(
+                    width="100%", thickness=2, color=colors.HexColor(BRAND_SKY), spaceAfter=10
+                ),
+            ]
+        )
         avail_w = letter[0] - pdf.leftMargin - pdf.rightMargin
 
         for b in parse_markdown(doc.content_markdown or ""):
@@ -478,9 +538,15 @@ class DocStudioExportService:
 
         doc = self._doc(scope, document_id)
         d = Document()
+        logo_path = brand_logo_path()
+        if logo_path:
+            try:
+                d.add_picture(str(logo_path), width=Inches(3.25))
+            except Exception:
+                logger.exception("Failed to embed brand logo in DOCX export")
         brand = d.add_paragraph()
-        run = brand.add_run("WATER WORKFORCE 360 · ONE WATER WORKFORCE")
-        run.font.size = Pt(8)
+        run = brand.add_run(BRAND_LINE)
+        run.font.size = Pt(9)
         run.font.color.rgb = RGBColor(0x03, 0x69, 0xA1)
         d.add_heading(doc.title or "Document", level=0)
 

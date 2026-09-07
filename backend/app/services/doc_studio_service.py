@@ -4,13 +4,13 @@ Roles
 -----
 Authors: platform_admin, oww_partner, district_admin, district_manager,
 ceu_admin, workforce_manager. Viewers: any authenticated WW360 user.
+Operators may author when recorder access allows.
 """
 
 from __future__ import annotations
 
 import logging
 import re
-from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
@@ -30,6 +30,11 @@ from app.schemas.doc_studio import (
     DocVersionDetail,
     DocVersionRead,
 )
+from app.services.doc_studio_seeds import (
+    LIBRARY_SEED_TAG,
+    folders_for_scope,
+    seed_docs_for_scope,
+)
 from app.tenant_auth import TenantContext
 from fastapi import HTTPException, status
 from sqlalchemy import func, or_
@@ -47,14 +52,7 @@ AUTHOR_ROLES = {
     "admin",
 }
 PUBLISH_ROLES = {"platform_admin", "oww_partner", "district_admin", "ceu_admin", "admin"}
-
-DEFAULT_PROGRAM_FOLDERS: Sequence[tuple[str, str]] = (
-    ("Program briefs", "Regional and statewide workforce briefs for partners and funders."),
-    ("Training & cohorts", "Cohort plans, course outlines and Learning Stream announcements."),
-    ("Grant reporting", "EPA Area 3 narratives, quarterly packages and measure write-ups."),
-    ("Outreach", "Utility invitations, newsletters and career-pipeline messaging."),
-    ("Templates", "Reusable starting points — copy into a folder before editing."),
-)
+CUSTODY_TRANSFER_ROLES = PUBLISH_ROLES | {"district_manager", "workforce_manager"}
 
 ASSET_URL_PREFIX = "/api/v1/doc-studio/assets"
 _WORD_RE = re.compile(r"[A-Za-z0-9’'-]+")
@@ -95,8 +93,15 @@ class DocStudioService:
 
     def access(self, context: TenantContext, scope: str) -> DocStudioAccess:
         roles = set(context.roles)
+        operator_roles = {"ceu_user", "district_operator", "workforce_operator"}
         can_author = context.is_global_admin or bool(roles & AUTHOR_ROLES)
+        if not can_author and roles & operator_roles:
+            from app.services.documentation_task_service import recorder_access
+
+            rec = recorder_access(self.db, context, scope)
+            can_author = rec.can_record
         can_publish = context.is_global_admin or bool(roles & PUBLISH_ROLES)
+        can_custody = context.is_global_admin or bool(roles & CUSTODY_TRANSFER_ROLES)
         label = (
             "One Water Workforce program library" if scope == PROGRAM_SCOPE else f"{scope} library"
         )
@@ -107,6 +112,8 @@ class DocStudioService:
             can_author=can_author,
             can_publish=can_publish,
             can_manage_folders=can_author,
+            can_connect_library=can_author,
+            can_custody_transfer=can_custody,
             roles=sorted(roles),
         )
 
@@ -122,17 +129,19 @@ class DocStudioService:
                 status.HTTP_403_FORBIDDEN, "Publishing requires an admin or program partner role"
             )
 
-    # ── Folders ────────────────────────────────────────────────────────────
+    # ── Folders + library samples ──────────────────────────────────────────
 
     def ensure_default_folders(self, scope: str, user_id: int | None) -> None:
-        if scope != PROGRAM_SCOPE:
-            return
-        existing = (
-            self.db.query(func.count(DocFolder.id)).filter(DocFolder.scope == scope).scalar() or 0
-        )
-        if existing:
-            return
-        for idx, (name, desc) in enumerate(DEFAULT_PROGRAM_FOLDERS):
+        """Create any missing default folders (safe to call on every access)."""
+        defaults = folders_for_scope(scope)
+        existing_names = {
+            name
+            for (name,) in self.db.query(DocFolder.name).filter(DocFolder.scope == scope).all()
+        }
+        added = False
+        for idx, (name, desc) in enumerate(defaults):
+            if name in existing_names:
+                continue
             self.db.add(
                 DocFolder(
                     scope=scope,
@@ -143,7 +152,80 @@ class DocStudioService:
                     created_by=user_id,
                 )
             )
-        self.db.commit()
+            added = True
+        if added:
+            self.db.commit()
+
+    def ensure_library_samples(self, scope: str, user_id: int | None) -> None:
+        """Idempotently seed sample documents so empty libraries are not blank.
+
+        Uses tags ``library_seed`` + ``template_id`` so re-runs skip existing seeds
+        without blocking user-created docs that happen to share a title.
+        """
+        self.ensure_default_folders(scope, user_id)
+        seeds = seed_docs_for_scope(scope)
+        if not seeds:
+            return
+
+        folders = {
+            f.name: f
+            for f in self.db.query(DocFolder).filter(DocFolder.scope == scope).all()
+        }
+        existing_template_ids: set[str] = set()
+        for (tags,) in (
+            self.db.query(DocDocument.tags)
+            .filter(DocDocument.scope == scope, DocDocument.status != "archived")
+            .all()
+        ):
+            if not isinstance(tags, list):
+                continue
+            if LIBRARY_SEED_TAG not in tags:
+                continue
+            for t in tags:
+                if isinstance(t, str) and t.startswith("template:"):
+                    existing_template_ids.add(t.split(":", 1)[1])
+
+        added = False
+        for seed in seeds:
+            if seed["template_id"] in existing_template_ids:
+                continue
+            folder = folders.get(seed["folder"])
+            md = seed["markdown"]
+            d = DocDocument(
+                scope=scope,
+                folder_id=folder.id if folder else None,
+                title=seed["title"],
+                doc_type=seed.get("doc_type") or "document",
+                status="draft",
+                summary="Starter sample — edit or duplicate for your utility.",
+                tags=[LIBRARY_SEED_TAG, f"template:{seed['template_id']}"],
+                template_id=seed["template_id"],
+                content_markdown=md,
+                version_no=1,
+                word_count=_word_count(md),
+                created_by=user_id,
+                updated_by=user_id,
+            )
+            self.db.add(d)
+            self.db.flush()
+            self.db.add(
+                DocVersion(
+                    document_id=d.id,
+                    version_no=1,
+                    title=d.title,
+                    content_markdown=md,
+                    note=f"Library sample from template {seed['template_id']}",
+                    kind="save",
+                    created_by=user_id,
+                )
+            )
+            added = True
+        if added:
+            self.db.commit()
+
+    def provision_library(self, scope: str, user_id: int | None) -> None:
+        """Folders + sample docs for the active scope."""
+        self.ensure_library_samples(scope, user_id)
 
     def list_folders(self, scope: str) -> list[DocFolderRead]:
         counts = dict(
@@ -242,6 +324,7 @@ class DocStudioService:
         folder_id: str | None = None,
         q: str | None = None,
         status_filter: str | None = None,
+        review_state: str | None = None,
         include_archived: bool = False,
         limit: int = 200,
     ) -> list[DocDocumentRead]:
@@ -252,6 +335,8 @@ class DocStudioService:
             query = query.filter(DocDocument.folder_id == folder_id)
         if status_filter:
             query = query.filter(DocDocument.status == status_filter)
+        if review_state:
+            query = query.filter(DocDocument.review_state == review_state)
         elif not include_archived:
             query = query.filter(DocDocument.status != "archived")
         if q:
@@ -266,8 +351,24 @@ class DocStudioService:
         rows = query.order_by(DocDocument.updated_at.desc()).limit(limit).all()
         return [DocDocumentRead.model_validate(r) for r in rows]
 
+    def require_custody_transfer(self, context: TenantContext, scope: str) -> None:
+        if not self.access(context, scope).can_custody_transfer:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "Custody transfer requires a manager or publish role",
+            )
+
+    def document_detail(self, scope: str, document_id: str) -> DocDocumentDetail:
+        row = self._get_document_row(scope, document_id)
+        detail = DocDocumentDetail.model_validate(row)
+        if row.external_ref:
+            from app.schemas.doc_studio import DocExternalRefRead
+
+            detail.external_ref = DocExternalRefRead.model_validate(row.external_ref)
+        return detail
+
     def get_document(self, scope: str, document_id: str) -> DocDocumentDetail:
-        return DocDocumentDetail.model_validate(self._get_document_row(scope, document_id))
+        return self.document_detail(scope, document_id)
 
     def create_document(
         self, scope: str, payload: DocDocumentCreate, user_id: int | None
@@ -279,13 +380,14 @@ class DocStudioService:
             scope=scope,
             folder_id=payload.folder_id,
             title=payload.title.strip(),
-            doc_type="document",
+            doc_type=payload.doc_type or "document",
             status="draft",
             summary=payload.summary,
             tags=payload.tags,
             template_id=payload.template_id,
             content_markdown=md,
             content_json=payload.content_json,
+            tutorial_data=payload.tutorial_data,
             version_no=1,
             word_count=_word_count(md),
             created_by=user_id,
@@ -300,6 +402,7 @@ class DocStudioService:
                 title=d.title,
                 content_markdown=md,
                 content_json=payload.content_json,
+                tutorial_data=payload.tutorial_data,
                 note="Created"
                 + (f" from template {payload.template_id}" if payload.template_id else ""),
                 kind="save",
@@ -392,9 +495,10 @@ class DocStudioService:
             changed = True
         d.content_markdown = payload.content_markdown or ""
         d.content_json = payload.content_json
+        if payload.tutorial_data is not None:
+            d.tutorial_data = payload.tutorial_data
         d.word_count = _word_count(d.content_markdown)
         d.updated_by = user_id
-        d.doc_type = "document"
         if (changed and not payload.autosave) or payload.force_version:
             d.version_no = int(d.version_no or 1) + 1
             self.db.add(
@@ -404,6 +508,7 @@ class DocStudioService:
                     title=d.title,
                     content_markdown=d.content_markdown,
                     content_json=d.content_json,
+                    tutorial_data=d.tutorial_data,
                     note=payload.note,
                     kind="save",
                     created_by=user_id,
@@ -414,9 +519,20 @@ class DocStudioService:
         self.db.refresh(d)
         return DocDocumentDetail.model_validate(d)
 
+    def set_review_state(
+        self, scope: str, document_id: str, review_state: str, user_id: int | None
+    ) -> DocDocumentDetail:
+        d = self._get_document_row(scope, document_id)
+        d.review_state = review_state
+        d.updated_by = user_id
+        self.db.commit()
+        self.db.refresh(d)
+        return DocDocumentDetail.model_validate(d)
+
     def publish(self, scope: str, document_id: str, user_id: int | None) -> DocDocumentDetail:
         d = self._get_document_row(scope, document_id)
         d.status = "published"
+        d.review_state = "approved"
         d.published_at = datetime.utcnow()
         d.updated_by = user_id
         d.version_no = int(d.version_no or 1) + 1
@@ -427,6 +543,7 @@ class DocStudioService:
                 title=d.title,
                 content_markdown=d.content_markdown,
                 content_json=d.content_json,
+                tutorial_data=d.tutorial_data,
                 note="Published",
                 kind="publish",
                 created_by=user_id,
@@ -441,9 +558,11 @@ class DocStudioService:
         payload = DocDocumentCreate(
             title=f"{src.title} (copy)",
             folder_id=src.folder_id,
+            doc_type=src.doc_type or "document",
             template_id=src.template_id,
             content_markdown=src.content_markdown or "",
             content_json=src.content_json,
+            tutorial_data=src.tutorial_data,
             summary=src.summary,
             tags=src.tags,
         )
@@ -497,6 +616,7 @@ class DocStudioService:
         v = self.get_version(scope, document_id, version_no)
         d.content_markdown = v.content_markdown or ""
         d.content_json = v.content_json
+        d.tutorial_data = v.tutorial_data
         d.word_count = _word_count(d.content_markdown)
         d.version_no = int(d.version_no or 1) + 1
         d.updated_by = user_id
@@ -507,6 +627,7 @@ class DocStudioService:
                 title=d.title,
                 content_markdown=d.content_markdown,
                 content_json=d.content_json,
+                tutorial_data=d.tutorial_data,
                 note=f"Restored v{version_no}",
                 kind="restore",
                 created_by=user_id,
@@ -518,7 +639,7 @@ class DocStudioService:
 
     # ── Assets ─────────────────────────────────────────────────────────────
 
-    MAX_ASSET_BYTES = 8 * 1024 * 1024
+    MAX_ASSET_BYTES = 50 * 1024 * 1024  # tutorial video + step screenshots
 
     def create_asset(
         self,

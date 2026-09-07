@@ -1,44 +1,150 @@
 /**
- * Document Studio templates — starting points for One Water Workforce content.
+ * Document Studio templates — starting points by role audience.
  *
- * Markdown here round-trips through tiptap-markdown, so keep to headings,
- * lists, task lists, quotes, pipe tables and horizontal rules.
+ * Markdown round-trips through tiptap-markdown: headings, lists, task lists,
+ * quotes, pipe tables and horizontal rules only.
+ *
+ * Audiences
+ * ---------
+ * - program  — OWW partners / platform admins (statewide library)
+ * - district — utility managers / district admins
+ * - operator — plant operators & CE users
  */
 
-export type StudioTemplateCategory = 'brief' | 'training' | 'grant' | 'outreach' | 'operations';
+export type StudioTemplateAudience = 'program' | 'district' | 'operator';
+
+export type StudioTemplateCategory =
+  | 'brief'
+  | 'training'
+  | 'grant'
+  | 'outreach'
+  | 'operations'
+  | 'compliance'
+  | 'shift';
 
 export interface StudioTemplate {
   id: string;
   name: string;
   description: string;
   category: StudioTemplateCategory;
+  /** Who sees this in New document / insert-template. */
+  audiences: StudioTemplateAudience[];
   /** Short line shown under the name in the gallery. */
   preview: string;
   markdown: string;
 }
 
 export const STUDIO_TEMPLATE_CATEGORIES: Record<StudioTemplateCategory, string> = {
-  brief: 'Program briefs',
-  training: 'Training & cohorts',
+  brief: 'Briefs & updates',
+  training: 'Training & CE',
   grant: 'Grant reporting',
   outreach: 'Outreach',
   operations: 'Operations',
+  compliance: 'Compliance',
+  shift: 'Shift & plant floor',
 };
 
+export const CATEGORY_ORDER: StudioTemplateCategory[] = [
+  'brief',
+  'training',
+  'grant',
+  'outreach',
+  'operations',
+  'compliance',
+  'shift',
+];
+
 export const STUDIO_TEMPLATES: StudioTemplate[] = [
+  // ── Shared ──────────────────────────────────────────────────────────────
   {
     id: 'blank',
     name: 'Blank document',
     description: 'Start from an empty page.',
     category: 'operations',
+    audiences: ['program', 'district', 'operator'],
     preview: 'Type / for headings, lists, tables and more',
     markdown: '',
   },
+  {
+    id: 'tutorial',
+    name: 'Tutorial (blank)',
+    description: 'Empty shell for a step-by-step tutorial — record or attach steps later.',
+    category: 'training',
+    audiences: ['program', 'district', 'operator'],
+    preview: 'Record a walkthrough or build steps manually',
+    markdown: `## Overview
+
+Brief intro learners see before step one.
+
+## Steps
+
+Use **Record tutorial** in the header to capture a walkthrough, or write steps here.
+`,
+  },
+  {
+    id: 'sop',
+    name: 'Standard operating procedure',
+    description: 'Purpose, scope, responsibilities and numbered steps.',
+    category: 'operations',
+    audiences: ['program', 'district', 'operator'],
+    preview: 'SOP layout with safety notes',
+    markdown: `## Purpose
+
+Why this procedure exists.
+
+## Scope
+
+Who and what this SOP applies to.
+
+## Responsibilities
+
+| Role | Responsibility |
+| --- | --- |
+| Operator | Daily execution |
+| Supervisor | Review and approval |
+
+## Procedure
+
+1. **Preparation** — prerequisites and safety checks.
+2. **Execution** — step-by-step instructions.
+3. **Completion** — verification and documentation.
+
+## Safety notes
+
+> **Important:** critical safety considerations.
+`,
+  },
+  {
+    id: 'meeting-notes',
+    name: 'Meeting notes',
+    description: 'Attendees, decisions and action items.',
+    category: 'operations',
+    audiences: ['program', 'district', 'operator'],
+    preview: 'Attendees + decisions + actions',
+    markdown: `## Meeting notes
+
+**Date:**  
+**Attendees:**  
+
+### Agenda
+1. 
+2. 
+
+### Decisions
+- 
+
+### Action items
+- [ ] Owner — action, due date
+`,
+  },
+
+  // ── Program (OWW / platform) ────────────────────────────────────────────
   {
     id: 'regional-brief',
     name: 'Regional workforce brief',
     description: 'One-page picture of supply, demand and risk for a New York region.',
     category: 'brief',
+    audiences: ['program'],
     preview: 'Headline → numbers → gaps → asks',
     markdown: `## Headline
 
@@ -73,6 +179,7 @@ One sentence on the region's workforce position this quarter.
     name: 'Statewide quarterly update',
     description: 'Executive update across all four sources for partners and funders.',
     category: 'brief',
+    audiences: ['program'],
     preview: 'Pipeline → training → employers → compliance backdrop',
     markdown: `## Summary
 
@@ -110,6 +217,7 @@ Counties with the heaviest compliance pressure and how that shapes where we plac
     name: 'Cohort / training plan',
     description: 'Plan a certification cohort or bootcamp end to end.',
     category: 'training',
+    audiences: ['program'],
     preview: 'Audience → schedule → instructors → outcomes',
     markdown: `## Cohort overview
 
@@ -149,6 +257,7 @@ Completion rate, exam pass rate, placements within 90 days, CE hours issued.
     name: 'Course outline',
     description: 'Learning objectives, modules and assessment for a single course.',
     category: 'training',
+    audiences: ['program', 'district'],
     preview: 'Objectives → modules → assessment → CE hours',
     markdown: `## Course
 
@@ -187,6 +296,7 @@ Links, handouts and equipment the instructor needs on day one.
     name: 'EPA Area 3 quarterly narrative',
     description: 'Progress narrative for the grant reporting period, mapped to Tasks 1–4.',
     category: 'grant',
+    audiences: ['program'],
     preview: 'Task-by-task progress, measures, barriers, next period',
     markdown: `## Reporting period
 
@@ -228,6 +338,7 @@ Planned activities and any support requested from EPA.
     name: 'Success story',
     description: 'Short human story for a report, newsletter or funder update.',
     category: 'grant',
+    audiences: ['program'],
     preview: 'Person → challenge → program → outcome → quote',
     markdown: `## Title
 
@@ -257,6 +368,7 @@ Certification earned, job placed, system stabilized. Include a number if you hav
     name: 'Utility invitation letter',
     description: 'Invite a utility to enroll in Water Workforce 360.',
     category: 'outreach',
+    audiences: ['program'],
     preview: 'Why → what they get → what we ask → how to join',
     markdown: `Dear [Utility leader],
 
@@ -289,6 +401,7 @@ One Water Workforce
     name: 'Partner newsletter',
     description: 'Monthly update for utilities, instructors and partners.',
     category: 'outreach',
+    audiences: ['program'],
     preview: 'Lead story → training calendar → spotlight → dates',
     markdown: `## This month
 
@@ -319,6 +432,7 @@ New members on onewaterworkforce.org, upcoming career events, exam dates.
     name: 'Role profile / job posting',
     description: 'Describe an operator role for the career pipeline.',
     category: 'outreach',
+    audiences: ['program', 'district'],
     preview: 'Role → certification → day-to-day → path',
     markdown: `## Role
 
@@ -350,6 +464,7 @@ Contact, deadline and link.
     name: 'Succession planning memo',
     description: 'Summarize continuity risk and a plan for a critical role.',
     category: 'operations',
+    audiences: ['program', 'district'],
     preview: 'Role at risk → timeline → candidates → plan',
     markdown: `## Role at risk
 
@@ -378,62 +493,448 @@ What stops or degrades if this role is vacant.
 - 
 `,
   },
+
+  // ── District manager / utility ──────────────────────────────────────────
   {
-    id: 'meeting-notes',
-    name: 'Meeting notes',
-    description: 'Attendees, decisions and action items.',
-    category: 'operations',
-    preview: 'Attendees + decisions + actions',
-    markdown: `## Meeting notes
+    id: 'util-staffing-brief',
+    name: 'Utility staffing brief',
+    description: 'Snapshot of headcount, certifications, vacancies and near-term risk for your plant.',
+    category: 'brief',
+    audiences: ['district'],
+    preview: 'Headcount → grades → vacancies → asks',
+    markdown: `## Utility staffing brief
 
+**Utility / PWSID:**  
+**Prepared by:**  
 **Date:**  
-**Attendees:**  
 
-### Agenda
-1. 
-2. 
+## Headcount by role
 
-### Decisions
-- 
+| Role / grade | Filled | Vacant | Expected exits (24 mo) |
+| --- | --- | --- | --- |
+| Chief / Grade IA | | | |
+| Operator | | | |
+| Lab / other | | | |
 
-### Action items
-- [ ] Owner — action, due date
+## Certification gaps
+
+Which grades are short, and by how many FTEs.
+
+## Near-term risks
+
+Retirements, leave, or single points of failure in the next 12–24 months.
+
+## Actions
+
+1. **Recruit / promote** — 
+2. **Train / CE** — 
+3. **Document** — SOPs or tutorials to capture before exits
+
+> **Ask:** decision or support needed from the board or partners.
 `,
   },
   {
-    id: 'sop',
-    name: 'Standard operating procedure',
-    description: 'Purpose, scope, responsibilities and numbered steps.',
+    id: 'util-ceu-plan',
+    name: 'Annual CE & training plan',
+    description: 'Plan contact hours and courses for each certified operator this year.',
+    category: 'training',
+    audiences: ['district'],
+    preview: 'Operator → hours needed → courses → due dates',
+    markdown: `## Annual CE & training plan
+
+**Calendar year:**  
+**Utility:**  
+
+## Operator roster
+
+| Operator | Grade | CE due | Hours needed | Planned courses |
+| --- | --- | --- | --- | --- |
+| | | | | |
+
+## Priority courses
+
+| Course | Provider | Target attendees | Window |
+| --- | --- | --- | --- |
+| | | | |
+
+## Budget & coverage
+
+How shifts are covered while staff are in training.
+
+## Tracking
+
+- [ ] Hours logged in Learning Stream / WW360
+- [ ] Certificates filed
+- [ ] Renewals confirmed with DOH
+`,
+  },
+  {
+    id: 'util-board-update',
+    name: 'Board / council workforce update',
+    description: 'One-page update for trustees on staffing, training and continuity.',
+    category: 'brief',
+    audiences: ['district'],
+    preview: 'Status → risk → ask',
+    markdown: `## Workforce update for the board
+
+**Period:**  
+**Prepared by:**  
+
+## Status in one paragraph
+
+Headcount, open roles, and training progress.
+
+## Risks
+
+What could disrupt operations if unaddressed.
+
+## What we did this period
+
+- 
+- 
+
+## What we need
+
+Budget, hiring authority, or partnership support — one clear ask.
+`,
+  },
+  {
+    id: 'util-onboarding',
+    name: 'New hire onboarding checklist',
+    description: 'First-week and first-month checklist for a new operator or trainee.',
+    category: 'training',
+    audiences: ['district', 'operator'],
+    preview: 'Day 1 → week 1 → month 1',
+    markdown: `## New hire onboarding
+
+**Name:**  
+**Role / grade track:**  
+**Start date:**  
+**Buddy / mentor:**  
+
+### Day 1
+- [ ] Badges, keys, PPE issued
+- [ ] Safety orientation
+- [ ] Intro to plant layout and emergency exits
+- [ ] WW360 / Learning Stream login
+
+### Week 1
+- [ ] Shadow shift handoff
+- [ ] Read critical SOPs (list below)
+- [ ] Meet lab, distribution, admin contacts
+
+### Month 1
+- [ ] Complete assigned tutorials
+- [ ] Sit exam prep plan (if upgrading)
+- [ ] 30-day check-in with supervisor
+
+### Critical SOPs to read
+1. 
+2. 
+3. 
+`,
+  },
+  {
+    id: 'util-emergency-ops',
+    name: 'Emergency / after-hours playbook',
+    description: 'Who to call, what to do first, and how to document an after-hours event.',
+    category: 'compliance',
+    audiences: ['district', 'operator'],
+    preview: 'Trigger → notify → act → log',
+    markdown: `## Emergency / after-hours playbook
+
+**System:**  
+**Last reviewed:**  
+
+## When this applies
+
+Power loss, main break, boil-water, chemical alarm, security, other.
+
+## Immediate actions
+
+1. Ensure personal safety.
+2. Stabilize the process if trained to do so.
+3. Notify the on-call supervisor.
+
+## Call tree
+
+| Role | Name | Phone |
+| --- | --- | --- |
+| On-call supervisor | | |
+| Chief operator | | |
+| Utility manager | | |
+| DOH / county (if required) | | |
+
+## Documentation
+
+- [ ] Time of event and who responded
+- [ ] Actions taken
+- [ ] Customers / regulators notified (if any)
+- [ ] Follow-up work order created
+`,
+  },
+  {
+    id: 'util-compliance-checklist',
+    name: 'Monthly compliance checklist',
+    description: 'Recurring sampling, reporting and inspection reminders for the utility.',
+    category: 'compliance',
+    audiences: ['district'],
+    preview: 'Samples → reports → inspections',
+    markdown: `## Monthly compliance checklist
+
+**Month:**  
+**Completed by:**  
+
+### Sampling & lab
+- [ ] Routine samples collected and shipped
+- [ ] Results reviewed and filed
+- [ ] Any detects escalated
+
+### Reporting
+- [ ] Monthly operating report submitted
+- [ ] Consumer / public notices current (if applicable)
+
+### Plant & records
+- [ ] Log books reviewed
+- [ ] Chemical deliveries documented
+- [ ] Calibration / maintenance due items closed
+
+### Notes
+`,
+  },
+  {
+    id: 'util-incident-report',
+    name: 'Utility incident report',
+    description: 'Capture what happened, response, and corrective actions for plant leadership.',
+    category: 'compliance',
+    audiences: ['district', 'operator'],
+    preview: 'What → when → response → follow-up',
+    markdown: `## Incident report
+
+**Date / time:**  
+**Location:**  
+**Reported by:**  
+**Severity:** near miss / minor / major  
+
+## What happened
+
+## Immediate response
+
+## People / systems affected
+
+## Root cause (known or suspected)
+
+## Corrective actions
+
+| Action | Owner | Due |
+| --- | --- | --- |
+| | | |
+
+## Notifications made
+
+- [ ] Supervisor
+- [ ] Manager
+- [ ] Regulator (if required)
+`,
+  },
+
+  // ── Operator / plant floor ──────────────────────────────────────────────
+  {
+    id: 'op-shift-handoff',
+    name: 'Shift handoff notes',
+    description: 'What the next operator needs to know — status, alarms, work in progress.',
+    category: 'shift',
+    audiences: ['operator', 'district'],
+    preview: 'Status → alarms → WIP → asks',
+    markdown: `## Shift handoff
+
+**From:**  
+**To:**  
+**Date / shift:**  
+
+## Plant status
+
+Process summary in a few sentences.
+
+## Alarms & issues this shift
+
+| Time | Alarm / issue | Cleared? | Notes |
+| --- | --- | --- | --- |
+| | | | |
+
+## Work in progress
+
+- 
+
+## Samples / chemical adds
+
+- 
+
+## For the next operator
+
+- [ ] 
+`,
+  },
+  {
+    id: 'op-rounds-log',
+    name: 'Daily rounds log',
+    description: 'Checklist-style rounds with readings and notes for the shift.',
+    category: 'shift',
+    audiences: ['operator'],
+    preview: 'Station → reading → OK / action',
+    markdown: `## Daily rounds
+
+**Operator:**  
+**Date / shift:**  
+
+| Station / check | Reading / status | OK? | Action |
+| --- | --- | --- | --- |
+| Clearwell level | | | |
+| Filters | | | |
+| High service pumps | | | |
+| Chlorine residual | | | |
+| Generator / SCADA | | | |
+
+## Notes
+
+`,
+  },
+  {
+    id: 'op-documentation-task',
+    name: 'Documentation task write-up',
+    description: 'Capture knowledge for a documentation assignment from your operator home.',
     category: 'operations',
-    preview: 'SOP layout with safety notes',
-    markdown: `## Purpose
+    audiences: ['operator'],
+    preview: 'Task → steps → tips → done',
+    markdown: `## Documentation task
 
-Why this procedure exists.
+**Task / procedure:**  
+**Assigned by:**  
+**Due:**  
 
-## Scope
+## Why this matters
 
-Who and what this SOP applies to.
+Who uses this procedure and what goes wrong if it is missing.
 
-## Responsibilities
+## Steps (as performed)
 
-| Role | Responsibility |
-| --- | --- |
-| Operator | Daily execution |
-| Supervisor | Review and approval |
+1. 
+2. 
+3. 
 
-## Procedure
+## Tips & gotchas
 
-1. **Preparation** — prerequisites and safety checks.
-2. **Execution** — step-by-step instructions.
-3. **Completion** — verification and documentation.
+- 
 
-## Safety notes
+## Attachments / recording
 
-> **Important:** critical safety considerations.
+- [ ] Tutorial recorded in Document Studio
+- [ ] Photos or diagrams attached
+
+## Ready for review
+
+- [ ] Draft complete — notify manager
+`,
+  },
+  {
+    id: 'op-equipment-check',
+    name: 'Equipment check sheet',
+    description: 'Inspect a pump, generator, or other asset and log findings.',
+    category: 'shift',
+    audiences: ['operator', 'district'],
+    preview: 'Asset → checks → findings',
+    markdown: `## Equipment check
+
+**Asset:**  
+**Location:**  
+**Date:**  
+**Operator:**  
+
+## Checks
+
+| Item | Pass / fail | Notes |
+| --- | --- | --- |
+| Leaks / unusual noise | | |
+| Oil / lubricant level | | |
+| Gauges / runtime hours | | |
+| Safety guards in place | | |
+
+## Findings & follow-up
+
+- [ ] Work order needed — #
+`,
+  },
+  {
+    id: 'op-safety-near-miss',
+    name: 'Safety / near-miss note',
+    description: 'Quick write-up when something almost went wrong — no blame, learn fast.',
+    category: 'compliance',
+    audiences: ['operator', 'district'],
+    preview: 'What almost happened → why → fix',
+    markdown: `## Safety / near-miss note
+
+**Date / time:**  
+**Reported by:**  
+
+## What almost happened
+
+## Contributing factors
+
+## Suggested fix
+
+## Shared with supervisor
+
+- [ ] Yes — date:
 `,
   },
 ];
 
 export function templateById(id: string | null | undefined): StudioTemplate | undefined {
   return STUDIO_TEMPLATES.find(t => t.id === id);
+}
+
+export function templatesForAudience(audience: StudioTemplateAudience): StudioTemplate[] {
+  return STUDIO_TEMPLATES.filter(t => t.audiences.includes(audience));
+}
+
+export function groupedTemplatesForAudience(audience: StudioTemplateAudience): Array<{
+  category: StudioTemplateCategory;
+  items: StudioTemplate[];
+}> {
+  const list = templatesForAudience(audience);
+  const map = new Map<StudioTemplateCategory, StudioTemplate[]>();
+  list.forEach(t => map.set(t.category, [...(map.get(t.category) ?? []), t]));
+  return CATEGORY_ORDER.filter(c => map.has(c)).map(c => ({ category: c, items: map.get(c)! }));
+}
+
+/** Default sample used by the guided tour when the library is empty. */
+export function tourSampleTemplateId(audience: StudioTemplateAudience): string {
+  switch (audience) {
+    case 'operator':
+      return 'op-shift-handoff';
+    case 'district':
+      return 'util-staffing-brief';
+    default:
+      return 'regional-brief';
+  }
+}
+
+export function newDocumentDialogBlurb(audience: StudioTemplateAudience): string {
+  switch (audience) {
+    case 'operator':
+      return 'Pick a starting point for plant-floor work — shift handoffs, rounds, documentation tasks, SOPs and tutorials.';
+    case 'district':
+      return 'Pick a starting point for your utility — staffing briefs, CE plans, compliance checklists, SOPs and board updates.';
+    default:
+      return 'Pick a starting point. Templates are written for One Water Workforce content — briefs, cohorts, grant narratives and outreach.';
+  }
+}
+
+/** Map Studio tour audience (incl. viewer) onto template audience. */
+export function templateAudienceFromTour(
+  tourAudience: 'program' | 'district' | 'operator' | 'viewer'
+): StudioTemplateAudience {
+  if (tourAudience === 'operator') return 'operator';
+  if (tourAudience === 'district' || tourAudience === 'viewer') return 'district';
+  return 'program';
 }

@@ -40,6 +40,13 @@ export const OWW_TOUR_SLIDES: OwwTourSlide[] = [
     highlight: '[data-tour="pipeline"]',
   },
   {
+    id: 'digital-teaser',
+    title: 'Digital reach (GA4 + SEO)',
+    body: 'A dedicated analytics page tracks how Water Workforce 360, onewaterworkforce.org, and Learning Stream perform in Google Analytics and Search Console — sessions, organic queries, top pages, and conversion events. WW360 can report on itself when GA4 is wired; OWW and Learning Stream show rich sample data until their feeds connect.',
+    highlight: '[data-tour="digital-teaser"]',
+    tip: 'Open Digital reach from the teaser bar for the full three-property view.',
+  },
+  {
     id: 'supply-demand',
     title: 'Supply vs. demand by region',
     body: 'Openings utilities expect in 24 months against candidates in training in the same region. Red gaps are where a cohort or a bootcamp should be scheduled; green means the bench is deeper than demand.',

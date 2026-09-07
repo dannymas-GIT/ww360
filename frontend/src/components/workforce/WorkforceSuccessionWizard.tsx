@@ -19,6 +19,7 @@ import { WorkforceEntityArea } from '@/components/workforce/WorkforceEntityArea'
 import { WorkforceCeuArea } from '@/components/workforce/WorkforceCeuArea';
 import {
   FORM_WIZARD_STEPS,
+  COMPACT_FORM_WIZARD_STEPS,
   WORKFORCE_PHASE_COLORS,
   chatPreambleForFormStep,
   emptyWizardSetupMeta,
@@ -43,6 +44,8 @@ export const WORKFORCE_WIZARD_EVENT = 'workforce-wizard-action';
 export interface WorkforceWizardActionEvent {
   actionId: string;
 }
+
+const WIZARD_STEPS = COMPACT_FORM_WIZARD_STEPS;
 
 const ENTITY_STEPS: Record<string, WorkforceEntityType | WorkforceEntityType[]> = {
   positions: 'positions',
@@ -138,9 +141,9 @@ export const WorkforceSuccessionWizard: React.FC<WorkforceSuccessionWizardProps>
 
   const persistStepProgress = useCallback(
     (nextIndex: number) => {
-      const nextStep = FORM_WIZARD_STEPS[nextIndex];
+      const nextStep = WIZARD_STEPS[nextIndex];
       if (!sessionId || !nextStep) return;
-      const completed = FORM_WIZARD_STEPS.slice(0, nextIndex).map(s => s.id);
+      const completed = WIZARD_STEPS.slice(0, nextIndex).map(s => s.id);
       void patchSession.mutateAsync({
         sessionId,
         body: {
@@ -156,13 +159,13 @@ export const WorkforceSuccessionWizard: React.FC<WorkforceSuccessionWizardProps>
   useEffect(() => {
     if (!open) return;
     const stepId = initialStepId ?? 'welcome';
-    const idx = FORM_WIZARD_STEPS.findIndex(s => s.id === stepId);
+    const idx = WIZARD_STEPS.findIndex(s => s.id === stepId);
     setStepIndex(idx >= 0 ? idx : 0);
     setLastValidate(null);
   }, [open, initialStepId, districtCode]);
 
-  const step = FORM_WIZARD_STEPS[stepIndex];
-  const totalSteps = FORM_WIZARD_STEPS.length;
+  const step = WIZARD_STEPS[stepIndex];
+  const totalSteps = WIZARD_STEPS.length;
   const progressPct = Math.round(((stepIndex + 1) / totalSteps) * 100);
   const isFirst = stepIndex === 0;
 
@@ -416,7 +419,7 @@ export const WorkforceSuccessionWizard: React.FC<WorkforceSuccessionWizardProps>
         <div className="grid grid-cols-1 md:grid-cols-[13rem_1fr] flex-1 min-h-0 overflow-hidden">
           <nav className="hidden md:block border-r bg-gray-50 overflow-y-auto shrink-0">
             <ol className="divide-y">
-              {FORM_WIZARD_STEPS.map((s, i) => {
+              {WIZARD_STEPS.map((s, i) => {
                 const active = i === stepIndex;
                 return (
                   <li key={s.id}>

@@ -36,6 +36,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/context/AuthContext';
+import { useJurisdiction } from '@/context/JurisdictionContext';
 import { OwwTourOverlay, requestOpenOwwTour } from './OwwTourOverlay';
 import {
   OWW_PRIVILEGE_GROUPS,
@@ -67,7 +68,7 @@ import {
   regionRisk,
 } from './owwMockData';
 import { fetchWorkforceInsights, type SDWISWorkforceInsights } from '@/services/sdwisService';
-import { fetchDigitalTeaser, type DigitalTeaser } from '@/services/digitalAnalyticsService';
+import { fetchDigitalTeaser, downloadEpaQuarterlyPackagePdf, type DigitalTeaser } from '@/services/digitalAnalyticsService';
 import { Ww360KpiTile } from '@/components/ww360/Ww360KpiTile';
 import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
 import { Ww360Section } from '@/components/ww360/Ww360Section';
@@ -96,8 +97,6 @@ const C = {
 /* Page                                                                */
 /* ------------------------------------------------------------------ */
 
-type Range = '30d' | 'qtr' | '12mo';
-
 interface ExecKpi {
   id: string;
   label: string;
@@ -125,11 +124,19 @@ const tooltipStyle = ww360ChartTooltipStyle;
 export default function OwwExecutiveDashboard() {
   const { userRoles } = useAuth();
   const location = useLocation();
-  const [range, setRange] = useState<Range>('12mo');
+  const { activeState, pack } = useJurisdiction();
   const [regionSort, setRegionSort] = useState<'gap' | 'retirements' | 'utilities'>('gap');
   const [sdwisInsights, setSdwisInsights] = useState<SDWISWorkforceInsights | null>(null);
   const [sdwisLoading, setSdwisLoading] = useState(true);
   const [digitalTeaser, setDigitalTeaser] = useState<DigitalTeaser | null>(null);
+  const [epaExportNote, setEpaExportNote] = useState<string | null>(null);
+  const [epaExportBusy, setEpaExportBusy] = useState(false);
+
+  useEffect(() => {
+    if (!epaExportNote) return;
+    const t = window.setTimeout(() => setEpaExportNote(null), 6_000);
+    return () => window.clearTimeout(t);
+  }, [epaExportNote]);
 
   useEffect(() => {
     const id = (location.hash || '').replace(/^#/, '');
@@ -142,7 +149,8 @@ export default function OwwExecutiveDashboard() {
 
   useEffect(() => {
     let cancelled = false;
-    void fetchWorkforceInsights('NY')
+    setSdwisLoading(true);
+    void fetchWorkforceInsights(activeState)
       .then(data => {
         if (!cancelled) setSdwisInsights(data);
       })
@@ -155,7 +163,7 @@ export default function OwwExecutiveDashboard() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [activeState]);
 
   useEffect(() => {
     let cancelled = false;
@@ -338,11 +346,7 @@ export default function OwwExecutiveDashboard() {
     return rows.slice(0, 12);
   }, [sdwisInsights]);
 
-  const lsSeries = useMemo(() => {
-    if (range === '30d') return LS_MONTHLY.slice(-1);
-    if (range === 'qtr') return LS_MONTHLY.slice(-3);
-    return LS_MONTHLY;
-  }, [range]);
+  const lsSeries = LS_MONTHLY;
 
   const supplyDemand = useMemo(
     () =>
@@ -365,18 +369,33 @@ export default function OwwExecutiveDashboard() {
   }, [regionSort]);
 
   const maxPipeline = PIPELINE_STAGES[0]?.count ?? 1;
-  const rangeLabel =
-    range === '30d' ? 'Last 30 days' : range === 'qtr' ? 'Last quarter' : 'Trailing 12 months';
   const isPlatform = userRoles.includes('platform_admin') || userRoles.includes('global_admin');
   const heroMode: Ww360DataMode = sdwisInsights ? 'mixed' : 'sample';
+
+  const downloadEpaQuarterlyPackage = async () => {
+    document.getElementById('epa')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setEpaExportBusy(true);
+    setEpaExportNote(null);
+    try {
+      await downloadEpaQuarterlyPackagePdf();
+      setEpaExportNote(`Downloaded EPA quarterly package PDF (${EPA_REPORTING.period}).`);
+    } catch {
+      setEpaExportNote('Could not download EPA package PDF. Try again or check partner access.');
+    } finally {
+      setEpaExportBusy(false);
+    }
+  };
 
   return (
     <div className="ww360-app-shell mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6">
       {/* Header */}
       <Ww360PageHero
-        eyebrow="One Water Workforce · New York Section AWWA"
+        eyebrow={pack?.section_eyebrow ?? 'One Water Workforce · New York Section AWWA'}
         title={`${ww360Greeting()}, Jenny — here is your 360 view of the statewide water workforce.`}
-        description="Live EPA SDWIS compliance for New York, plus sample program metrics for Learning Stream, onewaterworkforce.org, and utility Continuity reporting until those feeds are connected."
+        description={
+          pack?.exec_description ??
+          'Live EPA SDWIS compliance for New York, plus sample program metrics for Learning Stream, onewaterworkforce.org, and utility Continuity reporting until those feeds are connected.'
+        }
         dataMode={heroMode}
         lastSynced={sdwisInsights?.last_refreshed}
         badges={
@@ -388,26 +407,6 @@ export default function OwwExecutiveDashboard() {
         }
         actions={
           <>
-            <div className="inline-flex rounded-lg border border-white/15 bg-white/5 p-0.5 text-xs">
-              {(
-                [
-                  ['30d', '30d'],
-                  ['qtr', 'Quarter'],
-                  ['12mo', '12 mo'],
-                ] as Array<[Range, string]>
-              ).map(([id, label]) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setRange(id)}
-                  className={`rounded-md px-3 py-1.5 font-medium transition min-h-[44px] md:min-h-0 ${
-                    range === id ? 'bg-white text-slate-900' : 'text-slate-200 hover:bg-white/10'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
             <Button
               type="button"
               variant="outline"
@@ -421,12 +420,24 @@ export default function OwwExecutiveDashboard() {
               type="button"
               size="sm"
               className="bg-sky-400 text-slate-900 hover:bg-sky-300 min-h-[44px] md:min-h-9"
+              onClick={() => void downloadEpaQuarterlyPackage()}
+              disabled={epaExportBusy}
             >
-              <Download className="mr-1.5 h-4 w-4" aria-hidden /> EPA quarterly package
+              <Download className="mr-1.5 h-4 w-4" aria-hidden />{' '}
+              {epaExportBusy ? 'Preparing PDF…' : 'EPA quarterly package'}
             </Button>
           </>
         }
       />
+
+      {epaExportNote ? (
+        <p
+          className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800"
+          role="status"
+        >
+          {epaExportNote}
+        </p>
+      ) : null}
 
       {/* Sources */}
       <div data-tour="sources" className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -471,8 +482,10 @@ export default function OwwExecutiveDashboard() {
             Digital reach · GA4 + SEO
           </p>
           <p className="mt-1 text-sm text-slate-600">
-            How WW360, onewaterworkforce.org, and Learning Stream show up in search and site
-            analytics — last 30 days (sample for OWW &amp; LS until connected).
+            Google Analytics for each program site — Water Workforce 360, onewaterworkforce.org, and
+            Learning Stream — so you can see which pages people visit, how long they stay, where they
+            come from, and how the program shows up in search. Last 30 days (sample for OWW &amp; LS
+            until connected).
           </p>
           {digitalTeaser ? (
             <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs tabular-nums text-slate-700">
@@ -713,7 +726,7 @@ export default function OwwExecutiveDashboard() {
       <Ww360Section
         tourId="learning-stream"
         eyebrow="Learning Stream · system of record"
-        title={`Training delivery — ${rangeLabel}`}
+        title="Training delivery"
         sources={['learning-stream']}
         dataMode="sample"
         action={

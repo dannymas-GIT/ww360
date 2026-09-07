@@ -62,7 +62,7 @@ def brand_logo_data_uri() -> str | None:
 @dataclass
 class Block:
     kind: (
-        str  # heading | paragraph | bullets | numbers | tasks | quote | code | table | image | rule
+        str  # heading | paragraph | bullets | numbers | tasks | quote | code | table | image | rule | pagebreak
     )
     text: str = ""
     level: int = 0
@@ -71,18 +71,95 @@ class Block:
     rows: list[list[str]] = field(default_factory=list)
     src: str = ""
     alt: str = ""
+    width_pct: int | None = None
 
 
 _IMG_RE = re.compile(r"^!\[([^\]]*)\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)\s*$")
+_INLINE_IMG_RE = re.compile(r"!\[([^\]]*)\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 _TASK_RE = re.compile(r"^\s*[-*+]\s+\[( |x|X)\]\s+(.*)$")
 _BULLET_RE = re.compile(r"^\s*[-*+]\s+(.*)$")
 _NUM_RE = re.compile(r"^\s*\d+[.)]\s+(.*)$")
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
 _TABLE_SEP_RE = re.compile(r"^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$")
+_IMG_WIDTH_RE = re.compile(r"^width=(\d{1,3})$", re.I)
+_IMG_FLOAT_RE = re.compile(r"^float=(left|right|none)$", re.I)
+
+
+def split_image_alt(raw_alt: str) -> tuple[str, int | None]:
+    """Parse `caption|width=60|float=left` → (caption, width_pct)."""
+    if not raw_alt:
+        return "", None
+    caption_parts: list[str] = []
+    width: int | None = None
+    for part in (p.strip() for p in raw_alt.split("|")):
+        wm = _IMG_WIDTH_RE.match(part)
+        if wm:
+            parsed = int(wm.group(1))
+            if 5 <= parsed <= 100:
+                width = parsed
+            continue
+        if _IMG_FLOAT_RE.match(part):
+            continue
+        caption_parts.append(part)
+    return "|".join(caption_parts), width
+
+
+def expand_text_with_images(text: str) -> list[Block]:
+    """Split a text run that may contain inline `![alt](src)` into paragraph/image blocks."""
+    text = (text or "").strip()
+    if not text:
+        return []
+    if not _INLINE_IMG_RE.search(text):
+        return [Block(kind="paragraph", text=text)]
+    out: list[Block] = []
+    pos = 0
+    for m in _INLINE_IMG_RE.finditer(text):
+        before = text[pos : m.start()].strip()
+        if before:
+            out.append(Block(kind="paragraph", text=before))
+        caption, width_pct = split_image_alt(m.group(1))
+        out.append(Block(kind="image", alt=caption, src=m.group(2), width_pct=width_pct))
+        pos = m.end()
+    after = text[pos:].strip()
+    if after:
+        out.append(Block(kind="paragraph", text=after))
+    return out
+
+
+def normalize_markdown(markdown: str) -> str:
+    """Normalize TipTap hard-breaks so images/headings parse cleanly.
+
+    TipTap often emits a single ``\\`` before a newline (hard break), and sometimes
+    glues ``\\## Heading`` onto the same line as an image. Turn those into real
+    newlines so block parsing and export stay consistent.
+
+    Important: do **not** rewrite a single ``\\#`` — TipTap escapes ``#`` that way
+    inside table cells (e.g. a ``#`` column). Treating it as a heading hard-break
+    destroys pipe tables in export.
+    """
+    text = (markdown or "").replace("\r\n", "\n").replace("\r", "\n")
+    text = re.sub(r"\\\n", "\n", text)
+    # Only ATX h2–h6 glued after a hard break (``\## Title``), never ``\#``.
+    text = re.sub(r"\\(#{2,6}\s)", r"\n\1", text)
+    return text
+
+
+def unescape_md_cell(text: str) -> str:
+    """Undo TipTap markdown escapes commonly found in table cells / inline runs."""
+    if not text:
+        return ""
+    return (
+        text.replace("\\#", "#")
+        .replace("\\|", "|")
+        .replace("\\>", ">")
+        .replace("\\-", "-")
+        .replace("\\*", "*")
+        .replace("\\\\", "\\")
+    )
 
 
 def parse_markdown(markdown: str) -> list[Block]:
-    lines = (markdown or "").replace("\r\n", "\n").split("\n")
+    lines = normalize_markdown(markdown).split("\n")
     blocks: list[Block] = []
     i = 0
     n = len(lines)
@@ -91,7 +168,8 @@ def parse_markdown(markdown: str) -> list[Block]:
     def flush_para() -> None:
         nonlocal para
         if para:
-            blocks.append(Block(kind="paragraph", text=" ".join(s.strip() for s in para)))
+            text = " ".join(s.strip() for s in para)
+            blocks.extend(expand_text_with_images(text))
             para = []
 
     while i < n:
@@ -127,20 +205,36 @@ def parse_markdown(markdown: str) -> list[Block]:
             i += 1
             continue
 
+        if stripped in ("--- Page Break ---", "<!-- pagebreak -->") or re.match(
+            r"^<!--\s*pagebreak\s*-->$", stripped, re.I
+        ):
+            flush_para()
+            blocks.append(Block(kind="pagebreak"))
+            i += 1
+            continue
+
         m = _IMG_RE.match(stripped)
         if m:
             flush_para()
-            blocks.append(Block(kind="image", alt=m.group(1), src=m.group(2)))
+            caption, width_pct = split_image_alt(m.group(1))
+            blocks.append(Block(kind="image", alt=caption, src=m.group(2), width_pct=width_pct))
             i += 1
             continue
 
         if stripped.startswith("|") and i + 1 < n and _TABLE_SEP_RE.match(lines[i + 1]):
             flush_para()
             rows: list[list[str]] = []
-            rows.append([c.strip() for c in stripped.strip("|").split("|")])
-            i += 2
+
+            def _split_row(row_line: str) -> list[str]:
+                return [unescape_md_cell(c.strip()) for c in row_line.strip().strip("|").split("|")]
+
+            rows.append(_split_row(stripped))
+            i += 2  # skip header + separator
             while i < n and lines[i].strip().startswith("|"):
-                rows.append([c.strip() for c in lines[i].strip().strip("|").split("|")])
+                if _TABLE_SEP_RE.match(lines[i]):
+                    i += 1
+                    continue
+                rows.append(_split_row(lines[i]))
                 i += 1
             blocks.append(Block(kind="table", rows=rows))
             continue
@@ -198,7 +292,8 @@ def parse_markdown(markdown: str) -> list[Block]:
 
 # ── Inline formatting ───────────────────────────────────────────────────────
 
-_INLINE_LINK = re.compile(r"\[([^\]]+)\]\(([^)\s]+)\)")
+# Negative lookbehind so `![alt](src)` image markdown is not treated as a link.
+_INLINE_LINK = re.compile(r"(?<!!)\[([^\]]+)\]\(([^)\s]+)\)")
 _INLINE_BOLD = re.compile(r"\*\*(.+?)\*\*|__(.+?)__")
 _INLINE_EM = re.compile(r"(?<![*\w])\*(?!\*)(.+?)(?<!\*)\*(?![*\w])|(?<!\w)_(.+?)_(?!\w)")
 _INLINE_CODE = re.compile(r"`([^`]+)`")
@@ -207,7 +302,10 @@ _INLINE_STRIKE = re.compile(r"~~(.+?)~~")
 
 def inline_to_html(text: str) -> str:
     """Markdown inline marks → minimal HTML (safe for ReportLab Paragraph and HTML export)."""
-    out = html.escape(text or "", quote=False)
+    # Images should already be split into blocks; strip any leftovers so link parsing
+    # cannot turn `![alt](src)` into `!<a>alt</a>`.
+    cleaned = _INLINE_IMG_RE.sub("", text or "")
+    out = html.escape(cleaned, quote=False)
     out = _INLINE_CODE.sub(lambda m: f"<font face='Courier'>{m.group(1)}</font>", out)
     out = _INLINE_BOLD.sub(lambda m: f"<b>{m.group(1) or m.group(2)}</b>", out)
     out = _INLINE_EM.sub(lambda m: f"<i>{m.group(1) or m.group(2)}</i>", out)
@@ -219,7 +317,8 @@ def inline_to_html(text: str) -> str:
 
 
 def inline_to_plain(text: str) -> str:
-    out = _INLINE_LINK.sub(lambda m: m.group(1), text or "")
+    cleaned = _INLINE_IMG_RE.sub("", text or "")
+    out = _INLINE_LINK.sub(lambda m: m.group(1), cleaned)
     for rx in (_INLINE_BOLD, _INLINE_EM, _INLINE_CODE, _INLINE_STRIKE):
         out = rx.sub(lambda m: next(g for g in m.groups() if g is not None), out)
     return out
@@ -236,12 +335,48 @@ class DocStudioExportService:
     def _doc(self, scope: str, document_id: str) -> DocDocument:
         return self.studio._get_document_row(scope, document_id)
 
-    def _asset_bytes(self, src: str) -> bytes | None:
-        m = re.search(rf"{re.escape(ASSET_URL_PREFIX)}/([0-9a-fA-F-]{{36}})/file", src or "")
+    def _asset_row(self, src: str) -> DocAsset | None:
+        m = re.search(
+            rf"{re.escape(ASSET_URL_PREFIX)}/([0-9a-fA-F-]{{36}})/file",
+            src or "",
+        )
         if not m:
             return None
-        a = self.db.query(DocAsset).filter(DocAsset.id == m.group(1)).first()
-        return bytes(a.data) if a else None
+        return self.db.query(DocAsset).filter(DocAsset.id == m.group(1)).first()
+
+    def _asset_bytes(self, src: str) -> bytes | None:
+        a = self._asset_row(src)
+        return bytes(a.data) if a and a.data is not None else None
+
+    def _asset_mime(self, src: str) -> str:
+        a = self._asset_row(src)
+        ctype = (a.content_type if a else None) or "image/png"
+        if not ctype.startswith("image/"):
+            return "image/png"
+        return ctype
+
+    def _image_data_uri(self, src: str) -> str | None:
+        raw = self._asset_bytes(src)
+        if not raw:
+            return None
+        mime = self._asset_mime(src)
+        return f"data:{mime};base64," + base64.b64encode(raw).decode("ascii")
+
+    def _reportlab_image(self, raw: bytes, src: str):
+        """Build a ReportLab Image with a named buffer so format sniffing works."""
+        from reportlab.platypus import Image
+
+        mime = self._asset_mime(src)
+        ext = {
+            "image/png": ".png",
+            "image/jpeg": ".jpg",
+            "image/jpg": ".jpg",
+            "image/gif": ".gif",
+            "image/webp": ".webp",
+        }.get(mime, ".png")
+        buf = io.BytesIO(raw)
+        buf.name = f"asset{ext}"
+        return Image(buf)
 
     # Markdown
     def export_markdown(self, scope: str, document_id: str) -> str:
@@ -304,8 +439,18 @@ class DocStudioExportService:
                 parts.append(f"<pre><code>{html.escape(b.text)}</code></pre>")
             elif b.kind == "rule":
                 parts.append("<hr/>")
+            elif b.kind == "pagebreak":
+                parts.append("<div style='page-break-before:always;break-before:page'></div>")
             elif b.kind == "image":
-                parts.append(f"<img src='{html.escape(b.src)}' alt='{html.escape(b.alt)}'/>")
+                style = ""
+                if b.width_pct:
+                    style = f" style='width:{b.width_pct}%;height:auto'"
+                # Embed bytes so Print view / downloaded HTML work without a live
+                # authenticated session for `/assets/.../file`.
+                uri = self._image_data_uri(b.src) or b.src
+                parts.append(
+                    f"<img src='{html.escape(uri, quote=True)}' alt='{html.escape(b.alt)}'{style}/>"
+                )
             elif b.kind == "table" and b.rows:
                 head = "".join(f"<th>{inline_to_html(c)}</th>" for c in b.rows[0])
                 body_rows = "".join(
@@ -479,21 +624,33 @@ class DocStudioExportService:
                         spaceAfter=6,
                     )
                 )
+            elif b.kind == "pagebreak":
+                story.append(PageBreak())
             elif b.kind == "image":
                 raw = self._asset_bytes(b.src)
                 if raw:
                     try:
-                        img = Image(io.BytesIO(raw))
+                        img = self._reportlab_image(raw, b.src)
                         ratio = img.imageHeight / float(img.imageWidth or 1)
-                        w = min(avail_w, img.imageWidth)
+                        pct = (b.width_pct or 100) / 100.0
+                        w = avail_w * pct
+                        # Intrinsic size is often pixels-as-points; don't upscale tiny assets.
+                        if img.imageWidth and img.imageWidth < w:
+                            w = float(img.imageWidth)
                         img.drawWidth = w
                         img.drawHeight = w * ratio
                         story.append(img)
                         story.append(Spacer(1, 6))
                     except Exception as exc:  # pragma: no cover
-                        logger.warning("PDF image skipped: %s", exc)
+                        logger.warning("PDF image skipped (%s): %s", b.src, exc)
+                        if b.alt:
+                            story.append(
+                                Paragraph(f"<i>[Image: {html.escape(b.alt)}]</i>", base)
+                            )
                 elif b.alt:
                     story.append(Paragraph(f"<i>[Image: {html.escape(b.alt)}]</i>", base))
+                else:
+                    story.append(Paragraph("<i>[Image missing]</i>", base))
             elif b.kind == "table" and b.rows:
                 ncols = max(len(r) for r in b.rows)
                 data = [
@@ -595,15 +752,29 @@ class DocStudioExportService:
                 r.font.size = Pt(9)
             elif b.kind == "rule":
                 d.add_paragraph("―" * 30)
+            elif b.kind == "pagebreak":
+                d.add_page_break()
             elif b.kind == "image":
                 raw = self._asset_bytes(b.src)
                 if raw:
                     try:
-                        d.add_picture(io.BytesIO(raw), width=Inches(6))
+                        pct = (b.width_pct or 100) / 100.0
+                        mime = self._asset_mime(b.src)
+                        ext = {
+                            "image/png": ".png",
+                            "image/jpeg": ".jpg",
+                            "image/jpg": ".jpg",
+                            "image/gif": ".gif",
+                        }.get(mime, ".png")
+                        buf = io.BytesIO(raw)
+                        buf.name = f"asset{ext}"
+                        d.add_picture(buf, width=Inches(6 * pct))
                     except Exception as exc:  # pragma: no cover
-                        logger.warning("DOCX image skipped: %s", exc)
+                        logger.warning("DOCX image skipped (%s): %s", b.src, exc)
                 elif b.alt:
                     d.add_paragraph(f"[Image: {b.alt}]")
+                else:
+                    d.add_paragraph("[Image missing]")
             elif b.kind == "table" and b.rows:
                 ncols = max(len(r) for r in b.rows)
                 t = d.add_table(rows=len(b.rows), cols=ncols)

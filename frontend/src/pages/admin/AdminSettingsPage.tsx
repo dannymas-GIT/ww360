@@ -6,11 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/AuthContext';
+import { useJurisdiction } from '@/context/JurisdictionContext';
 import { refreshSdwisState } from '@/services/sdwisService';
 
 export default function AdminSettingsPage() {
   const { isPlatformAdmin } = useAuth();
-  const [state, setState] = useState('NY');
+  const { activeState } = useJurisdiction();
+  const [state, setState] = useState(activeState);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 

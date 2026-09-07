@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom';
+import { useJurisdiction } from '@/context/JurisdictionContext';
 import { DistrictPwsLinkConfigSection } from '@/components/admin/DistrictPwsLinkConfigSection';
 import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
 import { Ww360Section } from '@/components/ww360/Ww360Section';
 import { Button } from '@/components/ui/button';
 
 export default function SdwisLookupPage() {
+  const { activeState } = useJurisdiction();
   return (
     <div className="ww360-app-shell mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6">
       <Ww360PageHero
@@ -34,7 +36,7 @@ export default function SdwisLookupPage() {
         }
       />
       <Ww360Section tourId="pwsid-lookup" title="Search & link" sources={['ww360']}>
-        <DistrictPwsLinkConfigSection showComplianceLink stateCode="NY" autoSuggestPws={false} />
+        <DistrictPwsLinkConfigSection showComplianceLink stateCode={activeState} autoSuggestPws={false} />
       </Ww360Section>
     </div>
   );

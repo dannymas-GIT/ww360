@@ -119,6 +119,7 @@ function documentsCopy(audience: StudioTourAudience): Copy {
   return {
     title: 'Documents in this folder',
     body: 'Each card shows status (draft or published), the current version number, word count and when it was last touched. Search looks inside titles and body text, not just names.',
+    tip: 'Drag a document onto a folder (or Unfiled) to move it — same as Move to folder in the ⋯ menu.',
   };
 }
 
@@ -147,7 +148,7 @@ function newDocCopy(audience: StudioTourAudience): Copy {
 function editorCopy(): Copy {
   return {
     title: 'Write like a document, not a form',
-    body: 'The editor behaves like a modern word processor. Type / on an empty line to insert headings, lists, checklists, callouts, tables or dividers. Select text to get a quick formatting bar. Paste or drag an image straight in.',
+    body: 'The editor behaves like a modern word processor. Type / on an empty line to insert headings, lists, checklists, callouts, tables or dividers. Select text to get a quick formatting bar. Paste or drag an image straight in — click it to resize, float, edit the caption, replace, or remove it.',
   };
 }
 
@@ -170,7 +171,7 @@ function saveCopy(): Copy {
   return {
     title: 'Saves and versions',
     body: 'Your work autosaves a couple of seconds after you stop typing. Pressing Save cuts a numbered version you can come back to. Version history lists every save, publish and restore, and any version can be restored without losing the current one.',
-    tip: 'Save is in the editor toolbar on the right; each click adds a numbered row in this history list.',
+    tip: 'Fullscreen keeps Save and the formatting bar on screen. Use the camera icon to capture a screenshot into the doc.',
   };
 }
 

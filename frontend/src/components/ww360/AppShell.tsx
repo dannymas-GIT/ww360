@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { getWw360LogoPath, WW360_LOGO_SIZE } from '@/utils/brandHost';
 import { ww360NavGroups, navItemTo, navGroupsForRoles } from './navConfig';
 import { Button } from '@/components/ui/button';
+import { StateSwitcher } from './StateSwitcher';
 import { NotificationBell } from './NotificationBell';
 
 function ensureWw360Fonts() {
@@ -53,6 +54,7 @@ export const AppShell: React.FC = () => {
           </Link>
         </div>
         <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-6">
+          <StateSwitcher />
           {navGroups.map(group => (
             <div key={group.id}>
               {!collapsed && (

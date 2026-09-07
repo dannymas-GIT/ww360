@@ -106,6 +106,8 @@ test.describe('Document Studio', () => {
     await expect(page.locator('[data-tour="studio-import"]')).toBeVisible();
     await expect(page.locator('[data-tour="studio-record"]')).toBeVisible();
     await expect(page.locator('[data-tour="studio-application-steps-overview"]')).toBeVisible();
+    // Authors get AquaSafe-style drag-to-folder affordance
+    await expect(page.getByText('Drag onto a folder to move')).toBeVisible();
   });
 
   test('watch overview opens avatar sample player', async ({ page }) => {

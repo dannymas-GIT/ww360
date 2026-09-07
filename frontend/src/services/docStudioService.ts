@@ -331,6 +331,18 @@ export async function uploadAsset(file: File, documentId?: string | null, scope?
   return data;
 }
 
+export async function fetchAssets(
+  opts: { document_id?: string | null; images_only?: boolean; limit?: number; scope?: string } = {}
+): Promise<DocAsset[]> {
+  const { data } = await axios.get(`${BASE}/assets`, cfg({
+    scope: opts.scope,
+    document_id: opts.document_id || undefined,
+    images_only: opts.images_only ?? true,
+    limit: opts.limit ?? 100,
+  }));
+  return data;
+}
+
 export type ExportFormat = 'pdf' | 'docx' | 'markdown' | 'html';
 
 /** Download an export via fetch so the bearer header is included. */
@@ -530,6 +542,46 @@ export async function recordCustodyAcknowledgment(
     cfg({ scope })
   );
   return data;
+}
+
+/** HTML5 DnD mime for Document Studio library moves. */
+export const DOC_STUDIO_DRAG_MIME = 'application/x-ww360-doc-studio';
+
+const ANCHORED_LIBRARY_TAGS = new Set(['workforce-pack', 'wizard-generated', 'doh352-pdf']);
+const WORKFORCE_FOLDER_NAMES = new Set(['Workforce & succession', 'Workforce Continuity']);
+
+export function isAnchoredLibraryDocument(doc: Pick<DocSummary, 'tags'>): boolean {
+  return (doc.tags ?? []).some(t => ANCHORED_LIBRARY_TAGS.has(t));
+}
+
+/** Confirm message when a move may break package layout; null if no warning. */
+export function documentMoveWarning(
+  doc: Pick<DocSummary, 'title' | 'folder_id' | 'status' | 'tags'>,
+  fromFolder: Pick<DocFolder, 'id' | 'name'> | undefined | null,
+  toFolder: Pick<DocFolder, 'id' | 'name'> | null
+): string | null {
+  const toId = toFolder?.id ?? null;
+  if ((doc.folder_id ?? null) === toId) return null;
+
+  const toName = toFolder?.name ?? 'Unfiled';
+  const leavingWorkforce =
+    !!fromFolder &&
+    WORKFORCE_FOLDER_NAMES.has(fromFolder.name) &&
+    (!toFolder || !WORKFORCE_FOLDER_NAMES.has(toFolder.name));
+
+  if (isAnchoredLibraryDocument(doc) || leavingWorkforce) {
+    return (
+      `“${doc.title}” belongs in Workforce & succession (wizard / package documentation) ` +
+      `and should usually stay there. Move it to “${toName}” anyway?`
+    );
+  }
+  if (doc.status === 'published') {
+    return (
+      `“${doc.title}” is published. Moving it changes where others find it. ` +
+      `Move to “${toName}”?`
+    );
+  }
+  return null;
 }
 
 export async function createCustodyTransfer(

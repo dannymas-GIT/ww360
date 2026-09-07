@@ -6,6 +6,14 @@ export const AUTH_TOKEN_KEY = 'ww360-auth-token';
 export const MODULE_CORE = 'core';
 export const MODULE_WORKFORCE = 'workforce';
 
+export interface OrgMembership {
+  org_code: string;
+  state_code: string;
+  name: string;
+  role: string;
+  content_pack_key?: string | null;
+}
+
 export interface WW360User {
   id: number;
   username: string;
@@ -13,6 +21,10 @@ export interface WW360User {
   full_name?: string | null;
   roles: string[];
   districts: string[];
+  active_state_code?: string;
+  active_org_code?: string | null;
+  is_national_admin?: boolean;
+  orgs?: OrgMembership[];
 }
 
 export function getStoredToken(): string | null {

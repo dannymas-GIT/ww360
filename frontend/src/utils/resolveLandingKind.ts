@@ -11,7 +11,7 @@ const MANAGER_ROLES = new Set([
 
 const OPERATOR_ROLES = new Set(['ceu_user', 'district_operator', 'workforce_operator']);
 
-const EXEC_ROLES = new Set(['platform_admin', 'oww_partner', 'global_admin']);
+const EXEC_ROLES = new Set(['platform_admin', 'oww_partner', 'state_admin', 'global_admin']);
 
 export function resolveLandingKind(user: {
   roles?: string[] | null;

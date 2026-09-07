@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 
 from app.api import deps
 from app.schemas.digital_analytics import DigitalPropertyReportOut, DigitalTeaserOut
@@ -13,6 +14,7 @@ from app.services.digital_analytics_fixtures import (
     build_digital_teaser,
     utc_now_iso,
 )
+from app.services.epa_quarterly_package_service import build_epa_quarterly_package_pdf
 from app.services.ga4_data_service import fetch_live_ga_block
 from app.tenant_auth import PARTNER_ROLES, Roles, TenantContext
 
@@ -21,7 +23,12 @@ router = APIRouter()
 DigitalPropertyId = Literal["ww360", "oww-web", "learning-stream"]
 DigitalRange = Literal["30d", "qtr", "12mo"]
 
-PARTNER_ACCESS_ROLES = PARTNER_ROLES + [Roles.PLATFORM_ADMIN, Roles.CEU_ADMIN]
+PARTNER_ACCESS_ROLES = PARTNER_ROLES + [
+    Roles.PLATFORM_ADMIN,
+    Roles.CEU_ADMIN,
+    Roles.STATE_ADMIN,
+    Roles.OWW_PARTNER,
+]
 
 
 @router.get("/digital", response_model=DigitalPropertyReportOut)
@@ -30,9 +37,7 @@ def digital_property_report(
     range: DigitalRange = Query("12mo", alias="range"),
     context: TenantContext = Depends(deps.get_current_tenant_user),
 ):
-    if not (
-        context.is_global_admin or context.has_any_role(PARTNER_ACCESS_ROLES)
-    ):
+    if not (context.is_global_admin or context.has_any_role(PARTNER_ACCESS_ROLES)):
         raise HTTPException(status_code=403, detail="Partner or admin access required")
 
     data_mode: Literal["live", "sample"] = "sample"
@@ -60,8 +65,32 @@ def digital_property_report(
 def digital_teaser(
     context: TenantContext = Depends(deps.get_current_tenant_user),
 ):
-    if not (
-        context.is_global_admin or context.has_any_role(PARTNER_ACCESS_ROLES)
-    ):
+    if not (context.is_global_admin or context.has_any_role(PARTNER_ACCESS_ROLES)):
         raise HTTPException(status_code=403, detail="Partner or admin access required")
     return build_digital_teaser()
+
+
+@router.get("/epa-quarterly-package.pdf")
+def epa_quarterly_package_pdf(
+    context: TenantContext = Depends(deps.get_current_tenant_user),
+):
+    """Download EPA Area 3 quarterly package as a branded PDF."""
+    if not (context.is_global_admin or context.has_any_role(PARTNER_ACCESS_ROLES)):
+        raise HTTPException(status_code=403, detail="Partner or admin access required")
+
+    partner = "One Water Workforce"
+    state = (getattr(context, "active_state_code", None) or "NY").upper()[:2]
+    if state == "NJ":
+        partner = "NJ Water Workforce Coalition"
+    for org in getattr(context, "orgs", None) or []:
+        if isinstance(org, dict) and org.get("state_code") == state and org.get("name"):
+            partner = str(org["name"])
+            break
+
+    pdf = build_epa_quarterly_package_pdf(partner_name=partner, state_code=state)
+    filename = f"epa-area3-quarterly-{state.lower()}.pdf"
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

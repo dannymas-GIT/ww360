@@ -1,0 +1,56 @@
+state_code: NY
+partner_name: One Water Workforce
+section_eyebrow: One Water Workforce · New York Section AWWA
+geography_phrase: across New York
+landing_tagline: Built with One Water Workforce · for New York water districts
+landing_headline_accent: for New York utilities.
+exec_description: >-
+  Live EPA SDWIS compliance for New York, plus sample program metrics for Learning
+  Stream, onewaterworkforce.org, and utility Continuity reporting until those feeds
+  are connected.
+landscape_description: >-
+  State view for New York — active community water systems, compliance pressure,
+  and grade demand estimates.
+sdwis_default_state: NY
+economic_regions:
+  - id: long-island
+    label: Long Island
+  - id: nyc
+    label: New York City
+  - id: mid-hudson
+    label: Mid-Hudson
+  - id: capital
+    label: Capital Region
+  - id: mohawk
+    label: Mohawk Valley
+  - id: central
+    label: Central NY
+  - id: north-country
+    label: North Country
+  - id: southern-tier
+    label: Southern Tier
+  - id: finger-lakes
+    label: Finger Lakes
+  - id: western
+    label: Western NY
+exec_tour:
+  intro: >-
+    This is the executive view of the whole pipeline — from a student discovering
+    water careers on onewaterworkforce.org, through Learning Stream training, to a
+    hire at a New York utility — plus the statewide EPA compliance landscape. Four
+    sources feed it; you read one screen.
+  sources: >-
+    EPA SDWIS / ECHO is the live federal inventory of New York community water
+    systems — compliance, population served, and county pressure. Learning Stream
+    is the LMS system of record for training. onewaterworkforce.org captures members
+    and the career pipeline. Water Workforce 360 adds the employer side — vacancies,
+    retirements, and training needs from utilities.
+  sdwis: >-
+    Safe Drinking Water Information System (SDWIS) is EPA's national database of
+    public water systems. Here you see New York's community water systems: how many
+    are active, who they serve, health-based violations, and serious non-compliance
+    — the compliance backdrop for workforce planning.
+analytics_geo_hints:
+  - New York
+  - NYS certification
+  - water operator shortage New York

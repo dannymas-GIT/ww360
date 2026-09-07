@@ -25,7 +25,6 @@ import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import Link from '@tiptap/extension-link';
-import Image from '@tiptap/extension-image';
 import CharacterCount from '@tiptap/extension-character-count';
 import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
@@ -38,11 +37,13 @@ import {
   AlignLeft,
   AlignRight,
   Bold,
+  Camera,
   Code,
   Heading1,
   Heading2,
   Heading3,
   Highlighter,
+  Image as ImageIcon,
   ImagePlus,
   Italic,
   Link2,
@@ -54,14 +55,24 @@ import {
   Redo2,
   Strikethrough,
   Table2,
+  Trash2,
+  Type,
   Underline as UnderlineIcon,
   Undo2,
 } from 'lucide-react';
 import { uploadAsset } from '@/services/docStudioService';
 import { templatesForAudience, type StudioTemplateAudience } from '@/config/studioTemplates';
+import { DocResizableImage } from './DocResizableImage';
+import { splitImageAlt, type ImageFloat } from './imageAlt';
+import { ScreenshotCaptureTool } from './ScreenshotCaptureTool';
+import { MediaLibraryModal } from './MediaLibraryModal';
 import './docStudio.css';
 
 const lowlight = createLowlight(common);
+
+/** Visible marker in the editor; stored as HTML comment for PDF export. */
+const PAGE_BREAK_LINE = '--- Page Break ---';
+const PAGE_BREAK_HTML = '<!-- pagebreak -->';
 
 type EditorLike = NonNullable<ReturnType<typeof useEditor>>;
 
@@ -76,6 +87,14 @@ const SLASH_COMMANDS: { id: string; label: string; hint: string; icon: string; a
   { id: 'table', label: 'Table', hint: '3 × 3 with header', icon: '⊞', action: e => e.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
   { id: 'code', label: 'Code block', hint: 'Monospace text', icon: '</>', action: e => e.chain().focus().toggleCodeBlock().run() },
   { id: 'divider', label: 'Divider', hint: 'Horizontal rule', icon: '—', action: e => e.chain().focus().setHorizontalRule().run() },
+  {
+    id: 'pagebreak',
+    label: 'Page break',
+    hint: 'New page in PDF export',
+    icon: '📄',
+    action: e =>
+      e.chain().focus().insertContent(`<p class="studio-page-break">${PAGE_BREAK_LINE}</p>`).run(),
+  },
 ];
 
 export interface StudioEditorHandle {
@@ -99,11 +118,25 @@ export interface StudioEditorProps {
   onChange?: (markdown: string, json: Record<string, unknown>) => void;
   onUploadError?: (message: string) => void;
   className?: string;
+  /** Keep the formatting toolbar visible while the document scrolls (default true). */
+  pinToolbar?: boolean;
+}
+
+function prepareMarkdownForEditor(markdown: string): string {
+  return (markdown || '').replace(
+    /<!--\s*pagebreak\s*-->/gi,
+    `\n\n<p class="studio-page-break">${PAGE_BREAK_LINE}</p>\n\n`
+  );
+}
+
+function serializeMarkdownForStorage(markdown: string): string {
+  const escaped = PAGE_BREAK_LINE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return markdown.replace(new RegExp(`^${escaped}$`, 'gm'), PAGE_BREAK_HTML);
 }
 
 function getMarkdownFromEditor(ed: EditorLike): string {
   const storage = ed.storage as unknown as { markdown?: { getMarkdown: () => string } };
-  return storage.markdown?.getMarkdown() ?? '';
+  return serializeMarkdownForStorage(storage.markdown?.getMarkdown() ?? '');
 }
 
 export const StudioEditor = forwardRef<StudioEditorHandle, StudioEditorProps>(function StudioEditor(
@@ -117,13 +150,19 @@ export const StudioEditor = forwardRef<StudioEditorHandle, StudioEditorProps>(fu
     onChange,
     onUploadError,
     className = '',
+    pinToolbar = true,
   },
   ref
 ) {
   const [slashOpen, setSlashOpen] = useState(false);
   const [slashFilter, setSlashFilter] = useState('');
   const [slashIndex, setSlashIndex] = useState(0);
+  const [screenshotOpen, setScreenshotOpen] = useState(false);
+  const [screenshotMode, setScreenshotMode] = useState<'insert' | 'replace'>('insert');
+  const [mediaOpen, setMediaOpen] = useState(false);
+  const [mediaMode, setMediaMode] = useState<'insert' | 'replace'>('insert');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const replaceInputRef = useRef<HTMLInputElement>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
@@ -149,7 +188,7 @@ export const StudioEditor = forwardRef<StudioEditorHandle, StudioEditorProps>(fu
       TableRow,
       TableHeader,
       TableCell,
-      Image.configure({ inline: false, allowBase64: false }),
+      DocResizableImage.configure({ inline: false, allowBase64: false }),
       CharacterCount,
       Markdown.configure({
         html: true,
@@ -158,7 +197,7 @@ export const StudioEditor = forwardRef<StudioEditorHandle, StudioEditorProps>(fu
         breaks: false,
       }),
     ],
-    content: initialMarkdown,
+    content: prepareMarkdownForEditor(initialMarkdown),
     onUpdate: ({ editor: ed }) => {
       onChangeRef.current?.(getMarkdownFromEditor(ed), ed.getJSON() as Record<string, unknown>);
       const { from } = ed.state.selection;
@@ -181,16 +220,80 @@ export const StudioEditor = forwardRef<StudioEditorHandle, StudioEditorProps>(fu
   }, [editor, readOnly]);
 
   const insertImageFile = useCallback(
-    async (file: File) => {
+    async (file: File, mode: 'insert' | 'replace' = 'insert') => {
       if (!editor) return;
       try {
         const asset = await uploadAsset(file, documentId ?? undefined, scope);
-        editor.chain().focus().setImage({ src: asset.url, alt: file.name }).run();
+        if (mode === 'replace' && editor.isActive('image')) {
+          const prevAlt = splitImageAlt(editor.getAttributes('image').alt as string | undefined).alt;
+          editor
+            .chain()
+            .focus()
+            .updateAttributes('image', { src: asset.url, alt: prevAlt || file.name })
+            .run();
+        } else {
+          editor.chain().focus().setImage({ src: asset.url, alt: file.name }).run();
+        }
       } catch (err) {
         onUploadError?.(err instanceof Error ? err.message : 'Image upload failed');
       }
     },
     [editor, documentId, scope, onUploadError]
+  );
+
+  const editImageCaption = useCallback(() => {
+    if (!editor?.isActive('image')) return;
+    const current = splitImageAlt(editor.getAttributes('image').alt as string | undefined).alt;
+    const next = window.prompt('Image caption / alt text', current);
+    if (next === null) return;
+    editor.chain().focus().updateAttributes('image', { alt: next.trim() }).run();
+  }, [editor]);
+
+  const setImageFloat = useCallback(
+    (dir: ImageFloat) => {
+      if (!editor?.isActive('image')) return;
+      editor.chain().focus().updateAttributes('image', { float: dir }).run();
+    },
+    [editor]
+  );
+
+  const setImageWidthPct = useCallback(
+    (pct: number | null) => {
+      if (!editor?.isActive('image')) return;
+      editor.chain().focus().updateAttributes('image', { widthPct: pct }).run();
+    },
+    [editor]
+  );
+
+  const removeSelectedImage = useCallback(() => {
+    if (!editor?.isActive('image')) return;
+    editor.chain().focus().deleteSelection().run();
+  }, [editor]);
+
+  const applyImageSrc = useCallback(
+    (url: string, filename: string, mode: 'insert' | 'replace') => {
+      if (!editor) return;
+      if (mode === 'replace' && editor.isActive('image')) {
+        const prevAlt = splitImageAlt(editor.getAttributes('image').alt as string | undefined).alt;
+        editor
+          .chain()
+          .focus()
+          .updateAttributes('image', { src: url, alt: prevAlt || filename })
+          .run();
+      } else {
+        editor.chain().focus().setImage({ src: url, alt: filename }).run();
+      }
+    },
+    [editor]
+  );
+
+  const uploadScreenshot = useCallback(
+    async (blob: Blob, filename: string) => {
+      const file = new File([blob], filename, { type: 'image/png' });
+      const asset = await uploadAsset(file, documentId ?? undefined, scope);
+      return { url: asset.url, filename: asset.filename || filename };
+    },
+    [documentId, scope]
   );
 
   // Paste / drop images → upload as assets.
@@ -228,13 +331,16 @@ export const StudioEditor = forwardRef<StudioEditorHandle, StudioEditorProps>(fu
   }, [editor, readOnly, insertImageFile]);
 
   useImperativeHandle(ref, () => ({
-    getMarkdown: () => (editor ? getMarkdownFromEditor(editor) : initialMarkdown),
+    getMarkdown: () =>
+      editor
+        ? getMarkdownFromEditor(editor)
+        : serializeMarkdownForStorage(prepareMarkdownForEditor(initialMarkdown)),
     getJson: () => (editor ? (editor.getJSON() as Record<string, unknown>) : {}),
     setMarkdown: (markdown: string) => {
-      editor?.commands.setContent(markdown, { emitUpdate: false });
+      editor?.commands.setContent(prepareMarkdownForEditor(markdown), { emitUpdate: false });
     },
     insertMarkdown: (markdown: string) => {
-      editor?.chain().focus().insertContent(markdown).run();
+      editor?.chain().focus().insertContent(prepareMarkdownForEditor(markdown)).run();
     },
     focus: () => editor?.commands.focus(),
     isEmpty: () => (editor ? editor.isEmpty : !initialMarkdown),
@@ -305,7 +411,9 @@ export const StudioEditor = forwardRef<StudioEditorHandle, StudioEditorProps>(fu
       {!readOnly && (
         <div
           data-tour="studio-toolbar"
-          className="flex flex-wrap items-center gap-0.5 border-b border-slate-200 bg-slate-50 px-2 py-1.5"
+          className={`z-20 flex flex-wrap items-center gap-0.5 border-b border-slate-200 bg-slate-50/95 px-2 py-1.5 backdrop-blur-sm ${
+            pinToolbar ? 'sticky top-0 shrink-0 shadow-sm' : ''
+          }`}
           role="toolbar"
           aria-label="Formatting"
         >
@@ -377,6 +485,14 @@ export const StudioEditor = forwardRef<StudioEditorHandle, StudioEditorProps>(fu
           <ToolbarButton title="Divider" onClick={() => editor.chain().focus().setHorizontalRule().run()}>
             <Minus className="h-4 w-4" />
           </ToolbarButton>
+          <ToolbarButton
+            title="Insert page break (new page in PDF)"
+            onClick={() =>
+              editor.chain().focus().insertContent(`<p class="studio-page-break">${PAGE_BREAK_LINE}</p>`).run()
+            }
+          >
+            <span className="text-[10px] font-semibold leading-none">PB</span>
+          </ToolbarButton>
           <input
             ref={fileInputRef}
             type="file"
@@ -384,12 +500,41 @@ export const StudioEditor = forwardRef<StudioEditorHandle, StudioEditorProps>(fu
             className="hidden"
             onChange={e => {
               const file = e.target.files?.[0];
-              if (file) void insertImageFile(file);
+              if (file) void insertImageFile(file, 'insert');
               e.target.value = '';
             }}
           />
-          <ToolbarButton title="Insert image" onClick={() => fileInputRef.current?.click()}>
+          <input
+            ref={replaceInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={e => {
+              const file = e.target.files?.[0];
+              if (file) void insertImageFile(file, 'replace');
+              e.target.value = '';
+            }}
+          />
+          <ToolbarButton title="Insert image from file" onClick={() => fileInputRef.current?.click()}>
             <ImagePlus className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            title="Capture screenshot"
+            onClick={() => {
+              setScreenshotMode('insert');
+              setScreenshotOpen(true);
+            }}
+          >
+            <Camera className="h-4 w-4" />
+          </ToolbarButton>
+          <ToolbarButton
+            title="Media library"
+            onClick={() => {
+              setMediaMode('insert');
+              setMediaOpen(true);
+            }}
+          >
+            <ImageIcon className="h-4 w-4" />
           </ToolbarButton>
 
           <label className="ml-auto flex items-center gap-1 text-xs text-slate-500">
@@ -432,6 +577,82 @@ export const StudioEditor = forwardRef<StudioEditorHandle, StudioEditorProps>(fu
         {!readOnly && (
           <BubbleMenu
             editor={editor}
+            pluginKey="studioImageMenu"
+            shouldShow={({ editor: ed }) => ed.isActive('image')}
+            className="flex flex-wrap items-center gap-0.5 rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
+          >
+            {[25, 50, 75, 100].map(pct => (
+              <button
+                key={pct}
+                type="button"
+                title={`Resize to ${pct}%`}
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => setImageWidthPct(pct === 100 ? null : pct)}
+                className={`rounded px-1.5 py-1 text-xs tabular-nums ${
+                  (editor.getAttributes('image').widthPct ?? 100) === pct
+                    ? 'bg-[#07111f] text-white'
+                    : 'text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                {pct}%
+              </button>
+            ))}
+            <span className="mx-0.5 h-5 w-px bg-slate-200" aria-hidden />
+            {([
+              { dir: 'left' as const, label: 'Left' },
+              { dir: 'right' as const, label: 'Right' },
+              { dir: 'none' as const, label: 'Inline' },
+            ]).map(({ dir, label }) => (
+              <button
+                key={dir}
+                type="button"
+                title={dir === 'none' ? 'Inline image' : `Float ${dir}`}
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => setImageFloat(dir)}
+                className={`rounded px-1.5 py-1 text-xs capitalize ${
+                  (editor.getAttributes('image').float ?? 'none') === dir
+                    ? 'bg-[#07111f] text-white'
+                    : 'text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+            <span className="mx-0.5 h-5 w-px bg-slate-200" aria-hidden />
+            <ToolbarButton title="Edit caption / alt text" onClick={editImageCaption}>
+              <Type className="h-3.5 w-3.5" />
+            </ToolbarButton>
+            <ToolbarButton
+              title="Replace from screenshot"
+              onClick={() => {
+                setScreenshotMode('replace');
+                setScreenshotOpen(true);
+              }}
+            >
+              <Camera className="h-3.5 w-3.5" />
+            </ToolbarButton>
+            <ToolbarButton
+              title="Replace from media library"
+              onClick={() => {
+                setMediaMode('replace');
+                setMediaOpen(true);
+              }}
+            >
+              <ImageIcon className="h-3.5 w-3.5" />
+            </ToolbarButton>
+            <ToolbarButton title="Replace from file" onClick={() => replaceInputRef.current?.click()}>
+              <ImagePlus className="h-3.5 w-3.5" />
+            </ToolbarButton>
+            <ToolbarButton title="Remove image" onClick={removeSelectedImage}>
+              <Trash2 className="h-3.5 w-3.5 text-red-600" />
+            </ToolbarButton>
+          </BubbleMenu>
+        )}
+
+        {!readOnly && (
+          <BubbleMenu
+            editor={editor}
+            pluginKey="studioTextMenu"
             shouldShow={({ editor: ed, from, to }) => from !== to && !ed.isActive('image') && !ed.isActive('codeBlock')}
             className="flex gap-0.5 rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
           >
@@ -491,8 +712,27 @@ export const StudioEditor = forwardRef<StudioEditorHandle, StudioEditorProps>(fu
         <span>
           {words.toLocaleString()} words · {chars.toLocaleString()} characters
         </span>
-        {!readOnly ? <span>Type / for blocks · Select text for quick formatting</span> : <span>Read only</span>}
+        {!readOnly ? (
+          <span>Type / for blocks · Camera captures screenshots · Click images to edit</span>
+        ) : (
+          <span>Read only</span>
+        )}
       </div>
+
+      <ScreenshotCaptureTool
+        isOpen={screenshotOpen}
+        onClose={() => setScreenshotOpen(false)}
+        topicId={documentId}
+        uploadScreenshot={uploadScreenshot}
+        onInsert={(url, filename) => applyImageSrc(url, filename, screenshotMode)}
+      />
+      <MediaLibraryModal
+        open={mediaOpen}
+        onOpenChange={setMediaOpen}
+        documentId={documentId}
+        scope={scope}
+        onInsert={(url, filename) => applyImageSrc(url, filename, mediaMode)}
+      />
     </div>
   );
 });

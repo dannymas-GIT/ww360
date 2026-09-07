@@ -17,7 +17,13 @@ import {
   type AdminUser,
 } from '@/services/adminUsersService';
 
-const ROLE_PRESETS = ['platform_admin', 'oww_partner', 'ceu_admin', 'workforce_operator'] as const;
+const ROLE_PRESETS = [
+  'platform_admin',
+  'state_admin',
+  'oww_partner',
+  'ceu_admin',
+  'workforce_operator',
+] as const;
 
 export default function AdminUsersPage() {
   const { isPlatformAdmin } = useAuth();

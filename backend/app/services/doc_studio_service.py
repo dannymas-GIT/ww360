@@ -14,7 +14,16 @@ import re
 from datetime import datetime
 from typing import Any
 
-from app.models.doc_document import PROGRAM_SCOPE, DocAsset, DocDocument, DocFolder, DocVersion
+from app.models.doc_document import (
+    PROGRAM_SCOPE,
+    DocAsset,
+    DocDocument,
+    DocFolder,
+    DocVersion,
+    is_program_scope,
+    normalize_doc_scope,
+    program_scope_for_state,
+)
 from app.schemas.doc_studio import (
     DocAssetRead,
     DocContentSave,
@@ -45,13 +54,14 @@ logger = logging.getLogger(__name__)
 AUTHOR_ROLES = {
     "platform_admin",
     "oww_partner",
+    "state_admin",
     "district_admin",
     "district_manager",
     "ceu_admin",
     "workforce_manager",
     "admin",
 }
-PUBLISH_ROLES = {"platform_admin", "oww_partner", "district_admin", "ceu_admin", "admin"}
+PUBLISH_ROLES = {"platform_admin", "oww_partner", "state_admin", "district_admin", "ceu_admin", "admin"}
 CUSTODY_TRANSFER_ROLES = PUBLISH_ROLES | {"district_manager", "workforce_manager"}
 
 ASSET_URL_PREFIX = "/api/v1/doc-studio/assets"
@@ -65,24 +75,26 @@ def _word_count(markdown: str | None) -> int:
 
 
 def resolve_scope(context: TenantContext, requested: str | None = None) -> str:
-    """Program partners and platform admins work in the shared program library.
+    """State-keyed program library or district scope."""
+    default_program = context.program_scope()
 
-    District users are pinned to their own district scope; platform admins may
-    request any scope explicitly.
-    """
     if requested:
+        norm = normalize_doc_scope(requested, default_state=context.active_state_code)
         if context.is_global_admin:
-            return requested
-        if requested == PROGRAM_SCOPE and context.has_role("oww_partner"):
-            return PROGRAM_SCOPE
-        if context.has_district_access(requested):
-            return requested
+            return norm
+        if is_program_scope(norm) and context.is_state_exec():
+            if norm == default_program:
+                return norm
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "No access to that document scope")
+        if context.has_district_access(norm):
+            return norm
         raise HTTPException(status.HTTP_403_FORBIDDEN, "No access to that document scope")
-    if context.is_global_admin or context.has_role("oww_partner"):
-        return PROGRAM_SCOPE
+
+    if context.is_global_admin or context.is_state_exec():
+        return default_program
     if context.district_code:
         return context.district_code
-    return PROGRAM_SCOPE
+    return default_program
 
 
 class DocStudioService:
@@ -103,7 +115,9 @@ class DocStudioService:
         can_publish = context.is_global_admin or bool(roles & PUBLISH_ROLES)
         can_custody = context.is_global_admin or bool(roles & CUSTODY_TRANSFER_ROLES)
         label = (
-            "One Water Workforce program library" if scope == PROGRAM_SCOPE else f"{scope} library"
+            f"{context.active_state_code} program library"
+            if is_program_scope(scope)
+            else f"{scope} library"
         )
         return DocStudioAccess(
             scope=scope,
@@ -668,6 +682,24 @@ class DocStudioService:
         self.db.commit()
         self.db.refresh(a)
         return self._asset_read(a)
+
+    def list_assets(
+        self,
+        scope: str,
+        *,
+        document_id: str | None = None,
+        images_only: bool = True,
+        limit: int = 100,
+    ) -> list[DocAssetRead]:
+        q = self.db.query(DocAsset).filter(DocAsset.scope == scope)
+        if document_id:
+            q = q.filter(
+                (DocAsset.document_id == document_id) | (DocAsset.document_id.is_(None))
+            )
+        if images_only:
+            q = q.filter(DocAsset.content_type.like("image/%"))
+        rows = q.order_by(DocAsset.created_at.desc()).limit(max(1, min(limit, 200))).all()
+        return [self._asset_read(a) for a in rows]
 
     def get_asset(self, asset_id: str) -> DocAsset:
         a = self.db.query(DocAsset).filter(DocAsset.id == asset_id).first()

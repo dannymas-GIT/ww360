@@ -416,6 +416,20 @@ def export_document(
 # ── Assets ───────────────────────────────────────────────────────────────────
 
 
+@router.get("/assets", response_model=list[DocAssetRead])
+def list_assets(
+    document_id: str | None = None,
+    images_only: bool = True,
+    limit: int = 100,
+    pair=Depends(_ctx),
+    db: Session = Depends(deps.get_db),
+):
+    """List reusable Studio assets (images) for the active scope."""
+    _context, scope = pair
+    svc = DocStudioService(db)
+    return svc.list_assets(scope, document_id=document_id, images_only=images_only, limit=limit)
+
+
 @router.post("/assets", response_model=DocAssetRead, status_code=status.HTTP_201_CREATED)
 async def upload_asset(
     file: UploadFile = File(...),

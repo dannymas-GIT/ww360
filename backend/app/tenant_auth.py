@@ -36,6 +36,7 @@ def _normalize_str_list(raw: Optional[Any]) -> List[str]:
 
 class Roles:
     PLATFORM_ADMIN = "platform_admin"
+    STATE_ADMIN = "state_admin"
     OWW_PARTNER = "oww_partner"
     CEU_ADMIN = "ceu_admin"
     CEU_MANAGER = "ceu_manager"
@@ -46,8 +47,11 @@ class Roles:
 
 
 GLOBAL_ADMIN_ROLES = [Roles.PLATFORM_ADMIN]
-PARTNER_ROLES = [Roles.OWW_PARTNER]
+PARTNER_ROLES = [Roles.OWW_PARTNER, Roles.STATE_ADMIN]
+STATE_EXEC_ROLES = [Roles.OWW_PARTNER, Roles.STATE_ADMIN]
 CEU_ROLES = [Roles.CEU_ADMIN, Roles.CEU_MANAGER, Roles.CEU_USER]
+
+DEFAULT_STATE_CODE = "NY"
 
 
 class TenantContext:
@@ -61,6 +65,10 @@ class TenantContext:
         is_system_admin: bool = False,
         modules: Optional[List[str]] = None,
         email: Optional[str] = None,
+        active_state_code: str = DEFAULT_STATE_CODE,
+        active_org_code: Optional[str] = None,
+        is_national_admin: bool = False,
+        orgs: Optional[List[dict[str, Any]]] = None,
     ):
         self.user_id = user_id
         self.username = username
@@ -70,6 +78,10 @@ class TenantContext:
         self.assigned_districts = _normalize_str_list(assigned_districts)
         self.is_system_admin = is_system_admin
         self.modules = _normalize_str_list(modules) or ["workforce"]
+        self.active_state_code = (active_state_code or DEFAULT_STATE_CODE).upper()[:2]
+        self.active_org_code = active_org_code
+        self.is_national_admin = is_national_admin
+        self.orgs = orgs or []
 
         self.is_global_admin = is_system_admin or any(
             role in GLOBAL_ADMIN_ROLES for role in self.roles
@@ -81,10 +93,19 @@ class TenantContext:
         return module_key in self.modules
 
     def has_role(self, role: str) -> bool:
+        if role == Roles.OWW_PARTNER and Roles.STATE_ADMIN in self.roles:
+            return True
+        if role == Roles.STATE_ADMIN and Roles.OWW_PARTNER in self.roles:
+            return True
         return role in self.roles or self.is_global_admin
 
     def has_any_role(self, roles: List[str]) -> bool:
-        return any(role in self.roles for role in roles) or self.is_global_admin
+        expanded = set(roles)
+        if Roles.OWW_PARTNER in expanded:
+            expanded.add(Roles.STATE_ADMIN)
+        if Roles.STATE_ADMIN in expanded:
+            expanded.add(Roles.OWW_PARTNER)
+        return any(role in self.roles for role in expanded) or self.is_global_admin
 
     def has_district_access(self, district_code: str) -> bool:
         if self.is_global_admin:
@@ -94,11 +115,24 @@ class TenantContext:
             or district_code in self.assigned_districts
         )
 
+    def is_state_exec(self) -> bool:
+        return self.is_global_admin or self.has_any_role(list(STATE_EXEC_ROLES))
+
+    def program_scope(self) -> str:
+        from app.models.doc_document import program_scope_for_state
+
+        return program_scope_for_state(self.active_state_code)
+
 
 class TenantAuthService:
     """Verify WW360-issued JWTs and build tenant context."""
 
-    async def verify_token(self, token: str) -> Optional[TenantContext]:
+    async def verify_token(
+        self,
+        token: str,
+        *,
+        requested_state: str | None = None,
+    ) -> Optional[TenantContext]:
         try:
             payload = decode_ww360_token(token)
         except jwt.PyJWTError:
@@ -116,6 +150,22 @@ class TenantAuthService:
         districts = _normalize_str_list(payload.get("districts"))
         roles = _normalize_str_list(payload.get("roles"))
         is_global = any(r in GLOBAL_ADMIN_ROLES for r in roles)
+        orgs = payload.get("orgs") or []
+        if not isinstance(orgs, list):
+            orgs = []
+
+        active_state = str(payload.get("active_state_code") or DEFAULT_STATE_CODE).upper()[:2]
+        active_org = payload.get("active_org_code")
+        is_national = bool(payload.get("is_national_admin"))
+
+        if requested_state:
+            req = requested_state.upper()[:2]
+            if is_global:
+                active_state = req
+            elif any(o.get("state_code") == req for o in orgs if isinstance(o, dict)):
+                active_state = req
+            elif Roles.OWW_PARTNER in roles and req == DEFAULT_STATE_CODE:
+                active_state = req
 
         return TenantContext(
             user_id=user_id,
@@ -126,6 +176,10 @@ class TenantAuthService:
             assigned_districts=districts,
             is_system_admin=is_global,
             modules=["workforce"],
+            active_state_code=active_state,
+            active_org_code=active_org,
+            is_national_admin=is_national,
+            orgs=[o for o in orgs if isinstance(o, dict)],
         )
 
     async def set_database_context(self, db, context: TenantContext) -> None:
@@ -134,7 +188,7 @@ class TenantAuthService:
 
 
 def build_user_token_payload(user) -> dict:
-    """Build dict for mint_ww360_token from WW360User."""
+    """Build dict for mint_ww360_token from WW360User (legacy, no jurisdiction)."""
     districts: List[str] = []
     if hasattr(user, "district_memberships"):
         districts = list(user.district_memberships or [])

@@ -9,6 +9,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import TypedDict
 
+from app.models.doc_document import is_program_scope
+
 PROGRAM_SCOPE = "program"
 LIBRARY_SEED_TAG = "library_seed"
 
@@ -43,7 +45,7 @@ DEFAULT_DISTRICT_FOLDERS: Sequence[tuple[str, str]] = (
 
 
 def folders_for_scope(scope: str) -> Sequence[tuple[str, str]]:
-    if scope == PROGRAM_SCOPE:
+    if is_program_scope(scope):
         return DEFAULT_PROGRAM_FOLDERS
     return DEFAULT_DISTRICT_FOLDERS
 
@@ -410,6 +412,6 @@ North Country systems need Grade II operators faster than training currently del
 
 
 def seed_docs_for_scope(scope: str) -> Sequence[SeedDoc]:
-    if scope == PROGRAM_SCOPE:
+    if is_program_scope(scope):
         return PROGRAM_SEED_DOCS
     return DISTRICT_SEED_DOCS

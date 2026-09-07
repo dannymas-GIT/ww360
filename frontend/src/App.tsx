@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { JurisdictionProvider, PublicJurisdictionProvider } from '@/context/JurisdictionContext';
 import { AppShell } from '@/components/ww360/AppShell';
 import { AnalyticsRouteTracker } from '@/components/analytics/AnalyticsRouteTracker';
 import LoginPage from '@/pages/LoginPage';
@@ -18,6 +19,7 @@ import SdwisCompliancePage from '@/pages/sdwis/SdwisCompliancePage';
 import AdminPwsidLinksPage from '@/pages/admin/AdminPwsidLinksPage';
 import AdminUsersPage from '@/pages/admin/AdminUsersPage';
 import AdminSettingsPage from '@/pages/admin/AdminSettingsPage';
+import AdminJurisdictionsPage from '@/pages/admin/AdminJurisdictionsPage';
 import { resolveLandingKind } from '@/utils/resolveLandingKind';
 
 // Document Studio carries the TipTap editor bundle — load it only when visited.
@@ -62,17 +64,29 @@ function RoleLanding() {
   return <OwwExecutiveDashboard />;
 }
 
+function LandingRoute() {
+  const [params] = useSearchParams();
+  const state = (params.get('state') || 'NY').toUpperCase().slice(0, 2);
+  return (
+    <PublicJurisdictionProvider stateCode={state}>
+      <Workforce360Landing />
+    </PublicJurisdictionProvider>
+  );
+}
+
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Workforce360Landing />} />
+      <Route path="/" element={<LandingRoute />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/auth/handoff" element={<HandoffPage />} />
       <Route
         element={
           <ProtectedRoute>
-            <AnalyticsRouteTracker />
-            <AppShell />
+            <JurisdictionProvider>
+              <AnalyticsRouteTracker />
+              <AppShell />
+            </JurisdictionProvider>
           </ProtectedRoute>
         }
       >
@@ -97,6 +111,7 @@ export default function App() {
         />
         <Route path="/admin/pwsid-links" element={<AdminPwsidLinksPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
+        <Route path="/admin/jurisdictions" element={<AdminJurisdictionsPage />} />
         <Route path="/admin/settings" element={<AdminSettingsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

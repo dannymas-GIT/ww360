@@ -139,6 +139,24 @@
   margin: 1.5em 0;
 }
 
+/* PDF page-break marker (`--- Page Break ---` / `<!-- pagebreak -->`) */
+.studio-editor .ProseMirror p.studio-page-break {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 1.5rem 0;
+  padding: 0.45rem 0.75rem;
+  border: 1px dashed #94a3b8;
+  border-radius: 0.375rem;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  user-select: none;
+}
+
 .studio-editor .ProseMirror a {
   color: #0369a1;
   text-decoration: underline;
@@ -158,6 +176,89 @@
 }
 .studio-editor .ProseMirror img.ProseMirror-selectednode {
   outline: 3px solid #38bdf8;
+}
+
+/* Resizable / floated images (DocResizableImage node view) */
+.studio-editor .doc-image-resizer {
+  position: relative;
+  display: block;
+  margin: 0.75rem auto;
+  max-width: 100%;
+}
+.studio-editor .doc-image-resizer img.doc-editor-image {
+  width: 100%;
+  margin: 0;
+  border-radius: 0.5rem;
+}
+.studio-editor .doc-image-resizer-selected img.doc-editor-image {
+  outline: 3px solid #38bdf8;
+  outline-offset: 2px;
+}
+.studio-editor .doc-image-resize-handle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 2px solid #0284c7;
+  z-index: 5;
+  touch-action: none;
+}
+.studio-editor .doc-image-resize-handle-nw {
+  top: -7px;
+  left: -7px;
+  cursor: nwse-resize;
+}
+.studio-editor .doc-image-resize-handle-ne {
+  top: -7px;
+  right: -7px;
+  cursor: nesw-resize;
+}
+.studio-editor .doc-image-resize-handle-sw {
+  bottom: -7px;
+  left: -7px;
+  cursor: nesw-resize;
+}
+.studio-editor .doc-image-resize-handle-se {
+  bottom: -7px;
+  right: -7px;
+  cursor: nwse-resize;
+}
+.studio-editor .doc-image-resize-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.85);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  pointer-events: none;
+  z-index: 5;
+}
+.studio-editor .doc-image-resizer.doc-image-float-left {
+  float: left;
+  margin: 0.25rem 1rem 0.75rem 0;
+  max-width: 50%;
+}
+.studio-editor .doc-image-resizer.doc-image-float-right {
+  float: right;
+  margin: 0.25rem 0 0.75rem 1rem;
+  max-width: 50%;
+}
+.studio-editor .ProseMirror::after {
+  content: '';
+  display: table;
+  clear: both;
+}
+@media (max-width: 768px) {
+  .studio-editor .doc-image-float-left,
+  .studio-editor .doc-image-float-right {
+    float: none;
+    max-width: 100%;
+    margin: 0.75rem auto;
+  }
 }
 
 .studio-editor .ProseMirror table {

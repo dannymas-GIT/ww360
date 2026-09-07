@@ -16,9 +16,11 @@ import {
 } from '@/components/ui/table';
 import { formatCompact } from '@/lib/format';
 import { trackEvent } from '@/lib/ga4';
+import { useJurisdiction } from '@/context/JurisdictionContext';
 import { fetchWorkforceInsights, type SDWISWorkforceInsights } from '@/services/sdwisService';
 
 export default function SdwisLandscapePage() {
+  const { activeState, pack } = useJurisdiction();
   const [insights, setInsights] = useState<SDWISWorkforceInsights | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,10 +28,10 @@ export default function SdwisLandscapePage() {
   const load = () => {
     setLoading(true);
     setError(null);
-    void fetchWorkforceInsights('NY')
+    void fetchWorkforceInsights(activeState)
       .then(data => {
         setInsights(data);
-        trackEvent('sdwis_viewed', { surface: 'landscape' });
+        trackEvent('sdwis_viewed', { surface: 'landscape', state: activeState });
       })
       .catch(() => setError('Could not load SDWIS landscape.'))
       .finally(() => setLoading(false));
@@ -37,7 +39,7 @@ export default function SdwisLandscapePage() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [activeState]);
 
   const counties = (insights?.compliance_pressure_by_county || []).slice(0, 25);
   const sizeTiers = insights?.size_tiers || {};
@@ -53,7 +55,10 @@ export default function SdwisLandscapePage() {
       <Ww360PageHero
         eyebrow="EPA SDWIS · ECHO"
         title="Water system landscape"
-        description="State view for New York — active community water systems, compliance pressure, and grade demand estimates."
+        description={
+          pack?.landscape_description ??
+          `State view for ${activeState} — active community water systems, compliance pressure, and grade demand estimates.`
+        }
         dataMode="live"
         lastSynced={insights?.last_refreshed}
         actions={
@@ -100,7 +105,7 @@ export default function SdwisLandscapePage() {
       ) : isEmpty ? (
         <Ww360EmptyState
           title="Landscape cache is empty"
-          description="Refresh the NY SDWIS inventory from EPA ECHO to populate KPIs and county pressure."
+          description={`Refresh the ${activeState} SDWIS inventory from EPA ECHO to populate KPIs and county pressure.`}
           actionLabel="Refresh landscape"
           actionHref="/admin/settings"
         />
@@ -216,7 +221,7 @@ export default function SdwisLandscapePage() {
                   {!counties.length && (
                     <TableRow>
                       <TableCell colSpan={4} className="text-slate-500 text-sm">
-                        No county pressure rows yet — refresh the NY landscape from Settings.
+                        {`No county pressure rows yet — refresh the ${activeState} landscape from Settings.`}
                       </TableCell>
                     </TableRow>
                   )}

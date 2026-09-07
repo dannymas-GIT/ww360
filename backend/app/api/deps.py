@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from fastapi import Depends, HTTPException, Query, status
+from fastapi import Depends, Header, HTTPException, Query, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer, OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
@@ -29,11 +29,13 @@ def get_tenant_auth_service() -> TenantAuthService:
     return _tenant_auth_service
 
 
-async def get_current_tenant_user(
-    credentials: HTTPAuthorizationCredentials = Depends(tenant_bearer),
+async def _resolve_context(
+    token: str,
+    *,
+    requested_state: str | None = None,
 ) -> TenantContext:
     auth_service = get_tenant_auth_service()
-    context = await auth_service.verify_token(credentials.credentials)
+    context = await auth_service.verify_token(token, requested_state=requested_state)
     if not context:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -43,9 +45,20 @@ async def get_current_tenant_user(
     return context
 
 
+async def get_current_tenant_user(
+    credentials: HTTPAuthorizationCredentials = Depends(tenant_bearer),
+    x_ww360_state: str | None = Header(None, alias="X-WW360-State"),
+    state: str | None = Query(None, description="Active primacy state override"),
+) -> TenantContext:
+    requested = (x_ww360_state or state or "").strip().upper()[:2] or None
+    return await _resolve_context(credentials.credentials, requested_state=requested)
+
+
 async def get_current_tenant_user_from_header_or_query(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(tenant_bearer_optional),
     access_token: Optional[str] = Query(None),
+    x_ww360_state: str | None = Header(None, alias="X-WW360-State"),
+    state: str | None = Query(None),
 ) -> TenantContext:
     token = credentials.credentials if credentials else access_token
     if not token:
@@ -54,24 +67,23 @@ async def get_current_tenant_user_from_header_or_query(
             detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    auth_service = get_tenant_auth_service()
-    context = await auth_service.verify_token(token)
-    if not context:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return context
+    requested = (x_ww360_state or state or "").strip().upper()[:2] or None
+    return await _resolve_context(token, requested_state=requested)
 
 
 async def get_optional_tenant_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(tenant_bearer_optional),
+    x_ww360_state: str | None = Header(None, alias="X-WW360-State"),
+    state: str | None = Query(None),
 ) -> Optional[TenantContext]:
     if not credentials or not credentials.credentials:
         return None
     try:
-        return await get_tenant_auth_service().verify_token(credentials.credentials)
+        requested = (x_ww360_state or state or "").strip().upper()[:2] or None
+        return await get_tenant_auth_service().verify_token(
+            credentials.credentials,
+            requested_state=requested,
+        )
     except Exception:
         return None
 
@@ -107,3 +119,7 @@ def require_tenant_roles(roles: list[str], require_any: bool = True):
 
 def require_global_admin():
     return require_tenant_roles(["platform_admin"], require_any=True)
+
+
+def require_state_or_global_admin():
+    return require_tenant_roles(["platform_admin", "state_admin", "oww_partner"], require_any=True)

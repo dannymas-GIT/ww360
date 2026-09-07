@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -12,9 +12,18 @@ from app.db.database import get_db
 from app.models.user import User
 from app.services.auth_service import mint_ww360_token
 from app.services import sso_auth_service
-from app.tenant_auth import TenantContext, build_user_token_payload
+from app.services.jurisdiction_context_service import build_session_payload
+from app.tenant_auth import TenantContext
 
 router = APIRouter()
+
+
+class OrgMembershipOut(BaseModel):
+    org_code: str
+    state_code: str
+    name: str
+    role: str
+    content_pack_key: str | None = None
 
 
 class LoginBody(BaseModel):
@@ -29,6 +38,14 @@ class UserOut(BaseModel):
     full_name: str | None = None
     roles: list[str] = []
     districts: list[str] = []
+    active_state_code: str = "NY"
+    active_org_code: str | None = None
+    is_national_admin: bool = False
+    orgs: list[OrgMembershipOut] = []
+
+
+class ActiveStateBody(BaseModel):
+    state_code: str = Field(..., min_length=2, max_length=2)
 
 
 class SsoCallbackBody(BaseModel):
@@ -36,6 +53,33 @@ class SsoCallbackBody(BaseModel):
     code: str
     redirect_uri: str
     state: str | None = None
+
+
+def _user_out(user: User, payload: dict) -> UserOut:
+    orgs_raw = payload.get("orgs") or []
+    orgs = [
+        OrgMembershipOut(
+            org_code=o["org_code"],
+            state_code=o["state_code"],
+            name=o.get("name") or o["org_code"],
+            role=o.get("role") or "state_admin",
+            content_pack_key=o.get("content_pack_key"),
+        )
+        for o in orgs_raw
+        if isinstance(o, dict)
+    ]
+    return UserOut(
+        id=user.id,
+        username=user.username,
+        email=user.email,
+        full_name=user.full_name,
+        roles=list(payload.get("roles") or user.roles or []),
+        districts=list(payload.get("district_memberships") or user.district_memberships or []),
+        active_state_code=str(payload.get("active_state_code") or "NY").upper()[:2],
+        active_org_code=payload.get("active_org_code"),
+        is_national_admin=bool(payload.get("is_national_admin")),
+        orgs=orgs,
+    )
 
 
 @router.post("/login")
@@ -46,19 +90,12 @@ def login(body: LoginBody, db: Session = Depends(get_db)):
     if not verify_password(body.password, user.hashed_password or ""):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
-    payload = build_user_token_payload(user)
+    payload = build_session_payload(db, user)
     token = mint_ww360_token(payload)
     return {
         "access_token": token,
         "token_type": "bearer",
-        "user": UserOut(
-            id=user.id,
-            username=user.username,
-            email=user.email,
-            full_name=user.full_name,
-            roles=list(user.roles or []),
-            districts=payload.get("district_memberships") or [],
-        ),
+        "user": _user_out(user, payload),
     }
 
 
@@ -96,18 +133,30 @@ def me(
     db: Session = Depends(get_db),
 ):
     user = db.query(User).filter(User.id == context.user_id).first()
-    roles = list(context.roles or [])
-    districts = list(context.assigned_districts or [])
-    if user:
-        if not roles:
-            roles = list(user.roles or [])
-        if not districts:
-            districts = list(user.district_memberships or [])
-    return UserOut(
-        id=context.user_id,
-        username=context.username,
-        email=context.email or (user.email if user else None),
-        full_name=user.full_name if user else None,
-        roles=roles,
-        districts=districts,
-    )
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    payload = build_session_payload(db, user, requested_state=context.active_state_code)
+    return _user_out(user, payload)
+
+
+@router.post("/active-state")
+def set_active_state(
+    body: ActiveStateBody,
+    db: Session = Depends(get_db),
+    context: TenantContext = Depends(deps.get_current_tenant_user),
+):
+    user = db.query(User).filter(User.id == context.user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    payload = build_session_payload(db, user, requested_state=body.state_code)
+    if payload["active_state_code"] != body.state_code.upper()[:2]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized for that state",
+        )
+    token = mint_ww360_token(payload)
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": _user_out(user, payload),
+    }

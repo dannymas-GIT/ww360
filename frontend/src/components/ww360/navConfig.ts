@@ -89,6 +89,7 @@ export const ww360NavGroups: NavGroup[] = [
     id: 'admin',
     label: 'Administration',
     items: [
+      { label: 'Jurisdictions', path: '/admin/jurisdictions', icon: Map },
       { label: 'PWSID links', path: '/admin/pwsid-links', icon: Link2 },
       { label: 'Users & access', path: '/admin/users', icon: Users },
       { label: 'Settings', path: '/admin/settings', icon: Settings },
@@ -106,7 +107,7 @@ export function navGroupsForRoles(roles: string[], districts: string[] = []): Na
   const r = new Set(roles);
   const hasDistrict = districts.some(Boolean);
   const isExecOnly =
-    (r.has('platform_admin') || r.has('oww_partner')) &&
+    (r.has('platform_admin') || r.has('oww_partner') || r.has('state_admin')) &&
     !hasDistrict &&
     !r.has('district_admin') &&
     !r.has('district_manager') &&

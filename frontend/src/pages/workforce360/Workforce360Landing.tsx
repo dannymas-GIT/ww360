@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { applyBrandDocumentHead, getWw360LogoPath, WW360_LOGO_SIZE } from '@/utils/brandHost';
+import { useJurisdictionOptional } from '@/context/JurisdictionContext';
 import { initGa4, trackPageView } from '@/lib/ga4';
 import {
   WW360_SLIDE_INTERVAL_MS,
@@ -265,6 +266,21 @@ function ensureWw360Fonts(): void {
  * Main stage = full-bleed hero rotator; capability copy is editable later.
  */
 const Workforce360Landing: React.FC = () => {
+  const jurisdiction = useJurisdictionOptional();
+  const pack = jurisdiction?.pack;
+  const stageSlides = useMemo(() => {
+    if (!pack) return WW360_STAGE_SLIDES;
+    return WW360_STAGE_SLIDES.map(slide =>
+      slide.id === 'brand'
+        ? {
+            ...slide,
+            headlineAccent: pack.landing_headline_accent || slide.headlineAccent,
+            body: slide.body.replace('One Water Workforce', pack.partner_name),
+          }
+        : slide
+    );
+  }, [pack]);
+
   const [active, setActive] = useState(0);
   const [outgoing, setOutgoing] = useState<number | null>(null);
   const [dir, setDir] = useState<'next' | 'prev'>('next');
@@ -275,8 +291,8 @@ const Workforce360Landing: React.FC = () => {
   const timerRef = useRef<number | null>(null);
   const transitionTimerRef = useRef<number | null>(null);
 
-  const stage = WW360_STAGE_SLIDES[active] ?? WW360_STAGE_SLIDES[0];
-  const slideCount = WW360_STAGE_SLIDES.length;
+  const stage = stageSlides[active] ?? stageSlides[0];
+  const slideCount = stageSlides.length;
 
   useEffect(() => {
     ensureWw360Fonts();
@@ -298,7 +314,7 @@ const Workforce360Landing: React.FC = () => {
       params.get('slide') ||
       (window.location.pathname.includes('/preview/partners') ? 'partners' : null);
     if (!raw) return;
-    const idx = WW360_STAGE_SLIDES.findIndex(s => s.id === raw.trim().toLowerCase());
+    const idx = stageSlides.findIndex(s => s.id === raw.trim().toLowerCase());
     if (idx < 0) return;
     setActive(idx);
     setAutoplay(false);
@@ -483,7 +499,7 @@ const Workforce360Landing: React.FC = () => {
         aria-roledescription="carousel"
         aria-label="Workforce 360 highlights"
       >
-        {WW360_STAGE_SLIDES.map((slide, i) => {
+        {stageSlides.map((slide, i) => {
           if (slide.partnersFocus) return null;
           const isActive = i === active;
           const isOutgoing = i === outgoing;
@@ -542,7 +558,7 @@ const Workforce360Landing: React.FC = () => {
                 </Link>
               </div>
               <p className="ww360-hero__trust">
-                Built with One Water Workforce · for New York water districts
+                {pack?.landing_tagline ?? 'Built with One Water Workforce · for New York water districts'}
               </p>
             </div>
           </div>
@@ -561,7 +577,7 @@ const Workforce360Landing: React.FC = () => {
           </button>
 
           <div className="ww360-stage__dots" role="tablist" aria-label="Stage slides">
-            {WW360_STAGE_SLIDES.map((slide, i) => (
+            {stageSlides.map((slide, i) => (
               <button
                 key={slide.id}
                 type="button"
@@ -727,7 +743,8 @@ const Workforce360Landing: React.FC = () => {
                 succession planning, and training needs
               </li>
               <li>
-                <strong>Together</strong> — workforce supply meets workforce demand across New York
+                <strong>Together</strong> — workforce supply meets workforce demand{' '}
+                {pack?.geography_phrase ? pack.geography_phrase : 'across New York'}
               </li>
             </ul>
           </div>

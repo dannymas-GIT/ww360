@@ -16,10 +16,19 @@ from typing import Any
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.db.database import SessionLocal, init_db
-from app.models.doc_document import DocAsset, DocDocument, DocFolder, DocVersion, PROGRAM_SCOPE
+from app.models.doc_document import (
+    DocAsset,
+    DocDocument,
+    DocFolder,
+    DocVersion,
+    program_scope_for_state,
+)
 from app.models.user import User
 from app.schemas.doc_studio import DocContentSave, DocDocumentCreate
 from app.services.doc_studio_service import DocStudioService
+
+# State-keyed program library (legacy ``program`` migrated to program:NY).
+PROGRAM_SCOPE = program_scope_for_state("NY")
 
 # category → default program folder name
 FOLDER_BY_CATEGORY = {

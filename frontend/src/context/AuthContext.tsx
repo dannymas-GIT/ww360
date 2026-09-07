@@ -14,7 +14,9 @@ interface AuthContextValue {
   loading: boolean;
   isAuthenticated: boolean;
   isOwwPartner: boolean;
+  isStateAdmin: boolean;
   isPlatformAdmin: boolean;
+  activeStateCode: string;
   /** AquaSafe-compatible aliases used by ported workforce UI */
   isAdmin: boolean;
   isGlobalAdmin: boolean;
@@ -88,6 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const userRoles = user?.roles ?? [];
   const isPlatformAdmin = hasAnyRole('platform_admin');
+  const isStateAdmin = hasAnyRole('state_admin', 'oww_partner');
 
   const value = useMemo(
     () => ({
@@ -96,7 +99,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       loading,
       isAuthenticated: !!user,
       isOwwPartner: hasAnyRole('oww_partner'),
+      isStateAdmin,
       isPlatformAdmin,
+      activeStateCode: user?.active_state_code ?? 'NY',
       isAdmin: isPlatformAdmin || hasAnyRole('district_admin', 'admin'),
       isGlobalAdmin: isPlatformAdmin,
       isSystemAdmin: isPlatformAdmin,
@@ -120,7 +125,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       logout,
       hasAnyRole,
     }),
-    [user, loading, login, applySessionUser, redeemHandoffCode, logout, hasAnyRole, userRoles, isPlatformAdmin]
+    [user, loading, login, applySessionUser, redeemHandoffCode, logout, hasAnyRole, userRoles, isPlatformAdmin, isStateAdmin]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

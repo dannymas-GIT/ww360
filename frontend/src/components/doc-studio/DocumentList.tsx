@@ -1,5 +1,7 @@
+import type { DragEvent } from 'react';
 import { FileText, FileUp, Search } from 'lucide-react';
 import type { DocSummary } from '@/services/docStudioService';
+import { DOC_STUDIO_DRAG_MIME } from '@/services/docStudioService';
 import { Input } from '@/components/ui/input';
 
 export interface DocumentListProps {
@@ -10,6 +12,8 @@ export interface DocumentListProps {
   onQueryChange: (q: string) => void;
   onSelect: (doc: DocSummary) => void;
   emptyHint?: string | undefined;
+  /** When true, authors can drag documents onto folders to move them. */
+  canDrag?: boolean | undefined;
 }
 
 export function statusTone(status: string): string {
@@ -38,6 +42,15 @@ export function relativeTime(iso?: string | null): string {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+function startDocDrag(e: DragEvent, doc: DocSummary) {
+  e.dataTransfer.setData(
+    DOC_STUDIO_DRAG_MIME,
+    JSON.stringify({ documentId: doc.id, folderId: doc.folder_id })
+  );
+  e.dataTransfer.setData('text/plain', doc.title);
+  e.dataTransfer.effectAllowed = 'move';
+}
+
 export function DocumentList({
   documents,
   selectedId,
@@ -46,6 +59,7 @@ export function DocumentList({
   onQueryChange,
   onSelect,
   emptyHint,
+  canDrag = false,
 }: DocumentListProps) {
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -60,6 +74,9 @@ export function DocumentList({
             aria-label="Search documents"
           />
         </div>
+        {canDrag ? (
+          <p className="mt-1.5 px-0.5 text-[10px] text-slate-500">Drag onto a folder to move</p>
+        ) : null}
       </div>
       <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto px-2 pb-2" aria-busy={loading}>
         {documents.map(doc => {
@@ -68,9 +85,14 @@ export function DocumentList({
             <li key={doc.id}>
               <button
                 type="button"
+                draggable={canDrag}
+                onDragStart={canDrag ? e => startDocDrag(e, doc) : undefined}
                 onClick={() => onSelect(doc)}
+                title={canDrag ? 'Drag to a folder to move' : undefined}
                 aria-current={active ? 'true' : undefined}
                 className={`w-full rounded-lg border px-3 py-2 text-left transition ${
+                  canDrag ? 'cursor-grab active:cursor-grabbing' : ''
+                } ${
                   active
                     ? 'border-sky-300 bg-sky-50 shadow-sm'
                     : 'border-transparent hover:border-slate-200 hover:bg-slate-50'

@@ -32,9 +32,24 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
-PROGRAM_SCOPE = "program"
+PROGRAM_SCOPE = "program"  # legacy alias — migrated to program:{state_code}
 CUSTODY_STATUSES = ("local", "transferred", "purge_scheduled", "purged")
 OWNER_TYPES = ("district", "program")
+
+
+def program_scope_for_state(state_code: str) -> str:
+    return f"program:{(state_code or 'NY').upper()[:2]}"
+
+
+def normalize_doc_scope(scope: str, *, default_state: str = "NY") -> str:
+    """Map legacy ``program`` to a state-keyed program library scope."""
+    if scope == PROGRAM_SCOPE:
+        return program_scope_for_state(default_state)
+    return scope
+
+
+def is_program_scope(scope: str) -> bool:
+    return scope == PROGRAM_SCOPE or scope.startswith("program:")
 
 
 def _uuid() -> str:

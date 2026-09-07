@@ -13,6 +13,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useSDWISEnforcement, useSDWISViolations } from '@/hooks/useSDWIS';
+import { useJurisdiction } from '@/context/JurisdictionContext';
 import { fetchWorkforceInsights } from '@/services/sdwisService';
 
 type WatchRow = {
@@ -24,6 +25,7 @@ type WatchRow = {
 };
 
 export default function SdwisWatchlistPage() {
+  const { activeState } = useJurisdiction();
   const [rows, setRows] = useState<WatchRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPwsid, setSelectedPwsid] = useState<string | null>(null);
@@ -31,7 +33,7 @@ export default function SdwisWatchlistPage() {
 
   useEffect(() => {
     setLoading(true);
-    void fetchWorkforceInsights('NY')
+    void fetchWorkforceInsights(activeState)
       .then(data => {
         setLastSynced(data.last_refreshed ?? null);
         const list: WatchRow[] = (data.member_watchlist || [])
@@ -51,7 +53,7 @@ export default function SdwisWatchlistPage() {
       })
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [activeState]);
 
   const selected = useMemo(
     () => rows.find(r => r.pwsid === selectedPwsid) || null,
@@ -104,7 +106,7 @@ export default function SdwisWatchlistPage() {
         ) : !rows.length ? (
           <Ww360EmptyState
             title="No member utilities on the watchlist yet"
-            description="Link PWSIDs under Administration, then refresh the NY landscape."
+            description={`Link PWSIDs under Administration, then refresh the ${activeState} landscape.`}
             actionLabel="Link a PWSID"
             actionHref="/admin/pwsid-links"
           />

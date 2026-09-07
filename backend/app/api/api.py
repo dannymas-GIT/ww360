@@ -9,6 +9,8 @@ from app.api.v1.endpoints import (
     digital_analytics,
     districts,
     doc_studio,
+    jurisdiction_admin,
+    jurisdictions,
     sync,
     tenant,
     ww360_public,
@@ -41,6 +43,14 @@ api_router.include_router(
 api_router.include_router(
     admin_users.router,
     tags=["admin"],
+)
+api_router.include_router(
+    jurisdiction_admin.router,
+    tags=["admin"],
+)
+api_router.include_router(
+    jurisdictions.router,
+    tags=["jurisdictions"],
 )
 api_router.include_router(
     sdwis.router,

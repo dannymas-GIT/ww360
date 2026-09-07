@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.models.doc_document import PROGRAM_SCOPE
+from app.models.doc_document import PROGRAM_SCOPE, is_program_scope, program_scope_for_state
 
 REMOTE_STUDIO_ROOT_NAME = "WW360 Document Studio"
 
@@ -40,8 +40,10 @@ CUSTODY_INELIGIBLE_FOLDERS = frozenset(
 
 def resolve_owner(scope: str) -> tuple[str, str]:
     """Map studio scope → library owner_type + owner_code."""
-    if scope == PROGRAM_SCOPE:
-        return "program", PROGRAM_SCOPE
+    if is_program_scope(scope):
+        if scope == PROGRAM_SCOPE:
+            return "program", program_scope_for_state("NY")
+        return "program", scope
     return "district", scope
 
 

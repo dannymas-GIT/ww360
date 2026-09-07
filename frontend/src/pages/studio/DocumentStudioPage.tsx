@@ -26,6 +26,8 @@ import {
   Trash2,
   Video,
   PlayCircle,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -93,6 +95,7 @@ export default function DocumentStudioPage() {
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [titleDraft, setTitleDraft] = useState('');
   const [restoringVersion, setRestoringVersion] = useState<number | null>(null);
+  const [editorFullscreen, setEditorFullscreen] = useState(false);
 
   const editorRef = useRef<StudioEditorHandle>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -200,6 +203,20 @@ export default function DocumentStudioPage() {
         toast({ title: 'Connection failed', description: errMessage(err), variant: 'destructive' })
       );
   }, [accessQ.isSuccess, params, setParams, studioScope, toast]);
+
+  useEffect(() => {
+    if (!editorFullscreen) return undefined;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setEditorFullscreen(false);
+    };
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [editorFullscreen]);
 
   const invalidateLists = useCallback(() => {
     qc.invalidateQueries({ queryKey: ['studio', 'documents'] });
@@ -417,6 +434,28 @@ export default function DocumentStudioPage() {
     onError: err => toast({ title: 'Move failed', description: errMessage(err), variant: 'destructive' }),
   });
 
+  const handleDropDocument = useCallback(
+    (targetFolderId: string | null, documentId: string) => {
+      if (!canAuthor) return;
+      const fromList =
+        documents.find(d => d.id === documentId) ??
+        (allDocsQ.data ?? []).find(d => d.id === documentId) ??
+        (doc?.id === documentId ? doc : null);
+      if (!fromList) {
+        toast({ title: 'Move failed', description: 'Could not find that document.', variant: 'destructive' });
+        return;
+      }
+      if ((fromList.folder_id ?? null) === targetFolderId) return;
+      const targetFolder = targetFolderId ? (folders.find(f => f.id === targetFolderId) ?? null) : null;
+      if (targetFolderId && !targetFolder) return;
+      const fromFolder = folders.find(f => f.id === fromList.folder_id) ?? null;
+      const warning = api.documentMoveWarning(fromList, fromFolder, targetFolder);
+      if (warning && !window.confirm(warning)) return;
+      moveMut.mutate({ id: documentId, folder_id: targetFolderId });
+    },
+    [allDocsQ.data, canAuthor, doc, documents, folders, moveMut, toast]
+  );
+
   const duplicateMut = useMutation({
     mutationFn: (id: string) => api.duplicateDocument(id),
     onSuccess: async data => {
@@ -482,7 +521,7 @@ export default function DocumentStudioPage() {
     await flushAutosave();
     setExporting(fmt);
     try {
-      await api.downloadExport(doc.id, fmt, doc.title);
+      await api.downloadExport(doc.id, fmt, doc.title, studioScope);
     } catch (err) {
       toast({ title: 'Export failed', description: errMessage(err), variant: 'destructive' });
     } finally {
@@ -764,6 +803,7 @@ export default function DocumentStudioPage() {
               unfiledCount={unfiledCount}
               canManage={canAuthor}
               onSelect={setFolderSel}
+              onDropDocument={canAuthor ? handleDropDocument : undefined}
               onCreate={parentId => {
                 const name = window.prompt(parentId ? 'New subfolder name' : 'New folder name');
                 if (name?.trim()) folderCreateMut.mutate({ name: name.trim(), parent_id: parentId });
@@ -819,6 +859,7 @@ export default function DocumentStudioPage() {
             loading={docsQ.isLoading}
             onQueryChange={setQuery}
             onSelect={d => void selectDocument(d.id)}
+            canDrag={canAuthor}
             emptyHint={
               canAuthor && !query
                 ? 'Nothing here yet — create a document from a template or import a file.'
@@ -830,8 +871,13 @@ export default function DocumentStudioPage() {
         {/* Editor */}
         <section
           data-tour="studio-editor"
-          className="flex min-h-0 flex-col rounded-xl border border-slate-200 bg-white shadow-sm"
+          className={
+            editorFullscreen
+              ? 'fixed inset-0 z-50 flex min-h-0 flex-col bg-white shadow-2xl'
+              : 'flex min-h-0 flex-col rounded-xl border border-slate-200 bg-white shadow-sm'
+          }
           aria-label="Editor"
+          aria-modal={editorFullscreen || undefined}
         >
           {!selectedId ? (
             <EmptyEditor canAuthor={canAuthor} onNew={() => setNewOpen(true)} recent={(allDocsQ.data ?? []).slice(0, 5)} onOpen={id => void selectDocument(id)} />
@@ -841,7 +887,7 @@ export default function DocumentStudioPage() {
             </div>
           ) : (
             <>
-              <header className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-3 py-2">
+              <header className="sticky top-0 z-30 flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white/95 px-3 py-2 backdrop-blur-sm">
                 <Input
                   value={titleDraft}
                   onChange={e => setTitleDraft(e.target.value)}
@@ -887,6 +933,19 @@ export default function DocumentStudioPage() {
                   <SaveIndicator state={saveState} updatedAt={doc.updated_at} />
                 </div>
                 <div className="ml-auto flex items-center gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-9"
+                    data-tour="studio-fullscreen"
+                    title={editorFullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen editor'}
+                    aria-pressed={editorFullscreen}
+                    onClick={() => setEditorFullscreen(v => !v)}
+                  >
+                    {editorFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                    <span className="ml-1 hidden sm:inline">{editorFullscreen ? 'Exit' : 'Fullscreen'}</span>
+                  </Button>
                   {canAuthor && doc.doc_type === 'tutorial' ? (
                     <Button
                       type="button"
@@ -932,7 +991,7 @@ export default function DocumentStudioPage() {
                       <DropdownMenuItem onClick={() => void doExport('docx')}>Word (.docx)</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => void doExport('markdown')}>Markdown (.md)</DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => api.openPrintPreview(doc.id)}>
+                      <DropdownMenuItem onClick={() => api.openPrintPreview(doc.id, studioScope)}>
                         <Printer className="mr-2 h-4 w-4" /> Print view
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -1005,7 +1064,9 @@ export default function DocumentStudioPage() {
                     initialMarkdown={doc.content_markdown || ''}
                     readOnly={!canAuthor}
                     documentId={doc.id}
+                    scope={studioScope}
                     templateAudience={templateAudience}
+                    pinToolbar
                     onChange={handleEditorChange}
                     onUploadError={msg => toast({ title: 'Image upload failed', description: msg, variant: 'destructive' })}
                   />

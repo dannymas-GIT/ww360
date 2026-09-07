@@ -16,12 +16,14 @@ import httpx
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.models.doc_document import program_scope_for_state
 from app.models.user import User
 from app.services.auth_service import mint_ww360_token
 from app.services.doc_studio_library_constants import resolve_owner
 from app.services.doc_studio_service import resolve_scope
 from app.services.external_library_provider import ExternalLibraryService
-from app.tenant_auth import TenantContext, build_user_token_payload
+from app.services.jurisdiction_context_service import build_session_payload
+from app.tenant_auth import TenantContext
 
 logger = logging.getLogger(__name__)
 
@@ -242,11 +244,11 @@ def studio_scope_for_user(user: User) -> str:
     """Mirror DocStudioService.resolve_scope without a full TenantContext yet."""
     roles = set(user.roles or [])
     districts = list(user.district_memberships or [])
-    if "platform_admin" in roles or "oww_partner" in roles:
-        return "program"
+    if "platform_admin" in roles or "oww_partner" in roles or "state_admin" in roles:
+        return program_scope_for_state("NY")
     if districts:
         return districts[0]
-    return "program"
+    return program_scope_for_state("NY")
 
 
 def seed_library_connection_from_sso(
@@ -332,7 +334,7 @@ async def complete_sso_login(
     except Exception:
         logger.exception("SSO login succeeded but library token seed failed for user %s", user.id)
 
-    payload = build_user_token_payload(user)
+    payload = build_session_payload(db, user)
     token = mint_ww360_token(payload)
     return {
         "access_token": token,
@@ -344,7 +346,11 @@ async def complete_sso_login(
             "username": user.username,
             "email": user.email,
             "full_name": user.full_name,
-            "roles": list(user.roles or []),
+            "roles": list(payload.get("roles") or []),
             "districts": payload.get("district_memberships") or [],
+            "active_state_code": payload.get("active_state_code"),
+            "active_org_code": payload.get("active_org_code"),
+            "is_national_admin": payload.get("is_national_admin"),
+            "orgs": payload.get("orgs") or [],
         },
     }

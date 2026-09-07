@@ -32,6 +32,10 @@ def mint_ww360_token(user_payload: dict[str, Any]) -> str:
         "email": user_payload.get("email"),
         "roles": user_payload.get("roles") or [],
         "districts": user_payload.get("district_memberships") or [],
+        "active_state_code": (user_payload.get("active_state_code") or "NY").upper()[:2],
+        "active_org_code": user_payload.get("active_org_code"),
+        "is_national_admin": bool(user_payload.get("is_national_admin")),
+        "orgs": user_payload.get("orgs") or [],
         "exp": expire,
         "iss": "ww360",
     }

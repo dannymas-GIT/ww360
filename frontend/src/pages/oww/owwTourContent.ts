@@ -1,86 +1,123 @@
 import type { Ww360TourSlide } from '@/components/ww360/Ww360TourOverlay';
+import type { JurisdictionPack } from '@/services/jurisdictionService';
 
 export type OwwTourSlide = Ww360TourSlide;
 
 export const OWW_TOUR_DISMISSED_KEY = 'ww360-oww-tour-dismissed';
 export const OWW_TOUR_STEP_KEY = 'ww360-oww-tour-step';
 
-export const OWW_TOUR_SLIDES: OwwTourSlide[] = [
-  {
-    id: 'welcome',
-    title: 'Welcome to your One Water Workforce workspace',
-    body: 'This is the executive view of the whole pipeline — from a student discovering water careers on onewaterworkforce.org, through Learning Stream training, to a hire at a New York utility — plus the statewide EPA compliance landscape. Four sources feed it; you read one screen.',
-    tip: 'You can reopen this tour any time from the Tour button in the header.',
+export function buildOwwTourSlides(pack: JurisdictionPack): OwwTourSlide[] {
+  const stateName = pack.state_code === 'NY' ? 'New York' : pack.state_code === 'NJ' ? 'New Jersey' : pack.state_code;
+  const intro =
+    pack.exec_tour?.intro ||
+    `Executive view of the water workforce pipeline ${pack.geography_phrase || `in ${stateName}`}.`;
+  const sources =
+    pack.exec_tour?.sources ||
+    `EPA SDWIS / ECHO is the live federal inventory of ${stateName} community water systems.`;
+  const sdwis =
+    pack.exec_tour?.sdwis ||
+    `SDWIS shows ${stateName} community water systems — active systems, population served, and compliance pressure.`;
+
+  return [
+    {
+      id: 'welcome',
+      title: `Welcome to your ${pack.partner_name} workspace`,
+      body: intro,
+      tip: 'You can reopen this tour any time from the Tour button in the header.',
+    },
+    {
+      id: 'sources',
+      title: 'Four sources, one picture',
+      body: sources,
+      highlight: '[data-tour="sources"]',
+      tip: 'SDWIS refreshes from Admin → Settings (or the nightly job). Live badges mean federal data; Sample badges mean program metrics awaiting their API.',
+    },
+    {
+      id: 'kpis',
+      title: 'The numbers that matter',
+      body: 'Top cards mix live SDWIS counts (active CWS, population, health violations, SNC) with program metrics (members, contact hours, retirements, placements). Each card is tagged Live or Sample and shows which source it comes from.',
+      highlight: '[data-tour="kpis"]',
+      tip: 'Hover a card to see which source it comes from.',
+    },
+    {
+      id: 'sdwis-landscape',
+      title: 'Water system landscape (SDWIS)',
+      body: sdwis,
+      highlight: '[data-tour="sdwis-landscape"]',
+      tip: 'Link utility PWSIDs under Admin → PWSID links to build a member watchlist from this landscape.',
+    },
+    {
+      id: 'pipeline',
+      title: 'Candidate pipeline',
+      body: 'How many people are at each stage between awareness and employment. Drop-offs between stages tell you where outreach, scholarships or exam prep would move the most people.',
+      highlight: '[data-tour="pipeline"]',
+    },
+    {
+      id: 'digital-teaser',
+      title: 'Digital reach (GA4 + SEO)',
+      body: 'Google Analytics for each program site — Water Workforce 360, onewaterworkforce.org, and Learning Stream — showing which pages people visit, how long they stay, traffic sources, and Search Console search performance.',
+      highlight: '[data-tour="digital-teaser"]',
+      tip: 'Open Digital reach from the teaser bar for the full three-property view.',
+    },
+    {
+      id: 'supply-demand',
+      title: 'Supply vs. demand by region',
+      body: 'Openings utilities expect in 24 months against candidates in training in the same region. Red gaps are where a cohort or a bootcamp should be scheduled; green means the bench is deeper than demand.',
+      highlight: '[data-tour="supply-demand"]',
+    },
+    {
+      id: 'learning-stream',
+      title: 'Learning Stream at a glance',
+      body: 'Monthly registrations, attendance and CE hours, plus fill rate and waitlists on the upcoming calendar. Waitlists are demand you have not seated yet.',
+      highlight: '[data-tour="learning-stream"]',
+    },
+    {
+      id: 'regions',
+      title: 'Regional workforce risk',
+      body: 'Every region with utilities enrolled, ranked by supply gap and critical roles without a named successor. Small systems are flagged so rural needs are not lost in statewide totals.',
+      highlight: '[data-tour="regions"]',
+    },
+    {
+      id: 'epa',
+      title: 'EPA Area 3 measures',
+      body: 'Progress against each grant output, mapped to Tasks 1–4, with reporting-period readiness. The quarterly package exports from here.',
+      highlight: '[data-tour="epa"]',
+    },
+    {
+      id: 'insights',
+      title: 'Recommended actions',
+      body: 'Where the four sources disagree or line up, the dashboard says so in plain language and proposes a next step.',
+      highlight: '[data-tour="insights"]',
+    },
+    {
+      id: 'access',
+      title: 'Your platform access',
+      body: 'You hold platform privileges scoped to the workforce program: statewide aggregates, Learning Stream mirror, pipeline, grant exports and program staff management.',
+      highlight: '[data-tour="access"]',
+      tip: 'Utility-level detail follows each utility’s consent, and utility records stay utility-owned.',
+    },
+  ];
+}
+
+/** @deprecated use buildOwwTourSlides with pack */
+export const OWW_TOUR_SLIDES: OwwTourSlide[] = buildOwwTourSlides({
+  state_code: 'NY',
+  partner_name: 'One Water Workforce',
+  section_eyebrow: 'One Water Workforce · New York Section AWWA',
+  geography_phrase: 'across New York',
+  landing_tagline: '',
+  landing_headline_accent: '',
+  exec_description: '',
+  landscape_description: '',
+  sdwis_default_state: 'NY',
+  economic_regions: [],
+  exec_tour: {
+    intro:
+      'This is the executive view of the whole pipeline — from a student discovering water careers on onewaterworkforce.org, through Learning Stream training, to a hire at a New York utility — plus the statewide EPA compliance landscape. Four sources feed it; you read one screen.',
+    sources:
+      'EPA SDWIS / ECHO is the live federal inventory of New York community water systems — compliance, population served, and county pressure. Learning Stream is the LMS system of record for training. onewaterworkforce.org captures members and the career pipeline. Water Workforce 360 adds the employer side — vacancies, retirements, and training needs from utilities.',
+    sdwis:
+      'Safe Drinking Water Information System (SDWIS) is EPA’s national database of public water systems. Here you see New York’s community water systems: how many are active, who they serve, health-based violations, and serious non-compliance — the compliance backdrop for workforce planning.',
   },
-  {
-    id: 'sources',
-    title: 'Four sources, one picture',
-    body: 'EPA SDWIS / ECHO is the live federal inventory of New York community water systems — compliance, population served, and county pressure. Learning Stream is the LMS system of record for training. onewaterworkforce.org captures members and the career pipeline. Water Workforce 360 adds the employer side — vacancies, retirements, and training needs from utilities. The strip shows which feeds are live today and which still show sample figures until connected.',
-    highlight: '[data-tour="sources"]',
-    tip: 'SDWIS refreshes from Admin → Settings (or the nightly job). Live badges mean federal data; Sample badges mean program metrics awaiting their API.',
-  },
-  {
-    id: 'kpis',
-    title: 'The numbers that matter',
-    body: 'Top cards mix live SDWIS counts (active CWS, population, health violations, SNC) with program metrics (members, contact hours, retirements, placements). Each card is tagged Live or Sample and shows which source it comes from.',
-    highlight: '[data-tour="kpis"]',
-    tip: 'Hover a card to see which source it comes from.',
-  },
-  {
-    id: 'sdwis-landscape',
-    title: 'Water system landscape (SDWIS)',
-    body: 'Safe Drinking Water Information System (SDWIS) is EPA’s national database of public water systems. Here you see New York’s community water systems: how many are active, who they serve, health-based violations, and serious non-compliance — the compliance backdrop for workforce planning.',
-    highlight: '[data-tour="sdwis-landscape"]',
-    tip: 'Link utility PWSIDs under Admin → PWSID links to build a member watchlist from this landscape.',
-  },
-  {
-    id: 'pipeline',
-    title: 'Candidate pipeline',
-    body: 'How many people are at each stage between awareness and employment. Drop-offs between stages tell you where outreach, scholarships or exam prep would move the most people.',
-    highlight: '[data-tour="pipeline"]',
-  },
-  {
-    id: 'digital-teaser',
-    title: 'Digital reach (GA4 + SEO)',
-    body: 'A dedicated analytics page tracks how Water Workforce 360, onewaterworkforce.org, and Learning Stream perform in Google Analytics and Search Console — sessions, organic queries, top pages, and conversion events. WW360 can report on itself when GA4 is wired; OWW and Learning Stream show rich sample data until their feeds connect.',
-    highlight: '[data-tour="digital-teaser"]',
-    tip: 'Open Digital reach from the teaser bar for the full three-property view.',
-  },
-  {
-    id: 'supply-demand',
-    title: 'Supply vs. demand by region',
-    body: 'Openings utilities expect in 24 months against candidates in training in the same region. Red gaps are where a cohort or a bootcamp should be scheduled; green means the bench is deeper than demand.',
-    highlight: '[data-tour="supply-demand"]',
-  },
-  {
-    id: 'learning-stream',
-    title: 'Learning Stream at a glance',
-    body: 'Monthly registrations, attendance and CE hours, plus fill rate and waitlists on the upcoming calendar. Waitlists are demand you have not seated yet.',
-    highlight: '[data-tour="learning-stream"]',
-  },
-  {
-    id: 'regions',
-    title: 'Regional workforce risk',
-    body: 'Every region with utilities enrolled, ranked by supply gap and critical roles without a named successor. Small systems are flagged so rural needs are not lost in statewide totals. Above it, live county compliance pressure from SDWIS shows where federal compliance load is heaviest.',
-    highlight: '[data-tour="regions"]',
-  },
-  {
-    id: 'epa',
-    title: 'EPA Area 3 measures',
-    body: 'Progress against each grant output, mapped to Tasks 1–4, with reporting-period readiness. The quarterly package exports from here.',
-    highlight: '[data-tour="epa"]',
-  },
-  {
-    id: 'insights',
-    title: 'Recommended actions',
-    body: 'Where the four sources disagree or line up, the dashboard says so in plain language and proposes a next step — add a course section, launch a referral campaign, open candidate matching, or dig into a high-pressure SDWIS county.',
-    highlight: '[data-tour="insights"]',
-  },
-  {
-    id: 'access',
-    title: 'Your platform access',
-    body: 'You hold platform privileges scoped to the workforce program: statewide aggregates, Learning Stream mirror, pipeline, grant exports and OWW staff management. Utility-level detail follows each utility’s consent, and utility records stay utility-owned.',
-    highlight: '[data-tour="access"]',
-    tip: 'That is the trust model utilities sign up for — worth mentioning when you invite the next one.',
-  },
-];
+  analytics_geo_hints: [],
+});

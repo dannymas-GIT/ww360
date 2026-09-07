@@ -413,7 +413,7 @@ export default function DigitalReachPage() {
       <Ww360PageHero
         eyebrow="Digital reach · GA4 + SEO"
         title="How the program shows up online"
-        description="Google Analytics traffic and Search Console organic performance for Water Workforce 360, onewaterworkforce.org, and Learning Stream. WW360 reports on itself when GA4 is configured; OWW and Learning Stream show illustrative datasets until their feeds connect."
+        description="Google Analytics for each program site — Water Workforce 360, onewaterworkforce.org, and Learning Stream — covering page visits, time on site, traffic sources, and Search Console organic queries. WW360 can report live when GA4 is configured; OWW and Learning Stream use illustrative data until their feeds connect."
         dataMode={heroMode}
         lastSynced={report?.lastSynced}
         actions={

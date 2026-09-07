@@ -50,6 +50,10 @@
       "specFile": "frontend/e2e/oww_exec_dashboard.spec.ts",
       "pathPatterns": [
         "frontend/src/pages/oww/**",
+        "frontend/src/context/JurisdictionContext.tsx",
+        "frontend/src/services/jurisdictionService.ts",
+        "backend/app/services/jurisdiction_service.py",
+        "backend/app/jurisdictions/**",
         "frontend/src/components/ww360/**",
         "backend/app/api/endpoints/sdwis.py",
         "backend/app/services/sdwis_workforce_insights.py",
@@ -155,6 +159,26 @@
       "defaultRunOn": ["staging", "pr"],
       "flakeBudget": 2,
       "tags": ["ww360", "district", "hfwd"]
+    },
+    {
+      "id": "jurisdiction-primacy",
+      "specFile": "frontend/e2e/jurisdiction_primacy.spec.ts",
+      "pathPatterns": [
+        "backend/app/models/workforce_organization.py",
+        "backend/app/services/jurisdiction_service.py",
+        "backend/app/services/jurisdiction_context_service.py",
+        "backend/app/jurisdictions/**",
+        "backend/app/api/v1/endpoints/jurisdictions.py",
+        "backend/app/api/v1/endpoints/jurisdiction_admin.py",
+        "backend/app/tenant_auth.py",
+        "frontend/src/context/JurisdictionContext.tsx",
+        "frontend/src/services/jurisdictionService.ts",
+        "frontend/src/components/ww360/StateSwitcher.tsx",
+        "frontend/src/pages/admin/AdminJurisdictionsPage.tsx"
+      ],
+      "defaultRunOn": ["staging", "pr"],
+      "flakeBudget": 2,
+      "tags": ["ww360", "jurisdiction"]
     },
     {
       "id": "sync-contract",

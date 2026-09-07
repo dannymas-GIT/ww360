@@ -53,6 +53,23 @@ WW360 issues its own JWT until AquaSafe handoff is deployed on staging:
 - Seed user: `jingrao-aman-OWW` (`platform_admin` + `oww_partner`)
 - Set `WW360_SEED_ADMIN_PASSWORD` in `openclaw.env`, then on VM: `docker compose exec backend python scripts/seed_ww360_admin.py`
 
+### Demo accounts (national + NJ)
+
+```bash
+docker compose exec backend python scripts/seed_national_nj_demo.py
+# optional: WW360_SEED_NATIONAL_PASSWORD / WW360_SEED_NJ_PASSWORD
+```
+
+| Username | Default password | Role | Dashboard to try |
+|----------|------------------|------|------------------|
+| `ww360-national` | `ChangeMe-National!` | `platform_admin` | Executive overview + **Primacy state** switcher (NY ↔ NJ) + Admin → Jurisdictions |
+| `nj-state-admin` | `ChangeMe-NJ!` | `state_admin` | NJ executive overview / landscape (pack-driven copy) + `program:NJ` Document Studio |
+| `wb-admin` | `ChangeMe-NJ!` | `district_admin` | Woodbridge district home, continuity vacancy (MAINT-1), admin alerts |
+| `wb-manager` | `ChangeMe-NJ!` | `workforce_manager` | Continuity succession board, documentation **review queue**, CE renewals |
+| `wb-operator-1` | `ChangeMe-NJ!` | `workforce_operator` | Operator home, CEU log, assigned documentation tasks |
+
+Demo district: **WBWD** — Township of Woodbridge Water Department (NJ). Includes positions, employees, critical functions, succession candidates, CEU, certifications, notifications, and NJ program Studio samples.
+
 ### Microsoft / Google SSO (login + Document Studio drives)
 
 Login supports **Continue with Microsoft** and **Continue with Google** when OAuth apps are configured. Consent requests identity **and** drive scopes in one flow; successful SSO:
@@ -102,7 +119,7 @@ Primitives live under `frontend/src/components/ww360/` (hero, section, KPI tiles
 Rich-content authoring for the One Water Workforce program (briefs, cohort plans, EPA quarterly narratives, invitations, newsletters). Ported from AquaSafe's studio, scoped to folders + editor + versions + import/export + **external cloud libraries** (OneDrive/SharePoint, Google Drive, Dropbox) with custody transfer.
 
 - **Backend:** `backend/app/api/v1/endpoints/doc_studio.py` → `/api/v1/doc-studio/*` (access, stats, folders, documents, versions, `export/{markdown|html|pdf|docx}`, import, assets, **`/library/*`**, **`/custody/*`**). Service `app/services/doc_studio_service.py`; export/import `app/services/doc_studio_export_service.py` (reportlab PDF, python-docx). External providers `app/services/external_library_provider.py`; custody `app/services/doc_custody_service.py` + `doc_custody_policy.py`. Models `app/models/doc_document.py` (`doc_folders`, `doc_documents`, `doc_versions`, `doc_assets`, **`doc_library_connections`**, **`doc_external_refs`**, **`doc_custody_*`**) — schema patched idempotently on startup via `ensure_doc_studio_schema` (no Alembic). OAuth tokens encrypted via Fernet keyed from `JWT_SECRET_KEY` (`app/utils/token_encryption.py`).
-- **Scopes:** program partners + platform admins share the `program` library (default folders seeded on first visit); district users get a per-district library. Authoring roles: `AUTHOR_ROLES`; publishing: `PUBLISH_ROLES`; custody transfer: `CUSTODY_TRANSFER_ROLES` (publishers + district/workforce managers). Feature flag `WW360_DOC_STUDIO_ENABLED` (default true).
+- **Scopes:** state-keyed program libraries (`program:NY`, `program:NJ`, …) for `state_admin` / `oww_partner` + platform admins; district users get a per-district library. Legacy `program` scope migrates to `program:NY` via `backend/scripts/db/migrate_program_scope_to_state.py`. Authoring roles: `AUTHOR_ROLES`; publishing: `PUBLISH_ROLES`; custody transfer: `CUSTODY_TRANSFER_ROLES` (publishers + district/workforce managers). Feature flag `WW360_DOC_STUDIO_ENABLED` (default true).
 - **External libraries:** Connect OneDrive/SharePoint, Google Drive, or Dropbox from **External library** (authors). Browse/import/link files; set default folder for custody. Remote root folder **WW360 Document Studio** with subfolders Workforce & succession, Compliance, Operations, Imported. **Transfer custody** (managers/partners) uploads eligible docs to connected storage after policy acknowledgment; local bytes purged after retention window (`POST /custody/purge-due` for scheduled purge).
 - **OAuth env (staging/production in `openclaw.env`, synced by `scripts/ww360/sync-staging-env.sh`):** `DOC_STUDIO_MS_CLIENT_ID`, `DOC_STUDIO_MS_CLIENT_SECRET`, `DOC_STUDIO_MS_TENANT_ID` (default `common`), `DOC_STUDIO_GOOGLE_CLIENT_ID`, `DOC_STUDIO_GOOGLE_CLIENT_SECRET`, `DOC_STUDIO_DROPBOX_APP_KEY`, `DOC_STUDIO_DROPBOX_APP_SECRET`, optional `DOC_STUDIO_OAUTH_REDIRECT_URI` (default `https://<APP_DOMAIN>/studio`), optional `AUTH_SSO_REDIRECT_URI` (default `https://<APP_DOMAIN>/login`). Register **both** `/login` (SSO) and `/studio` (library-only connect) redirect URIs with Microsoft and Google. SSO login reuses the same client secrets and seeds `DocLibraryConnection` from the login tokens.
 - **Saves:** autosave ~2.5s after typing updates the working copy only; **Save** / Ctrl+S cuts a numbered version when content differs from the last version; **Publish** and **Restore** always create versions. Version cap 60 (`MAX_VERSIONS`; publish/restore never pruned).
@@ -110,6 +127,22 @@ Rich-content authoring for the One Water Workforce program (briefs, cohort plans
 - **Tutorial Studio:** Authors use **Record tutorial** (header) to capture walkthroughs in five modes — screen, screen + camera, camera, voice-only, or **screenshots-only** (WW360 addition). Flow: record → review/edit steps + annotations → AI generate guide (`POST /api/v1/doc-studio/tutorials/generate`) → publish as `doc_type: tutorial` with `tutorial_data` JSONB (steps, optional video asset). In-editor `TutorialPlayer` for playback; re-record updates the open tutorial doc.
 - **Tours:** reusable `components/ww360/Ww360TourOverlay.tsx` drives both the OWW dashboard tour and the Studio tour (`pages/studio/studioTourContent.ts`; keys `ww360-studio-tour-dismissed` / `-step`). Tour slides scroll `[data-tour]` targets clear of the card. Studio tour includes Record tutorial + recording modes slides.
 - **QA:** Playwright `frontend/e2e/doc_studio.spec.ts` (manifest suite `doc-studio`), `test.md` § Document Studio.
+
+## National platform + state primacy (Phase 1, 2026-09)
+
+Shared SaaS deployment with **national** `platform_admin` and **state primacy** orgs (`workforce_organizations.state_code`). Content packs live in `backend/app/jurisdictions/packs/{ST}.yaml` (exec/landscape/landing/tour copy). NY labor/CEU (Subpart 5-4, DOH-352) unchanged.
+
+| Role | Scope |
+|------|--------|
+| `platform_admin` | All states; state switcher in app shell; Admin → Jurisdictions |
+| `state_admin` | One org / state; exec + landscape + `program:{state}` Doc Studio |
+| `oww_partner` | Compat alias for NY `state_admin` |
+
+- **API:** `GET /api/v1/jurisdictions`, `GET /api/v1/jurisdictions/{state}/pack`, `POST /api/v1/auth/active-state`, `GET/PATCH /api/v1/admin/jurisdictions/*`
+- **Public landing:** `GET /api/v1/public/ww360/jurisdictions/{state}/pack` + `/?state=NJ`
+- **Seeds:** `python backend/scripts/db/seed_jurisdiction_orgs.py` (NY_OWW + NJ stub + demo `nj-state-admin`)
+- **Migrate Doc Studio scope:** `python backend/scripts/db/migrate_program_scope_to_state.py`
+- **QA:** `frontend/e2e/jurisdiction_primacy.spec.ts`
 
 ## Hudson Falls mock district (HFWD)
 

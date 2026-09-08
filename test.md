@@ -29,6 +29,7 @@ Playwright: `frontend/e2e/district_roles.spec.ts` (manifest `district-roles`).
 **Expected:**
 - Page loads within 5 seconds
 - Title or hero mentions Workforce / WW360
+- Slider logo sits to the right of the hero copy (not stacked under the header logo)
 
 ### Test: Health API
 **URL:** ${BASE_URL}/health

@@ -130,7 +130,7 @@ export const WW360_STAGE_SLIDES: Ww360StageSlide[] = [
     headline: '',
     body: '',
     image: '',
-    alt: 'Workforce 360 connects AquaSafe and One Water Workforce — employer demand meets candidate pipeline',
+    alt: 'Water Workforce 360 at the center of the partnership with NYSAWWA, AquaSafe, and One Water Workforce',
   },
 ];
 

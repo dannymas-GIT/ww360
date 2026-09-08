@@ -28,7 +28,7 @@ export function Ww360DataModeBadge({ mode, lastSynced, className = '' }: Ww360Da
         : 'border-transparent bg-sky-400/20 text-sky-100 hover:bg-sky-400/20';
 
   return (
-    <Badge className={`text-xs ${tone} ${className}`}>{label}</Badge>
+    <Badge className={`text-sm ${tone} ${className}`}>{label}</Badge>
   );
 }
 
@@ -50,7 +50,7 @@ export function Ww360DataModeBadgeLight({
         : 'border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-50';
 
   return (
-    <Badge variant="outline" className={`text-xs font-normal ${tone} ${className}`}>
+    <Badge variant="outline" className={`text-sm font-normal ${tone} ${className}`}>
       {label}
     </Badge>
   );

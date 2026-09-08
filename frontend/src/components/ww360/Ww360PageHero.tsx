@@ -38,14 +38,14 @@ export function Ww360PageHero({
       <div className="relative flex flex-wrap items-start justify-between gap-6">
         <div className="min-w-0 max-w-3xl">
           {eyebrow ? (
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-300">{eyebrow}</p>
+            <p className="text-sm font-semibold uppercase tracking-[0.14em] text-sky-300">{eyebrow}</p>
           ) : null}
           <h1 className="mt-2 text-2xl font-semibold tracking-tight md:text-3xl">{title}</h1>
           {description ? (
-            <p className="mt-3 text-sm leading-relaxed text-slate-300 md:text-[15px]">{description}</p>
+            <p className="mt-3 text-lg leading-relaxed text-slate-300">{description}</p>
           ) : null}
           {(dataMode || badges) && (
-            <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
+            <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
               {dataMode ? <Ww360DataModeBadge mode={dataMode} lastSynced={lastSynced} /> : null}
               {badges}
             </div>

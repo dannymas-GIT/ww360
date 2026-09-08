@@ -1,0 +1,44 @@
+---
+description: WW360 accessible typography scale for UI and content
+alwaysApply: true
+---
+
+# WW360 accessible type scale
+
+Audience includes utility/workforce reviewers who often need larger defaults. Prefer legibility over density.
+
+## Scale (root 16px = 1rem)
+
+| Role | Size | Notes |
+|------|------|-------|
+| Body / paragraphs | **1.125rem (18px)** | line-height **1.5–1.6** |
+| UI (nav, buttons, labels, inputs) | **1rem–1.125rem** | Never below **1rem** on mobile form fields |
+| Captions / kickers / metadata | **0.875rem (14px)** | Absolute floor for readable text |
+| Headings | Larger than body | Keep clear hierarchy |
+
+## Hard rules
+
+- Never ship readable text below **0.875rem**
+- Prefer `rem` (or `clamp()` with a **rem** term); avoid tiny `px` or `vw`-only sizes that fight browser zoom
+- Touch targets ≥ **44×44px**
+- Layouts must remain usable at **200% zoom** (WCAG 1.4.4)
+- Do not shrink copy to fit aesthetics
+
+## Tailwind mapping
+
+- Body: `text-lg` (1.125rem) preferred; `text-base` (1rem) minimum
+- UI controls: `text-base` minimum (avoid `text-sm` for primary actions)
+- Captions only: `text-sm` (0.875rem); avoid `text-xs` for anything users must read
+
+## Examples
+
+```css
+/* ❌ BAD — below floor */
+.meta { font-size: 0.68rem; }
+.btn { font-size: 0.85rem; }
+
+/* ✅ GOOD */
+.meta { font-size: 0.875rem; }
+.btn { font-size: 1rem; }
+.body { font-size: 1.125rem; line-height: 1.55; }
+```

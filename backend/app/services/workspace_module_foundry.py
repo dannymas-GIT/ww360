@@ -125,20 +125,6 @@ MODULE_FOUNDRY: list[dict[str, Any]] = [
         "icon": "globe",
     },
     {
-        "module_id": "quick_actions",
-        "label": "Quick actions",
-        "short_label": "Actions",
-        "description": "Buttons into Document Studio, Continuity, and US overview — your next steps.",
-        "kpi_hints": [
-            "Keep this if you jump between tools often.",
-            "Does not display KPIs itself — it routes to the tools that do.",
-        ],
-        "category": "navigation",
-        "default_size": "full",
-        "profiles": _ALL,
-        "icon": "zap",
-    },
-    {
         "module_id": "sources_freshness",
         "label": "Data sources & freshness",
         "short_label": "Sources",
@@ -162,7 +148,6 @@ DEFAULT_LAYOUTS: dict[str, list[dict[str, Any]]] = {
         {"module_id": "national_overview", "visible": True, "size": "half"},
         {"module_id": "federal_jobs", "visible": True, "size": "full"},
         {"module_id": "document_studio", "visible": True, "size": "half"},
-        {"module_id": "quick_actions", "visible": True, "size": "full"},
         {"module_id": "sources_freshness", "visible": False, "size": "half"},
     ],
     "regional": [
@@ -170,7 +155,7 @@ DEFAULT_LAYOUTS: dict[str, list[dict[str, Any]]] = {
         {"module_id": "trend_chart", "visible": True, "size": "half"},
         {"module_id": "opcert_program", "visible": True, "size": "half"},
         {"module_id": "federal_jobs", "visible": True, "size": "full"},
-        {"module_id": "quick_actions", "visible": True, "size": "full"},
+        {"module_id": "document_studio", "visible": True, "size": "half"},
     ],
     "state_partner": [
         {"module_id": "kpi_headline", "visible": True, "size": "full"},
@@ -179,7 +164,6 @@ DEFAULT_LAYOUTS: dict[str, list[dict[str, Any]]] = {
         {"module_id": "water_systems", "visible": True, "size": "half"},
         {"module_id": "document_studio", "visible": True, "size": "half"},
         {"module_id": "federal_jobs", "visible": True, "size": "full"},
-        {"module_id": "quick_actions", "visible": True, "size": "full"},
     ],
     "regulator": [
         {"module_id": "kpi_headline", "visible": True, "size": "full"},
@@ -187,7 +171,6 @@ DEFAULT_LAYOUTS: dict[str, list[dict[str, Any]]] = {
         {"module_id": "trend_chart", "visible": True, "size": "half"},
         {"module_id": "document_studio", "visible": True, "size": "half"},
         {"module_id": "federal_jobs", "visible": False, "size": "full"},
-        {"module_id": "quick_actions", "visible": True, "size": "full"},
     ],
     "utility": [
         {"module_id": "kpi_headline", "visible": True, "size": "full"},
@@ -195,7 +178,6 @@ DEFAULT_LAYOUTS: dict[str, list[dict[str, Any]]] = {
         {"module_id": "trend_chart", "visible": True, "size": "half"},
         {"module_id": "document_studio", "visible": True, "size": "half"},
         {"module_id": "federal_jobs", "visible": True, "size": "full"},
-        {"module_id": "quick_actions", "visible": True, "size": "full"},
     ],
 }
 

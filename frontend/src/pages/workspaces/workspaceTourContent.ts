@@ -145,7 +145,7 @@ function defaultSlides(profile: WorkspaceProfile, personaKey?: string | null): W
           : profile === 'regulator'
             ? 'Use Document Studio for Nine Baseline Standards and OpCert annual report templates.'
             : 'Export grant packages and program reports from the executive dashboard when Kitchen Sink is on.',
-      highlight: '[data-tour="workspace-actions"]',
+      highlight: '[data-tour="document-studio"]',
     },
     {
       id: 'customize',
@@ -165,7 +165,7 @@ function defaultSlides(profile: WorkspaceProfile, personaKey?: string | null): W
       id: 'studio',
       title: 'Document Studio',
       body: 'Every role has access to Document Studio — author, publish, and connect Microsoft or Google libraries for program documents.',
-      tip: 'Open Document Studio from the sidebar or the action bar below the charts.',
+      tip: 'Open Document Studio from the home panel or Content in the sidebar.',
     },
   ];
 }

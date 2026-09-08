@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Droplets, PenSquare, Users, Workflow } from 'lucide-react';
+import { ArrowRight, Droplets, Users, Workflow } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Ww360KpiTile } from '@/components/ww360/Ww360KpiTile';
 import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
@@ -308,43 +308,8 @@ export const SimplifiedWorkspaceDashboard: React.FC<SimplifiedWorkspaceDashboard
           </PanelShell>
         );
       case 'quick_actions':
-        return (
-          <PanelShell key={item.module_id} item={item}>
-            <div
-              className="flex flex-wrap gap-3 rounded-xl border border-slate-200 bg-white p-4"
-              data-tour="workspace-actions"
-            >
-              <Button asChild className="min-h-[44px] text-base">
-                <Link to="/studio">
-                  <PenSquare className="mr-2 h-4 w-4" />
-                  Document Studio
-                </Link>
-              </Button>
-              {(profile === 'state_partner' ||
-                profile === 'regulator' ||
-                profile === 'utility') && (
-                <Button asChild variant="outline" className="min-h-[44px] text-base">
-                  <Link to="/continuity">
-                    <Workflow className="mr-2 h-4 w-4" />
-                    Continuity workspace
-                  </Link>
-                </Button>
-              )}
-              {(profile === 'national' || profile === 'regional') && (
-                <Button asChild variant="outline" className="min-h-[44px] text-base">
-                  <Link to="/national">
-                    US overview
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-              )}
-              <p className="w-full text-[1rem] leading-relaxed text-slate-600">
-                Use <strong>Customize home</strong> in the sidebar to add or rearrange panels.
-                Turn on <strong>Kitchen Sink</strong> for the full navigation.
-              </p>
-            </div>
-          </PanelShell>
-        );
+        // Retired — Document Studio / Continuity panels already cover these links.
+        return null;
       case 'sources_freshness':
         return (
           <PanelShell key={item.module_id} item={item}>

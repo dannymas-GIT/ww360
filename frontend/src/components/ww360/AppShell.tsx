@@ -7,6 +7,11 @@ import { ww360NavGroups, navItemTo, navGroupsForRoles } from './navConfig';
 import { Button } from '@/components/ui/button';
 import { StateSwitcher } from './StateSwitcher';
 import { NotificationBell } from './NotificationBell';
+import { KitchenSinkToggle } from './KitchenSinkToggle';
+import { CustomizeHomeButton } from './CustomizeHomeButton';
+import { PersonaSwitcher } from '@/components/impersonation/PersonaSwitcher';
+import { ImpersonationBanner } from '@/components/impersonation/PersonaSwitcher';
+import { useKitchenSink } from '@/context/KitchenSinkContext';
 
 function ensureWw360Fonts() {
   if (typeof document === 'undefined') return;
@@ -22,7 +27,11 @@ function ensureWw360Fonts() {
 
 export const AppShell: React.FC = () => {
   const { user, logout, userRoles } = useAuth();
-  const navGroups = navGroupsForRoles(userRoles, user?.districts ?? []);
+  const { kitchenSink, workspaceProfile } = useKitchenSink();
+  const navGroups = navGroupsForRoles(userRoles, user?.districts ?? [], {
+    kitchenSink,
+    workspaceProfile,
+  });
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -56,6 +65,9 @@ export const AppShell: React.FC = () => {
         <nav className="flex-1 overflow-y-auto py-4 px-2">
           <div className="space-y-6">
             <StateSwitcher />
+            <PersonaSwitcher />
+            <KitchenSinkToggle />
+            <CustomizeHomeButton />
             {navGroups.map(group => (
               <div key={group.id}>
                 {!collapsed && (
@@ -155,6 +167,7 @@ export const AppShell: React.FC = () => {
           </div>
         )}
         <main className="flex-1 overflow-auto">
+          <ImpersonationBanner />
           <Outlet />
         </main>
       </div>

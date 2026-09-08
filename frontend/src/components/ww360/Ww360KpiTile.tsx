@@ -84,11 +84,23 @@ export function Ww360KpiTile({
 }
 
 /** Simple stat tile without delta (for SDWIS landscape KPIs). */
-export function Ww360StatTile({ label, value }: { label: string; value: string }) {
+export function Ww360StatTile({
+  label,
+  value,
+  dataMode,
+}: {
+  label: string;
+  value: string;
+  /** Optional per-tile fidelity chip (prefer a shared strip badge when all tiles share one mode). */
+  dataMode?: Ww360DataMode;
+}) {
   return (
     <div className="rounded-xl border border-sky-100 bg-sky-50/50 px-4 py-3">
-      <p className="text-sm font-medium text-sky-800">{label}</p>
-      <p className="text-2xl font-semibold tabular-nums text-[#07111f]">{value}</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-medium text-sky-800">{label}</p>
+        {dataMode ? <Ww360DataModeBadgeLight mode={dataMode} /> : null}
+      </div>
+      <p className="mt-1 text-2xl font-semibold tabular-nums text-[#07111f]">{value}</p>
     </div>
   );
 }

@@ -13,26 +13,38 @@ landscape_description: >-
   and grade demand estimates.
 sdwis_default_state: NY
 economic_regions:
+  # NY Regional Economic Development Council (REDC) / Empire State Development — 10 regions, all 62 counties.
+  # Source: 2024 REDC Guidebook (regionalcouncils.ny.gov). Names match EPA SDWIS CountiesServed where present.
   - id: long-island
     label: Long Island
+    counties: [Nassau, Suffolk]
   - id: nyc
     label: New York City
+    counties: [Bronx, Kings, "New York", Queens, Richmond]
   - id: mid-hudson
     label: Mid-Hudson
+    counties: [Dutchess, Orange, Putnam, Rockland, Sullivan, Ulster, Westchester]
   - id: capital
     label: Capital Region
+    counties: [Albany, Columbia, Greene, Rensselaer, Saratoga, Schenectady, Warren, Washington]
   - id: mohawk
     label: Mohawk Valley
+    counties: [Fulton, Herkimer, Montgomery, Oneida, Otsego, Schoharie]
   - id: central
     label: Central NY
+    counties: [Cayuga, Cortland, Madison, Onondaga, Oswego]
   - id: north-country
     label: North Country
+    counties: [Clinton, Essex, Franklin, Hamilton, Jefferson, Lewis, "St. Lawrence"]
   - id: southern-tier
     label: Southern Tier
+    counties: [Broome, Chemung, Chenango, Delaware, Schuyler, Steuben, Tioga, Tompkins]
   - id: finger-lakes
     label: Finger Lakes
+    counties: [Genesee, Livingston, Monroe, Ontario, Orleans, Seneca, Wayne, Wyoming, Yates]
   - id: western
     label: Western NY
+    counties: [Allegany, Cattaraugus, Chautauqua, Erie, Niagara]
 exec_tour:
   intro: >-
     This is the executive view of the whole pipeline — from a student discovering
@@ -54,3 +66,19 @@ analytics_geo_hints:
   - New York
   - NYS certification
   - water operator shortage New York
+opcert:
+  roster_url: https://www.health.ny.gov/environmental/water/drinking/operate/certified_operators/statewide_certified_operators.htm
+  renewal_cycle_years: 3
+  grades:
+    - code: IA
+      label: IA — SW/GUI Filtration Plant
+    - code: IIA
+      label: IIA — SW/GUI Filtration Plant
+    - code: IB
+      label: IB — GW or SW Filtration Avoidance
+    - code: IIB
+      label: IIB — GW or SW Filtration Avoidance
+    - code: C
+      label: C — Plant or Distribution System
+    - code: D
+      label: D — Distribution System

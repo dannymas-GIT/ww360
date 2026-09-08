@@ -17,8 +17,11 @@ const MODE_COPY: Record<Ww360DataMode, string> = {
 
 export function Ww360DataModeBadge({ mode, lastSynced, className = '' }: Ww360DataModeBadgeProps) {
   const synced = formatLastSynced(lastSynced);
-  const label =
-    mode === 'live' && synced ? `${MODE_COPY.live} · synced ${synced}` : MODE_COPY[mode];
+  let label = MODE_COPY[mode];
+  if (synced) {
+    if (mode === 'live') label = `${MODE_COPY.live} · synced ${synced}`;
+    else if (mode === 'mixed') label = `Mixed · SDWIS synced ${synced} + sample metrics`;
+  }
 
   const tone =
     mode === 'live'
@@ -39,8 +42,11 @@ export function Ww360DataModeBadgeLight({
   className = '',
 }: Ww360DataModeBadgeProps) {
   const synced = formatLastSynced(lastSynced);
-  const label =
-    mode === 'live' && synced ? `${MODE_COPY.live} · synced ${synced}` : MODE_COPY[mode];
+  let label = MODE_COPY[mode];
+  if (synced) {
+    if (mode === 'live') label = `${MODE_COPY.live} · synced ${synced}`;
+    else if (mode === 'mixed') label = `Mixed · SDWIS synced ${synced} + sample metrics`;
+  }
 
   const tone =
     mode === 'live'

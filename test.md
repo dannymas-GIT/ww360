@@ -20,6 +20,52 @@ Pipeline QA uses credentials from `~/.openclaw/openclaw.env` with prefix `WW360`
 
 Playwright: `frontend/e2e/district_roles.spec.ts` (manifest `district-roles`).
 
+### Test: Impersonation persona preview
+**Prereq:** Run `python backend/scripts/seed_demo_personas.py` on the backend host.
+**Credentials:** `jingrao-aman-OWW` with admin password.
+**Steps:**
+1. Log in → confirm **Kitchen Sink** is off by default in sidebar
+2. Click **View as role** → select a national persona (e.g. ASDWA program director)
+3. Confirm landing on `/national` (not district Path to compliance) with simplified KPIs/charts
+4. Confirm impersonation banner shows **Read-only preview**
+5. Turn **Kitchen Sink** on → full national nav and executive tools appear
+6. Select a utility persona → district/operator simplified home
+7. Click **Exit preview**
+
+Playwright: `frontend/e2e/impersonation.spec.ts`.
+
+### Test: Kitchen Sink & role tour
+**Steps:**
+1. Preview any persona → role tour auto-opens once per persona key
+2. Confirm tour mentions Document Studio and Kitchen Sink toggle
+3. Dismiss tour → reopen via **Role tour** FAB if visible
+
+### Test: Data mode labels (factual content checklist)
+**Steps:**
+1. On simplified workspace, each KPI tile shows Live or Sample badge
+2. Chart sections cite source id in subtitle (e.g. `bls_oews`, `epa_echo_sdwis`)
+3. Illustrative tiles must not claim live sync timestamps
+4. National full view (`Kitchen Sink` on) — state table links to scorecards with provenance footer
+
+### Test: National overview
+**URL:** ${BASE_URL}/national
+**Credentials:** `ww360-national` / `ChangeMe-National!`
+**Expected:**
+- Five headline KPI tiles
+- State comparison table with scorecard links
+
+Playwright: `frontend/e2e/national_overview.spec.ts`.
+
+### Test: Customize home panels
+**Credentials:** any authenticated user (Jenny / platform admin).
+**Steps:**
+1. Sidebar → **Customize home**
+2. Confirm panel library lists Headline numbers, Charts, Federal jobs, Document Studio, etc.
+3. Start customize tour — slides cover identify KPIs and match to panels
+4. Toggle a panel off, Save layout
+5. Reload `/dashboard` — panel stays off
+6. Reset to defaults — panels restore
+
 ## Smoke Tests (Required)
 
 ### Test: Landing Load

@@ -37,4 +37,13 @@ describe('resolveLandingKind', () => {
       })
     ).toBe('exec');
   });
+
+  it('routes national observer without districts to exec', () => {
+    expect(
+      resolveLandingKind({
+        roles: ['national_observer'],
+        districts: [],
+      })
+    ).toBe('exec');
+  });
 });

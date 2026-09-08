@@ -13,6 +13,7 @@ from app.models.sdwis_state_system import SDWISStateSystem
 from app.models.sdwis_violation import SDWISViolation
 from app.models.sdwis_water_system import SDWISWaterSystem
 from app.schemas.sdwis import SDWISWorkforceInsightsOut
+from app.services.jurisdiction_service import county_region_index, normalize_county_name
 
 _SPLIT_RE = re.compile(r"[,;|]+")
 
@@ -145,10 +146,20 @@ def build_workforce_insights(db: Session, state_code: str) -> SDWISWorkforceInsi
             )
             county_metrics[county]["open_violations"] += open_v
 
+    region_index = county_region_index(state_code)
     pressure_rows = []
     for county, m in county_metrics.items():
         raw = _raw_pressure_score(m)
-        pressure_rows.append({**m, "pressure_score": round(min(100.0, raw), 1), "pressure_raw": raw})
+        region = region_index.get(normalize_county_name(county))
+        pressure_rows.append(
+            {
+                **m,
+                "pressure_score": round(min(100.0, raw), 1),
+                "pressure_raw": raw,
+                "economic_region_id": region.id if region else None,
+                "economic_region_label": region.label if region else None,
+            }
+        )
     pressure_rows.sort(key=lambda r: r["pressure_raw"], reverse=True)
 
     watchlist: List[dict[str, Any]] = []
@@ -194,7 +205,8 @@ def build_workforce_insights(db: Session, state_code: str) -> SDWISWorkforceInsi
         snc_count=snc_count,
         size_tiers=dict(size_tiers),
         grade_demand_estimate=dict(grade_demand),
-        compliance_pressure_by_county=pressure_rows[:15],
+        # Full county list so landscape economic-region filters are complete (not top-N only).
+        compliance_pressure_by_county=pressure_rows,
         member_watchlist=watchlist[:20],
         coverage={
             "member_utilities": len(linked_systems),

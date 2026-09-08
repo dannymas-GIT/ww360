@@ -110,16 +110,15 @@ test.describe('Document Studio', () => {
     await expect(page.getByText('Drag onto a folder to move')).toBeVisible();
   });
 
-  test('watch overview opens avatar sample player', async ({ page }) => {
+  test('watch overview opens application steps tour with avatar PiP', async ({ page }) => {
     await page.goto('/studio');
     await expect(page.locator('[data-tour="studio-workspace"]')).toBeVisible({ timeout: 20_000 });
     await page.locator('[data-tour="studio-application-steps-overview"]').click();
-    const dialog = page.getByRole('dialog', { name: /record application steps/i });
-    await expect(dialog).toBeVisible();
-    await expect(page.locator('[data-tour="studio-application-steps-player"] video')).toBeVisible();
-    await expect(page.locator('[data-tour="studio-application-steps-player"] source')).toHaveAttribute(
+    await expect(page.locator('[data-tour="application-steps-tour-card"]')).toBeVisible();
+    await expect(page.locator('[data-tour="application-steps-avatar"] video')).toBeVisible();
+    await expect(page.locator('[data-tour="application-steps-avatar"] source')).toHaveAttribute(
       'src',
-      /application-steps-sample\.mp4/
+      /application-steps-sample(-dmas)?\.mp4/
     );
   });
 

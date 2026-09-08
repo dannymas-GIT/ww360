@@ -9,10 +9,16 @@ from app.api.v1.endpoints import (
     digital_analytics,
     districts,
     doc_studio,
+    impersonation,
+    jobs,
     jurisdiction_admin,
     jurisdictions,
+    kpis,
+    national,
+    state_workforce,
     sync,
     tenant,
+    workspace,
     ww360_public,
 )
 
@@ -27,6 +33,11 @@ api_router.include_router(
     auth.router,
     prefix="/auth",
     tags=["auth"],
+)
+api_router.include_router(
+    impersonation.router,
+    prefix="/impersonation",
+    tags=["impersonation"],
 )
 api_router.include_router(
     sync.router,
@@ -83,7 +94,27 @@ api_router.include_router(
     tags=["documentation-tasks"],
 )
 api_router.include_router(
-    notifications.router,
-    prefix="/notifications",
-    tags=["notifications"],
+    jobs.router,
+    prefix="/jobs",
+    tags=["jobs"],
+)
+api_router.include_router(
+    workspace.router,
+    prefix="/workspace",
+    tags=["workspace"],
+)
+api_router.include_router(
+    national.router,
+    prefix="/national",
+    tags=["national"],
+)
+api_router.include_router(
+    state_workforce.router,
+    prefix="/state",
+    tags=["state-workforce"],
+)
+api_router.include_router(
+    kpis.router,
+    prefix="/kpis",
+    tags=["kpis"],
 )

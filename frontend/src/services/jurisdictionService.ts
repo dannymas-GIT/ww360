@@ -5,6 +5,8 @@ import { getAuthHeader } from '@/services/authService';
 export interface EconomicRegion {
   id: string;
   label: string;
+  /** County names as they appear in SDWIS (optional; enables landscape region filter). */
+  counties?: string[];
 }
 
 export interface ExecTourCopy {

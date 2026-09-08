@@ -873,3 +873,44 @@ class WorkforceTrainingSyncLog(Base):
     courses_deactivated = Column(Integer, nullable=False, default=0)
     skipped_unchanged = Column(Boolean, nullable=False, default=False)
 
+
+class WorkforceBinderIntakeSession(Base):
+    """Resumable guided Succession Binder intake (Q&A → Document Studio)."""
+
+    __tablename__ = "workforce_binder_intake_sessions"
+
+    STATUS_VALUES = ("draft", "completed", "abandoned")
+
+    id = Column(Integer, primary_key=True, index=True)
+    district_code = Column(
+        String(50),
+        ForeignKey("water_districts.district_code"),
+        nullable=False,
+        index=True,
+    )
+    created_by_user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    current_step = Column(String(50), nullable=False, default="welcome")
+    completed_steps = Column(Text, nullable=True, default="[]")
+    status = Column(String(20), nullable=False, default="draft", index=True)
+    answers_json = Column(Text, nullable=False, default="{}")
+    binder_folder_id = Column(String(36), nullable=True)
+
+    last_saved_at = Column(DateTime, server_default=func.now(), nullable=False)
+    completed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    created_by = relationship("User", foreign_keys=[created_by_user_id])
+
+
+def ensure_binder_intake_schema(engine) -> None:
+    from sqlalchemy import inspect, text
+
+    insp = inspect(engine)
+    if not insp.has_table("workforce_binder_intake_sessions"):
+        WorkforceBinderIntakeSession.__table__.create(bind=engine, checkfirst=True)
+

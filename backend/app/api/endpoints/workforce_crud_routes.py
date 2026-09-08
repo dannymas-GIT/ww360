@@ -82,6 +82,8 @@ from app.services.workforce_succession.doh352_service import (
 from app.services.workforce_succession.importer import _resolve_employee_id
 from app.services.workforce_succession.operator_scope import (
     get_linked_employee,
+    is_operator_self_scoped,
+    operator_missing_workforce_profile,
     resolve_operator_employee_code,
 )
 from app.services.workforce_succession.workforce_alert_settings import (
@@ -674,8 +676,10 @@ async def list_ceu_records(
     context: TenantContext = Depends(require_workforce_viewer),
 ):
     code = _require_district_auth(db, context, district_code)
+    if operator_missing_workforce_profile(db, context, code):
+        return []
     own = resolve_operator_employee_code(
-        db, context, code, requested_employee_code=employee_code
+        db, context, code, requested_employee_code=employee_code, missing_ok=True
     )
     query = db.query(WorkforceCeuRecord).filter(
         WorkforceCeuRecord.district_code == code,
@@ -777,7 +781,21 @@ async def ceu_summary(
     context: TenantContext = Depends(require_workforce_viewer),
 ):
     code = _require_district_auth(db, context, district_code)
-    own = resolve_operator_employee_code(db, context, code)
+    if operator_missing_workforce_profile(db, context, code):
+        return WorkforceCeuSummaryResponse(
+            district_code=code,
+            operators=[],
+            total_shortfall=0,
+            total_operators=0,
+        )
+    own = resolve_operator_employee_code(db, context, code, missing_ok=True)
+    if is_operator_self_scoped(context) and own is None:
+        return WorkforceCeuSummaryResponse(
+            district_code=code,
+            operators=[],
+            total_shortfall=0,
+            total_operators=0,
+        )
     settings = load_workforce_alert_settings(db, code)
     operators = compute_district_ceu_summaries(
         db,

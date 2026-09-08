@@ -38,3 +38,14 @@ exec_tour:
 analytics_geo_hints:
   - New Jersey
   - NJ water operator certification
+opcert:
+  roster_url: null
+  roster_published: false
+  renewal_cycle_years: 3
+  grades:
+    - code: T1
+      label: NJ Treatment System Operator T1
+    - code: T2
+      label: NJ Treatment System Operator T2
+    - code: W1
+      label: NJ Water Distribution System Operator W1

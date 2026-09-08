@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
 import { Ww360Section } from '@/components/ww360/Ww360Section';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
   TableBody,
@@ -16,6 +17,10 @@ import {
   patchAdminUser,
   type AdminUser,
 } from '@/services/adminUsersService';
+import {
+  fetchImpersonationSessions,
+  type ImpersonationSession,
+} from '@/services/impersonationService';
 
 const ROLE_PRESETS = [
   'platform_admin',
@@ -31,6 +36,8 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [auditSessions, setAuditSessions] = useState<ImpersonationSession[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -48,6 +55,14 @@ export default function AdminUsersPage() {
       setError('Platform admin role required to manage users.');
     }
   }, [isPlatformAdmin]);
+
+  const loadAudit = () => {
+    setAuditLoading(true);
+    void fetchImpersonationSessions(200)
+      .then(setAuditSessions)
+      .catch(() => setAuditSessions([]))
+      .finally(() => setAuditLoading(false));
+  };
 
   const toggleActive = async (user: AdminUser) => {
     setBusyId(user.id);
@@ -103,6 +118,16 @@ export default function AdminUsersPage() {
         </p>
       )}
 
+      <Tabs defaultValue="accounts" onValueChange={v => v === 'audit' && loadAudit()}>
+        <TabsList className="min-h-[44px] text-base">
+          <TabsTrigger value="accounts" className="text-base px-4 py-2">
+            Accounts
+          </TabsTrigger>
+          <TabsTrigger value="audit" className="text-base px-4 py-2">
+            Impersonation audit
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="accounts">
       <Ww360Section tourId="admin-users" title="Accounts">
         {loading ? (
           <p className="text-sm text-slate-500">Loading…</p>
@@ -183,6 +208,49 @@ export default function AdminUsersPage() {
           </div>
         )}
       </Ww360Section>
+        </TabsContent>
+        <TabsContent value="audit">
+          <Ww360Section title="Impersonation sessions">
+            {auditLoading ? (
+              <p className="text-base text-slate-500">Loading audit log…</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Started</TableHead>
+                      <TableHead>Actor</TableHead>
+                      <TableHead>Target</TableHead>
+                      <TableHead>Mode</TableHead>
+                      <TableHead>Persona</TableHead>
+                      <TableHead>Reason</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {auditSessions.map(s => (
+                      <TableRow key={s.id}>
+                        <TableCell className="text-base">{s.started_at}</TableCell>
+                        <TableCell className="font-mono text-sm">#{s.actor_user_id}</TableCell>
+                        <TableCell className="font-mono text-sm">#{s.target_user_id}</TableCell>
+                        <TableCell>{s.mode}</TableCell>
+                        <TableCell>{s.persona_key || '—'}</TableCell>
+                        <TableCell className="max-w-xs truncate">{s.reason || '—'}</TableCell>
+                      </TableRow>
+                    ))}
+                    {!auditSessions.length && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-base text-slate-500">
+                          No impersonation sessions recorded yet.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </Ww360Section>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -70,6 +70,56 @@ docker compose exec backend python scripts/seed_national_nj_demo.py
 
 Demo district: **WBWD** — Township of Woodbridge Water Department (NJ). Includes positions, employees, critical functions, succession candidates, CEU, certifications, notifications, and NJ program Studio samples.
 
+### Persona switcher (impersonation)
+
+```bash
+docker compose exec backend python scripts/seed_demo_personas.py
+# optional: WW360_SEED_DEMO_PASSWORD (default ChangeMe-Demo!)
+```
+
+Jenny (`jingrao-aman-OWW`) and other platform/state admins see **View as role** in the app shell. Read-only **preview** is default; **act-as** (writes allowed, audited) requires `platform_admin` + reason.
+
+**Kitchen Sink** (sidebar toggle, default **off**): simplified role workspace with KPIs, charts, Document Studio, and a guided **Role tour**. Turn on to reveal the full navigation and executive tool set.
+
+| Tier | Example username | Default home (preview) |
+|------|------------------|------------------------|
+| National | `us-epa-workforce-lead`, `aquasafe-admin` | `/national` simplified workspace |
+| Regional | `epa-r2-opcert-coordinator` | `/national` or `/dashboard` |
+| State partner | `jingrao-aman-OWW`, `ny-nysawwa-executive` | `/dashboard` simplified OWW story |
+| Regulator | `ny-doh-opcert-manager` | `/dashboard` + OpCert panel |
+| Utility | `hf-operator-1`, `mcwa-chief-operator` | District / operator home |
+
+**Data modes:** every KPI/chart shows **Live**, **Sample** (illustrative demo pack), or **Mixed**. Live public adapters (SDWIS, BLS, national API) take precedence when fresh; illustrative packs (`frontend/src/data/demoMetrics/`) fill gaps and are labeled with source ids.
+
+### Customize home (panel library)
+
+Available to **all authenticated roles**. Sidebar **Customize home** opens the panel library (building blocks — not “widgets”).
+
+- **API:** `GET /api/v1/workspace/modules`, `GET|PUT|DELETE /api/v1/workspace/layout`
+- Layouts are stored in Postgres (`workspace_customizations`) per user + workspace profile (+ optional persona key).
+- Preview mode can browse the library but cannot save; exit preview first.
+- Guided tour covers: identify KPIs → match to panels → save.
+
+### Federal job listings (USAJOBS)
+
+Available to **all authenticated users** via sidebar **Careers → Job openings** (`/jobs`).
+
+- **Page:** Multi-source careers hub — USAJOBS live today; OWW job board and utility Continuity vacancies marked coming soon
+- **API:** `GET /api/v1/jobs/federal?state=NY&limit=12`
+- **Source:** [USAJOBS Search API](https://developer.usajobs.gov/) — federal announcements only
+- **Env:** `USAJOBS_API_KEY` and `USAJOBS_USER_AGENT` (email used when requesting the key) in `openclaw.env`, synced to VM `.env`
+
+Request a free API key at https://developer.usajobs.gov/APIRequest/Index . Without the key, the UI shows a configuration notice (no fabricated listings).
+
+APIs: `GET /api/v1/impersonation/personas`, `POST /impersonation/start`, `POST /impersonation/stop`, `GET /impersonation/sessions` (audit, platform_admin).
+
+### National KPI layer
+
+- **Frontend:** `/national` (US overview), `/national/states/:st` (state scorecard). Nav **National → US overview** for `platform_admin` and `national_observer`.
+- **API:** `GET /api/v1/national/overview`, `GET /national/states/{st}`, `GET /state/{st}/workforce`, `GET /state/{st}/continuity`, `GET/POST/PATCH /kpis`, `GET /kpis/brief.pdf`
+- **Data:** EPA ECHO SDWA bulk nightly (`WW360_SDWIS_STATES=ALL`), BLS/Projections Central labor, NYSDOH operator roster (aggregate), DWSRF allotments YAML, Grants.gov pipeline, LCRR/UCMR curated metrics.
+- **Scheduler:** SDWIS 03:00 UTC, national metrics 04:00 UTC.
+
 ### Microsoft / Google SSO (login + Document Studio drives)
 
 Login supports **Continue with Microsoft** and **Continue with Google** when OAuth apps are configured. Consent requests identity **and** drive scopes in one flow; successful SSO:
@@ -105,10 +155,10 @@ bash scripts/staging/apply-host-nginx.sh
 
 ## SDWIS landscape
 
-- Nightly EPA state refresh (03:00 UTC) for `WW360_SDWIS_STATES` (default `NY`)
+- Nightly EPA refresh (03:00 UTC) for `WW360_SDWIS_STATES` (default **`ALL`** — bulk ECHO download with per-state API fallback)
+- National metrics refresh (04:00 UTC): labor market, DWSRF, NY roster aggregates, KPI snapshots
 - On-demand: `POST /api/v1/sdwis/refresh-state?state=NY` (platform_admin)
 - Executive dashboard section: `GET /api/v1/sdwis/workforce-insights?state=NY`
-- Last verified refresh: **26,704** NY systems (2026-09-05)
 
 ## Design system
 

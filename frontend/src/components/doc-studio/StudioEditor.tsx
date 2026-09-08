@@ -31,6 +31,7 @@ import { TableRow } from '@tiptap/extension-table-row';
 import { TableCell } from '@tiptap/extension-table-cell';
 import { TableHeader } from '@tiptap/extension-table-header';
 import { Markdown } from 'tiptap-markdown';
+import { repairOrphanMarkdownTables } from '@/utils/repairOrphanMarkdownTables';
 import { common, createLowlight } from 'lowlight';
 import {
   AlignCenter,
@@ -123,10 +124,11 @@ export interface StudioEditorProps {
 }
 
 function prepareMarkdownForEditor(markdown: string): string {
-  return (markdown || '').replace(
+  const withPageBreaks = (markdown || '').replace(
     /<!--\s*pagebreak\s*-->/gi,
     `\n\n<p class="studio-page-break">${PAGE_BREAK_LINE}</p>\n\n`
   );
+  return repairOrphanMarkdownTables(withPageBreaks);
 }
 
 function serializeMarkdownForStorage(markdown: string): string {

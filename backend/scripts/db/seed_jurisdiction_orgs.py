@@ -114,7 +114,11 @@ def seed(db: Session, dry_run: bool = False) -> None:
         dry_run=dry_run,
     )
 
-    jenny = db.query(User).filter(User.username == "jingrao-aman-OWW").first()
+    jenny = (
+        db.query(User)
+        .filter(User.username.in_(["jenny-oww", "jingrao-aman-OWW"]))
+        .first()
+    )
     if jenny:
         _ensure_membership(db, user_id=jenny.id, org_code=NY_OWW_CODE, dry_run=dry_run)
 

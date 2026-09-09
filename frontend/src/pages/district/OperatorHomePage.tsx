@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useKitchenSink } from '@/context/KitchenSinkContext';
 import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
 import { Ww360Section } from '@/components/ww360/Ww360Section';
-import { ww360Greeting } from '@/components/ww360/ww360Greeting';
+import { ww360PersonalizedTitle } from '@/components/ww360/ww360Greeting';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -65,7 +65,7 @@ export default function OperatorHomePage() {
       <WorkspaceTourOverlay profile="utility" personaKey={personaKey} autoOpen />
       <Ww360PageHero
         eyebrow={`${district} · Operator home`}
-        title={`${ww360Greeting(user?.full_name ?? user?.username ?? 'Operator')}`}
+        title={ww360PersonalizedTitle(user, 'your operator home')}
         description={
           personaKey === 'mcwa-operator-1'
             ? 'Log CEU hours, sign up for training, and complete documentation tasks your manager assigns — no Succession Binder authoring from this role.'

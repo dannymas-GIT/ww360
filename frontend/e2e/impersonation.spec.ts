@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 const BASE = process.env.BASE_URL || 'http://localhost:8080';
-const USER = process.env.TEST_EMAIL || 'jingrao-aman-OWW';
+const USER = process.env.TEST_EMAIL || 'jenny-oww';
 const PASS = process.env.TEST_PASSWORD || 'ChangeMe-WW360!';
 
 test.describe('Impersonation persona switcher', () => {

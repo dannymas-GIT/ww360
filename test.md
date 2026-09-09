@@ -22,7 +22,7 @@ Playwright: `frontend/e2e/district_roles.spec.ts` (manifest `district-roles`).
 
 ### Test: Impersonation persona preview
 **Prereq:** Run `python backend/scripts/seed_demo_personas.py` on the backend host.
-**Credentials:** `jingrao-aman-OWW` with admin password.
+**Credentials:** `jenny-oww` with admin password.
 **Steps:**
 1. Log in → confirm **Kitchen Sink** is off by default in sidebar
 2. Click **View as role** → select a national persona (e.g. ASDWA program director)

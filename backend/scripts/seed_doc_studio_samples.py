@@ -556,7 +556,7 @@ def seed(dry_run: bool = False) -> None:
     try:
         user = (
             db.query(User)
-            .filter(User.username == "jingrao-aman-OWW")
+            .filter(User.username.in_(["jenny-oww", "jingrao-aman-OWW"]))
             .one_or_none()
         )
         user_id = user.id if user else None

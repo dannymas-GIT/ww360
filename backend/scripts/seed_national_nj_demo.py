@@ -757,7 +757,11 @@ def main() -> int:
         )
 
         # Link Jenny to NY org if present
-        jenny = db.query(User).filter(User.username == "jingrao-aman-OWW").one_or_none()
+        jenny = (
+            db.query(User)
+            .filter(User.username.in_(["jenny-oww", "jingrao-aman-OWW"]))
+            .one_or_none()
+        )
         if jenny:
             _ensure_org_user(db, user_id=jenny.id, org_code=NY_ORG, role="state_admin")
 

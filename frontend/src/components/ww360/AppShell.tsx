@@ -12,6 +12,7 @@ import { CustomizeHomeButton } from './CustomizeHomeButton';
 import { PersonaSwitcher } from '@/components/impersonation/PersonaSwitcher';
 import { ImpersonationBanner } from '@/components/impersonation/PersonaSwitcher';
 import { useKitchenSink } from '@/context/KitchenSinkContext';
+import { userDisplayName, ww360Greeting } from '@/components/ww360/ww360Greeting';
 
 function ensureWw360Fonts() {
   if (typeof document === 'undefined') return;
@@ -110,7 +111,7 @@ export const AppShell: React.FC = () => {
               <NotificationBell />
             </div>
             {!collapsed && user && (
-              <p className="px-3 text-sm text-slate-400 truncate">{user.username}</p>
+              <p className="px-3 text-sm text-slate-400 truncate">{userDisplayName(user)}</p>
             )}
             <Button
               variant="ghost"
@@ -166,6 +167,17 @@ export const AppShell: React.FC = () => {
             ))}
           </div>
         )}
+        {user ? (
+          <div
+            className="border-b border-slate-200/90 bg-white px-4 py-2.5 md:px-6"
+            data-testid="ww360-user-topbar"
+          >
+            <p className="text-base text-slate-800">
+              <span className="text-slate-600">{ww360Greeting()}, </span>
+              <span className="font-semibold">{userDisplayName(user)}</span>
+            </p>
+          </div>
+        ) : null}
         <main className="flex-1 overflow-auto">
           <ImpersonationBanner />
           <Outlet />

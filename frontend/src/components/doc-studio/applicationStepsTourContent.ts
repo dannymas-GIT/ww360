@@ -18,7 +18,7 @@ export const APPLICATION_STEPS_AVATAR_KEY = 'ww360-application-steps-avatar';
 export const APPLICATION_STEPS_SAMPLE_ABIGAIL_SRC = '/tutorials/application-steps-sample.mp4';
 export const APPLICATION_STEPS_SAMPLE_ABIGAIL_CAPTIONS = '/tutorials/application-steps-sample.vtt';
 
-/** Watermarked Instant Avatar `dmas` test render — internal preview only. */
+/** Watermarked Instant Avatar look `Professional in beige blazer` + voice `dmas`. */
 export const APPLICATION_STEPS_SAMPLE_DMAS_SRC = '/tutorials/application-steps-sample-dmas.mp4';
 export const APPLICATION_STEPS_SAMPLE_DMAS_CAPTIONS = '/tutorials/application-steps-sample-dmas.vtt';
 
@@ -48,7 +48,7 @@ export function applicationStepsMediaFor(
   return {
     src: APPLICATION_STEPS_SAMPLE_DMAS_SRC,
     captions: APPLICATION_STEPS_SAMPLE_DMAS_CAPTIONS,
-    label: 'dmas (Instant Avatar · watermarked WIP)',
+    label: 'dmas — beige blazer (watermarked WIP)',
     watermarked: true,
   };
 }

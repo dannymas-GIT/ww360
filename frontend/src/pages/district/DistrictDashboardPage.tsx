@@ -15,7 +15,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Ww360KpiTile } from '@/components/ww360/Ww360KpiTile';
 import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
 import { Ww360Section } from '@/components/ww360/Ww360Section';
-import { ww360Greeting } from '@/components/ww360/ww360Greeting';
+import { ww360PersonalizedTitle } from '@/components/ww360/ww360Greeting';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -223,7 +223,7 @@ export default function DistrictDashboardPage() {
     <div className="mx-auto w-full max-w-[1200px] space-y-6 p-4 md:p-6 pb-12" data-landing="district">
       <Ww360PageHero
         eyebrow={`${district} · Utility workspace`}
-        title={`${ww360Greeting(user?.full_name ?? user?.username ?? 'Manager')} — your compliance path`}
+        title={ww360PersonalizedTitle(user, 'your compliance path')}
         description="CEU renewal, succession coverage, and documentation tasks for this utility only. Complete the checklist to stay workforce-compliant."
       />
 

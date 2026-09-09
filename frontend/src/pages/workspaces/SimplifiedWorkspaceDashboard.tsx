@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '@/context/AuthContext';
+import { ww360PersonalizedTitle } from '@/components/ww360/ww360Greeting';
 import { ArrowRight, Droplets, Users, Workflow } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Ww360KpiTile } from '@/components/ww360/Ww360KpiTile';
@@ -136,6 +138,7 @@ export const SimplifiedWorkspaceDashboard: React.FC<SimplifiedWorkspaceDashboard
   profile,
   personaKey,
 }) => {
+  const { user } = useAuth();
   const [metrics, setMetrics] = useState<ResolvedMetricBundle | null>(null);
   const [layout, setLayout] = useState<LayoutItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -342,7 +345,7 @@ export const SimplifiedWorkspaceDashboard: React.FC<SimplifiedWorkspaceDashboard
       <WorkspaceTourOverlay profile={profile} personaKey={personaKey} autoOpen />
       <Ww360PageHero
         eyebrow={copy.eyebrow}
-        title={copy.title}
+        title={ww360PersonalizedTitle(user, copy.title)}
         description={copy.description}
         dataMode={metrics?.headlineMode ?? 'sample'}
         tourId="workspace-hero"

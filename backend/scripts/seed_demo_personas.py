@@ -296,7 +296,11 @@ def main() -> int:
                 catalog_group=catalog_group,
             )
 
-        jenny = db.query(User).filter(User.username == "jingrao-aman-OWW").one_or_none()
+        jenny = (
+            db.query(User)
+            .filter(User.username.in_(["jenny-oww", "jingrao-aman-OWW"]))
+            .one_or_none()
+        )
         nj_admin = db.query(User).filter(User.username == "nj-state-admin").one_or_none()
         hf_admin = db.query(User).filter(User.username == "hf-admin").one_or_none()
         hf_mgr = db.query(User).filter(User.username == "hf-manager").one_or_none()

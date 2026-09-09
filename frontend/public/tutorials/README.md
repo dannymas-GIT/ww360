@@ -2,12 +2,14 @@
 
 | File | Purpose |
 |------|---------|
-| `application-steps-sample-dmas.mp4` | **Watermarked WIP** — Instant Avatar `dmas` + voice `dmas` (Mission Control free test render). Default for the Application Steps tour while we evaluate look. |
-| `application-steps-sample-dmas.vtt` | Captions for the dmas sample |
+| `application-steps-sample-dmas.mp4` | **Watermarked WIP** — Instant Avatar look **Professional in beige blazer** (`10cf2af0…`) + voice `dmas`. Default Application Steps tour avatar. |
+| `application-steps-sample-dmas.vtt` | Captions for the dmas beige-blazer sample |
 | `application-steps-sample.mp4` | Prior watermarked Abigail catalog sample (fallback A/B) |
 | `application-steps-sample.vtt` | Captions for Abigail |
 
 **A/B in browser:** `localStorage.setItem('ww360-application-steps-avatar', 'dmas'|'abigail')` then reload Studio.
+
+**HeyGen cast (Mission Control):** `config/tour-video-avatars.json` — preferred look id `10cf2af011bb47caa54856761c38534a` (beige blazer); legacy default look `4873ffc3c89844948e61634fb0b1d799`.
 
 Source draft / review: Mission Control → SaaS Apps → WW360 → Tour Videos → slot `application-steps`  
 Guidance: `/opt/projects/workspace/docs/ww360-application-steps-recording-guidance.md`  

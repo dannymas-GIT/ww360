@@ -76,7 +76,7 @@ import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
 import { Ww360Section } from '@/components/ww360/Ww360Section';
 import { Ww360SourceChip } from '@/components/ww360/Ww360SourceChip';
 import { ww360ChartTooltipStyle } from '@/components/ww360/ww360ChartTooltip';
-import { ww360Greeting } from '@/components/ww360/ww360Greeting';
+import { ww360PersonalizedTitle } from '@/components/ww360/ww360Greeting';
 import type { Ww360SourceId } from '@/components/ww360/ww360SourceTokens';
 import type { Ww360DataMode } from '@/components/ww360/Ww360DataModeBadge';
 import { AlertTriangle, Droplets } from 'lucide-react';
@@ -434,7 +434,10 @@ export default function OwwExecutiveDashboard() {
       {/* Header */}
       <Ww360PageHero
         eyebrow={pack?.section_eyebrow ?? 'One Water Workforce · New York Section AWWA'}
-        title={`${ww360Greeting()}, Jenny — here is your 360 view of the statewide water workforce.`}
+        title={ww360PersonalizedTitle(
+          user,
+          'here is your 360 view of the statewide water workforce.'
+        )}
         description={
           pack?.exec_description ??
           'Live EPA SDWIS compliance for New York, plus sample program metrics for Learning Stream, onewaterworkforce.org, and utility Continuity reporting until those feeds are connected.'
@@ -1369,7 +1372,7 @@ export default function OwwExecutiveDashboard() {
         <Ww360Section
           tourId="access"
           eyebrow="Your platform access"
-          title="What jingrao-aman-OWW can see and do"
+          title="What jenny-oww can see and do"
           dataMode="live"
           className="lg:col-span-2"
         >

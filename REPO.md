@@ -50,7 +50,7 @@ bash /opt/projects/workspace/scripts/ww360/sync-staging-env.sh
 WW360 issues its own JWT until AquaSafe handoff is deployed on staging:
 
 - URL: `https://ww360.aquasafe-solutions.us/login`
-- Seed user: `jingrao-aman-OWW` (`platform_admin` + `oww_partner`)
+- Seed user: `jenny-oww` (`platform_admin` + `oww_partner`)
 - Set `WW360_SEED_ADMIN_PASSWORD` in `openclaw.env`, then on VM: `docker compose exec backend python scripts/seed_ww360_admin.py`
 
 ### Demo accounts (national + NJ)
@@ -77,7 +77,7 @@ docker compose exec backend python scripts/seed_demo_personas.py
 # optional: WW360_SEED_DEMO_PASSWORD (default ChangeMe-Demo!)
 ```
 
-Jenny (`jingrao-aman-OWW`) and other platform/state admins see **View as role** in the app shell. Read-only **preview** is default; **act-as** (writes allowed, audited) requires `platform_admin` + reason.
+Jenny (`jenny-oww`) and other platform/state admins see **View as role** in the app shell. Read-only **preview** is default; **act-as** (writes allowed, audited) requires `platform_admin` + reason.
 
 **Kitchen Sink** (sidebar toggle, default **off**): simplified role workspace with KPIs, charts, Document Studio, and a guided **Role tour**. Turn on to reveal the full navigation and executive tool set.
 
@@ -85,7 +85,7 @@ Jenny (`jingrao-aman-OWW`) and other platform/state admins see **View as role** 
 |------|------------------|------------------------|
 | National | `us-epa-workforce-lead`, `aquasafe-admin` | `/national` simplified workspace |
 | Regional | `epa-r2-opcert-coordinator` | `/national` or `/dashboard` |
-| State partner | `jingrao-aman-OWW`, `ny-nysawwa-executive` | `/dashboard` simplified OWW story |
+| State partner | `jenny-oww`, `ny-nysawwa-executive` | `/dashboard` simplified OWW story |
 | Regulator | `ny-doh-opcert-manager` | `/dashboard` + OpCert panel |
 | Utility | `hf-operator-1`, `mcwa-chief-operator` | District / operator home |
 
@@ -142,6 +142,18 @@ Register redirect URIs on each IdP:
 - Studio library connect (still supported): `https://ww360.aquasafe-solutions.us/studio`
 
 APIs: `GET /api/v1/auth/sso/providers`, `GET /api/v1/auth/sso/auth-url`, `POST /api/v1/auth/sso/callback`.
+
+## Disk hygiene (staging VM + dev box)
+
+**WW360 staging Azure VM** (~29GB root): each `docker compose up --build` adds layers to Docker **build cache** (~12GB reclaimable). Deploy now runs `workspace/scripts/ww360/staging-disk-hygiene.sh` before rebuild (weekly prune of cache/images older than 7 days). Manual:
+
+```bash
+bash /opt/projects/workspace/scripts/ww360/staging-disk-hygiene.sh
+```
+
+**Mission Control dev VM** (large `/opt/projects` disk): fills from Docker, `node_modules`, Cursor agent cache, and HeyGen tour-video test MP4s under `workspace/apps/control-api/data/tour-videos/`. If builds fail with “No space left on device”, prune Docker (`docker system prune -af`), delete old `ab-realism/*.mp4` test renders, and clear `~/.cursor/projects/*/agent-tools/*.txt`.
+
+Do not store large generated media in the git repo; tour finals live under `frontend/public/tutorials/` only after review.
 
 ## Nginx IP whitelist
 

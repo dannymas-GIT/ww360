@@ -144,4 +144,18 @@ test.describe('Application Steps guided tour', () => {
     );
     await expect(page.locator('[data-tutorial-recorder]')).toHaveCount(0);
   });
+
+  test('video close hides the player and can be shown again', async ({ page }) => {
+    await openTour(page);
+    const video = page.locator('[data-tour="application-steps-avatar"]');
+    const card = page.locator('[data-tour="application-steps-tour-card"]');
+    await expect(video).toBeVisible();
+
+    await page.locator('[data-tour="application-steps-close-video"]').click();
+    await expect(video).toHaveCount(0);
+    await expect(card).toBeVisible();
+
+    await page.locator('[data-tour="application-steps-show-video"]').click();
+    await expect(page.locator('[data-tour="application-steps-avatar"]')).toBeVisible();
+  });
 });

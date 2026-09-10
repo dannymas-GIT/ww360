@@ -22,7 +22,7 @@ export function ApplicationStepsOverviewDialog({
 }: ApplicationStepsOverviewDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl gap-3 p-4 sm:p-6">
+      <DialogContent className="max-w-5xl gap-3 p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-[1.25rem] text-slate-900">
             <PlayCircle className="h-5 w-5 text-sky-600" aria-hidden />

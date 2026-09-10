@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, LogOut, Menu } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LogOut, Menu, UserRound } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { getWw360LogoPath, WW360_LOGO_SIZE } from '@/utils/brandHost';
 import { ww360NavGroups, navItemTo, navGroupsForRoles } from './navConfig';
@@ -116,7 +116,18 @@ export const AppShell: React.FC = () => {
             <Button
               variant="ghost"
               size="sm"
-              className="w-full justify-start text-slate-300 hover:text-white hover:bg-white/5"
+              className="w-full justify-start text-slate-300 hover:text-white hover:bg-white/5 min-h-[44px]"
+              asChild
+            >
+              <Link to="/profile">
+                <UserRound className="h-4 w-4 mr-2" />
+                {!collapsed && 'Profile'}
+              </Link>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start text-slate-300 hover:text-white hover:bg-white/5 min-h-[44px]"
               onClick={logout}
             >
               <LogOut className="h-4 w-4 mr-2" />
@@ -165,6 +176,23 @@ export const AppShell: React.FC = () => {
                 {item.label}
               </Link>
             ))}
+            <Link
+              to="/profile"
+              className="block py-2 text-base min-h-[44px]"
+              onClick={() => setMobileOpen(false)}
+            >
+              Profile
+            </Link>
+            <button
+              type="button"
+              className="block w-full text-left py-2 text-base min-h-[44px]"
+              onClick={() => {
+                setMobileOpen(false);
+                logout();
+              }}
+            >
+              Sign out
+            </button>
           </div>
         )}
         {user ? (

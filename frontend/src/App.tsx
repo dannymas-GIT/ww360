@@ -24,6 +24,7 @@ import AdminJurisdictionsPage from '@/pages/admin/AdminJurisdictionsPage';
 import NationalOverviewPage from '@/pages/national/NationalOverviewPage';
 import StateScorecardPage from '@/pages/national/StateScorecardPage';
 import JobOpeningsPage from '@/pages/jobs/JobOpeningsPage';
+import ProfilePage from '@/pages/ProfilePage';
 
 const DocumentStudioPage = lazy(() => import('@/pages/studio/DocumentStudioPage'));
 
@@ -116,6 +117,7 @@ export default function App() {
         <Route path="/national" element={<NationalOverviewPage />} />
         <Route path="/national/states/:st" element={<StateScorecardPage />} />
         <Route path="/jobs" element={<JobOpeningsPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
         <Route path="/admin/pwsid-links" element={<AdminPwsidLinksPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/admin/jurisdictions" element={<AdminJurisdictionsPage />} />

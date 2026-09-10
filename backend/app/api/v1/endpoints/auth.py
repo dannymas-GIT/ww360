@@ -58,6 +58,17 @@ class ActiveStateBody(BaseModel):
     state_code: str = Field(..., min_length=2, max_length=2)
 
 
+class ChangePasswordBody(BaseModel):
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
+    confirm_password: str = Field(min_length=8, max_length=128)
+
+
+class ChangePasswordOut(BaseModel):
+    ok: bool = True
+    message: str = "Password updated"
+
+
 class SsoCallbackBody(BaseModel):
     provider: str = Field(..., description="microsoft_graph or google_drive")
     code: str
@@ -182,3 +193,48 @@ def set_active_state(
         "token_type": "bearer",
         "user": _user_out(user, payload),
     }
+
+
+@router.post("/change-password", response_model=ChangePasswordOut)
+def change_password(
+    body: ChangePasswordBody,
+    db: Session = Depends(get_db),
+    context: TenantContext = Depends(deps.get_current_tenant_user),
+):
+    """Signed-in user changes their own password (requires current password)."""
+    if context.is_impersonating:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Exit impersonation before changing a password",
+        )
+
+    new_password = body.new_password.strip()
+    confirm = body.confirm_password.strip()
+    if new_password != confirm:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="New password and confirmation do not match",
+        )
+    if len(new_password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Password must be at least 8 characters",
+        )
+    if new_password == body.current_password:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="New password must be different from the current password",
+        )
+
+    user = db.query(User).filter(User.id == context.user_id).first()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if not verify_password(body.current_password, user.hashed_password or ""):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect",
+        )
+
+    user.set_password(new_password)
+    db.commit()
+    return ChangePasswordOut()

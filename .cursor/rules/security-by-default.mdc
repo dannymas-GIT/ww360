@@ -1,0 +1,45 @@
+---
+description: Security-by-default for RBAC, AuthZ, and user lifecycle in WW360 SaaS
+alwaysApply: true
+---
+
+# Security by default
+
+Agents must design **authorization before UI** and treat RBAC as product policy, not an afterthought.
+
+## Authorization
+
+- **Every mutating API** must enforce AuthZ server-side. UI hiding is not security.
+- **Least privilege:** default roles are read-only or minimal; elevation requires explicit assignment.
+- **Protected tiers:** National and State roles are platform/state-admin only; utility managers cannot assign or redefine them.
+- **IDOR-safe scoping:** district/user/resource IDs in URLs and bodies must match the caller's tenant context (`TenantContext`, district membership, program scope).
+- **Audit:** user create, role change, deactivate, and recording grants should be traceable (who, when, what).
+
+## User lifecycle
+
+- Prefer **soft-deactivate** (`is_active=false`) over hard-delete for user accounts.
+- Temporary passwords must be changed on first login when that flow exists.
+- Recording grants are **time-bounded** and scoped to district + user; revoke explicitly.
+- **Self-service password change** belongs on Profile (`/profile`); **admin password reset** belongs on Users & access. Both require AuthZ server-side; audit admin resets (who, when, which user — never log the password).
+- Reject password changes while impersonating / acting-as another user.
+
+## Secrets & rules
+
+- **Never** put secrets, tokens, or production credentials in rules, code comments, or agent memory.
+- Use environment variables and secret stores; document *names* only in runbooks.
+
+## Agent checklist before shipping features
+
+1. Who can call this endpoint? Which roles?
+2. Can a user pass another district's ID and succeed? (IDOR test)
+3. Are national/state roles protected from utility escalation?
+4. Is there an audit trail for admin actions?
+5. Does the UI match AquaSafe user-mgmt patterns where applicable (`aquasafe-user-management-standard.mdc`)?
+6. If the app has local accounts: is there a Profile with self-service password change?
+
+## Reference
+
+- WW360 district users API: `backend/app/api/v1/endpoints/district_users.py`
+- Role catalog: `backend/app/services/role_catalog_service.py`
+- Frontend gate: `AuthContext.canManageUsers`, `/district/users`
+- Profile: `/profile`, `POST /api/v1/auth/change-password`, admin reset on `/admin/users`

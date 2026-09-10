@@ -44,6 +44,7 @@ export const ww360NavGroups: NavGroup[] = [
       { label: 'Landscape', path: '/water-systems', icon: Droplets },
       { label: 'Watchlist', path: '/water-systems/watchlist', icon: Shield },
       { label: 'System lookup', path: '/water-systems/lookup', icon: Map },
+      { label: 'Analysis', path: '/water-systems/analysis', icon: BarChart3 },
     ],
   },
   {
@@ -90,7 +91,7 @@ export const ww360NavGroups: NavGroup[] = [
     label: 'Administration',
     items: [
       { label: 'Jurisdictions', path: '/admin/jurisdictions', icon: Map },
-      { label: 'PWSID links', path: '/admin/pwsid-links', icon: Link2 },
+      { label: 'Linked utilities', path: '/admin/pwsid-links', icon: Link2 },
       { label: 'Users & access', path: '/admin/users', icon: Users },
       { label: 'Settings', path: '/admin/settings', icon: Settings },
     ],
@@ -162,12 +163,20 @@ export function navGroupsForRoles(roles: string[], districts: string[] = []): Na
     ];
   }
 
-  // District managers / admins — utility-only nav (no statewide SDWIS / analytics / admin).
+  // District managers / admins — utility nav includes district PWS linking.
   return [
     {
       id: 'today',
       label: 'Today',
       items: [{ label: 'District dashboard', path: '/dashboard', icon: LayoutDashboard }],
+    },
+    {
+      id: 'water-systems',
+      label: 'Water Systems',
+      items: [
+        { label: 'Our water system', path: '/water-systems/compliance', icon: Droplets },
+        { label: 'Find PWS', path: '/water-systems/lookup', icon: Map },
+      ],
     },
     {
       id: 'workforce',

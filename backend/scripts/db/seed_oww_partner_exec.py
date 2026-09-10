@@ -41,7 +41,7 @@ from app.models.role import RoleDefinition  # noqa: E402
 from app.models.user import User  # noqa: E402
 from app.tenant_auth import Roles  # noqa: E402
 
-DEFAULT_USERNAME = "jingrao-aman-OWW"
+DEFAULT_USERNAME = "jenny-oww"
 DEFAULT_EMAIL = "jingrao-aman@onewaterworkforce.org"
 DEFAULT_FIRST = "Jenny"
 DEFAULT_LAST = "Ingrao-Aman"

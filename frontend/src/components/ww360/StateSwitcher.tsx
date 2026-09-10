@@ -11,13 +11,16 @@ import {
 } from '@/components/ui/select';
 
 export const StateSwitcher: React.FC = () => {
-  const { user, isPlatformAdmin } = useAuth();
+  const { user, isPlatformAdmin, userRoles } = useAuth();
   const { activeState, switchState } = useJurisdiction();
   const [states, setStates] = React.useState<string[]>([]);
   const [busy, setBusy] = React.useState(false);
 
   const canSwitch =
-    isPlatformAdmin || (user?.orgs?.length ?? 0) > 1 || Boolean(user?.is_national_admin);
+    isPlatformAdmin ||
+    userRoles.includes('national_observer') ||
+    (user?.orgs?.length ?? 0) > 1 ||
+    Boolean(user?.is_national_admin);
 
   React.useEffect(() => {
     if (!canSwitch) return;
@@ -26,7 +29,14 @@ export const StateSwitcher: React.FC = () => {
       .catch(() => setStates(['NY', 'NJ']));
   }, [canSwitch]);
 
-  if (!canSwitch || states.length < 2) return null;
+  if (!canSwitch) return null;
+
+  const options = [...states];
+  if (isPlatformAdmin || userRoles.includes('national_observer')) {
+    if (!options.includes('US')) options.unshift('US');
+  }
+
+  if (options.length < 2) return null;
 
   return (
     <div className="px-3 pb-2">
@@ -38,6 +48,10 @@ export const StateSwitcher: React.FC = () => {
         disabled={busy}
         onValueChange={val => {
           if (val === activeState) return;
+          if (val === 'US') {
+            window.location.href = '/national';
+            return;
+          }
           setBusy(true);
           void switchState(val)
             .catch(() => {})
@@ -48,9 +62,9 @@ export const StateSwitcher: React.FC = () => {
           <SelectValue placeholder="State" />
         </SelectTrigger>
         <SelectContent>
-          {states.map(s => (
+          {options.map(s => (
             <SelectItem key={s} value={s}>
-              {s}
+              {s === 'US' ? 'United States' : s}
             </SelectItem>
           ))}
         </SelectContent>

@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
+
+from app.schemas.doc_studio import DocDocumentRead
 
 
 # ---------------------------------------------------------------------------
@@ -562,6 +564,9 @@ class WorkforceContinuityResponse(BaseModel):
     cert_cliff: List[CertificationCliffEntry] = Field(default_factory=list)
     retirement_horizon: List[RetirementHorizonEntry] = Field(default_factory=list)
     upcoming_milestones: List[TransitionMilestoneSummary] = Field(default_factory=list)
+    data_mode: Literal["live", "sample"] = "live"
+    sample_notice: Optional[str] = None
+    sample_reason: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -990,3 +995,63 @@ class RecommendedTrainingSummary(BaseModel):
     category: Optional[str] = None
     registration_url: Optional[str] = None
     cost_text: Optional[str] = None
+
+
+class GenerateWorkforceDocPackRequest(BaseModel):
+    pack_type: Literal["succession_binder", "ceu_tracker_pack"] = "succession_binder"
+    profile: Literal["small_system", "multi_plant", "district_trainees"] = "small_system"
+    contact_name: Optional[str] = None
+    contact_email: Optional[str] = None
+    use_live_data: bool = True
+
+
+class WorkforceDocPackResponse(BaseModel):
+    pack_type: str
+    profile: Optional[str] = None
+    folder_id: str
+    cover_document_id: Optional[str] = None
+    document_count: int
+    documents: List[DocDocumentRead] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Binder intake wizard
+# ---------------------------------------------------------------------------
+
+
+class WorkforceBinderIntakeCreate(BaseModel):
+    district_code: str = Field(..., min_length=1, max_length=50)
+
+
+class WorkforceBinderIntakeUpdate(BaseModel):
+    answers: Optional[dict[str, Any]] = None
+    current_step: Optional[str] = Field(None, max_length=50)
+    completed_steps: Optional[List[str]] = None
+
+
+class WorkforceBinderIntakeRead(BaseModel):
+    id: int
+    district_code: str
+    created_by_user_id: Optional[int]
+    current_step: str
+    completed_steps: List[str] = Field(default_factory=list)
+    status: str
+    answers: dict[str, Any] = Field(default_factory=dict)
+    binder_folder_id: Optional[str] = None
+    last_saved_at: datetime
+    completed_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class WorkforceBinderIntakeEnsureResponse(BaseModel):
+    session: WorkforceBinderIntakeRead
+    created: bool
+
+
+class WorkforceBinderIntakeCompleteResponse(BaseModel):
+    session: WorkforceBinderIntakeRead
+    pack: WorkforceDocPackResponse

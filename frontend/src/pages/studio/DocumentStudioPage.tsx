@@ -51,6 +51,8 @@ import { NewDocumentDialog } from '@/components/doc-studio/NewDocumentDialog';
 import { ExternalLibraryDialog } from '@/components/doc-studio/ExternalLibraryDialog';
 import { CustodyTransferDialog } from '@/components/doc-studio/CustodyTransferDialog';
 import { ApplicationStepsOverviewDialog } from '@/components/doc-studio/ApplicationStepsOverviewDialog';
+import { ApplicationStepsTourOverlay } from '@/components/doc-studio/ApplicationStepsTourOverlay';
+import { requestOpenApplicationStepsTour } from '@/components/doc-studio/applicationStepsTourContent';
 import { TutorialPlayer } from '@/components/doc-studio/TutorialPlayer';
 import { useTutorialRecorder } from '@/context/TutorialRecorderContext';
 import * as api from '@/services/docStudioService';
@@ -63,6 +65,7 @@ import {
   STUDIO_TOUR_OPEN_EVENT,
 } from './studioTourContent';
 import { resolveLandingKind } from '@/utils/resolveLandingKind';
+import { useImpersonation } from '@/context/ImpersonationContext';
 
 const AUTOSAVE_MS = 2500;
 
@@ -71,7 +74,12 @@ type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
 function errMessage(err: unknown): string {
   if (typeof err === 'object' && err && 'response' in err) {
     const r = (err as { response?: { data?: { detail?: string } } }).response;
-    if (r?.data?.detail) return r.data.detail;
+    if (r?.data?.detail) {
+      if (r.data.detail === 'IMPERSONATION_READ_ONLY') {
+        return 'Read-only preview cannot save. Exit preview, or use Act as (audited) to make changes.';
+      }
+      return r.data.detail;
+    }
   }
   return err instanceof Error ? err.message : String(err);
 }
@@ -79,17 +87,19 @@ function errMessage(err: unknown): string {
 export default function DocumentStudioPage() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { isPreviewMode } = useImpersonation();
   const qc = useQueryClient();
   const { openRecorder } = useTutorialRecorder();
   const [params, setParams] = useSearchParams();
+  const requestedScope = params.get('scope') ?? undefined;
 
-  const [folderSel, setFolderSel] = useState<string>(ALL_DOCS);
+  const [folderSel, setFolderSel] = useState<string>(params.get('folder') || ALL_DOCS);
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(params.get('doc'));
   const [showVersions, setShowVersions] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
-  const [custodyOpen, setCustodyOpen] = useState(false);
+  const [custodyOpen, setCustodyOpen] = useState(params.get('custody') === 'open');
   const [overviewOpen, setOverviewOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>('idle');
@@ -104,14 +114,18 @@ export default function DocumentStudioPage() {
   const oauthHandledRef = useRef(false);
 
   // ── Queries ────────────────────────────────────────────────────────────
-  const accessQ = useQuery({ queryKey: ['studio', 'access'], queryFn: () => api.fetchAccess() });
-  const canAuthor = !!accessQ.data?.can_author;
+  const accessQ = useQuery({
+    queryKey: ['studio', 'access', requestedScope ?? 'auto'],
+    queryFn: () => api.fetchAccess(requestedScope),
+  });
+  // Preview impersonation is read-only even when the target persona can author.
+  const canAuthor = !!accessQ.data?.can_author && !isPreviewMode;
   const canPublish = !!accessQ.data?.can_publish;
   // Older backends omit the flag — authors should still see the control.
   const canConnectLibrary = accessQ.data?.can_connect_library ?? canAuthor;
   const canCustodyTransfer = !!accessQ.data?.can_custody_transfer;
   const scopeLabel = accessQ.data?.scope_label ?? 'Program library';
-  const studioScope = accessQ.data?.scope ?? 'program';
+  const studioScope = accessQ.data?.scope ?? requestedScope ?? 'program';
   const tourAudience = resolveStudioTourAudience({
     landingKind: resolveLandingKind(user),
     canAuthor: accessQ.isSuccess ? canAuthor : true,
@@ -122,40 +136,52 @@ export default function DocumentStudioPage() {
   const tourSampleId = tourSampleTemplateId(templateAudience);
 
   const foldersQ = useQuery({
-    queryKey: ['studio', 'folders'],
-    queryFn: () => api.fetchFolders(),
+    queryKey: ['studio', 'folders', studioScope],
+    queryFn: () => api.fetchFolders(studioScope),
     enabled: accessQ.isSuccess,
   });
   const folders: DocFolder[] = foldersQ.data ?? [];
 
   const listFolderParam = folderSel === ALL_DOCS ? undefined : folderSel === UNFILED ? UNFILED : folderSel;
   const docsQ = useQuery({
-    queryKey: ['studio', 'documents', listFolderParam ?? 'all', query],
-    queryFn: () => api.fetchDocuments({ folder_id: listFolderParam ?? undefined, q: query || undefined }),
+    queryKey: ['studio', 'documents', studioScope, listFolderParam ?? 'all', query],
+    queryFn: () =>
+      api.fetchDocuments(
+        { folder_id: listFolderParam ?? undefined, q: query || undefined },
+        studioScope
+      ),
     enabled: accessQ.isSuccess,
   });
   const documents: DocSummary[] = docsQ.data ?? [];
 
   const allDocsQ = useQuery({
-    queryKey: ['studio', 'documents', 'all', ''],
-    queryFn: () => api.fetchDocuments({}),
+    queryKey: ['studio', 'documents', studioScope, 'all', ''],
+    queryFn: () => api.fetchDocuments({}, studioScope),
     enabled: accessQ.isSuccess,
   });
   const totalCount = allDocsQ.data?.length ?? 0;
   const unfiledCount = (allDocsQ.data ?? []).filter(d => !d.folder_id).length;
 
   const docQ = useQuery({
-    queryKey: ['studio', 'document', selectedId],
-    queryFn: () => api.fetchDocument(selectedId as string),
+    queryKey: ['studio', 'document', studioScope, selectedId],
+    queryFn: () => api.fetchDocument(selectedId as string, studioScope),
     enabled: !!selectedId && accessQ.isSuccess,
   });
   const doc: DocDetail | undefined = docQ.data;
 
   const versionsQ = useQuery({
-    queryKey: ['studio', 'versions', selectedId],
-    queryFn: () => api.fetchVersions(selectedId as string),
+    queryKey: ['studio', 'versions', studioScope, selectedId],
+    queryFn: () => api.fetchVersions(selectedId as string, studioScope),
     enabled: !!selectedId && showVersions,
   });
+
+  // Deep link from Continuity binder (?scope=&doc=&folder=)
+  useEffect(() => {
+    const docParam = params.get('doc');
+    const folderParam = params.get('folder');
+    if (docParam && docParam !== selectedId) setSelectedId(docParam);
+    if (folderParam && folderParam !== folderSel) setFolderSel(folderParam);
+  }, [params]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (doc) setTitleDraft(doc.title);
@@ -165,8 +191,9 @@ export default function DocumentStudioPage() {
     const next = new URLSearchParams(params);
     if (selectedId) next.set('doc', selectedId);
     else next.delete('doc');
+    if (requestedScope) next.set('scope', requestedScope);
     if (next.toString() !== params.toString()) setParams(next, { replace: true });
-  }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedId, requestedScope]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Complete OAuth return from cloud provider (?code= on /studio).
   useEffect(() => {
@@ -233,15 +260,19 @@ export default function DocumentStudioPage() {
       title?: string | undefined;
       note?: string | undefined;
     }) =>
-      api.saveContent(vars.id, {
-        content_markdown: vars.markdown,
-        content_json: vars.json,
-        autosave: vars.autosave,
-        title: vars.title,
-        note: vars.note,
-      }),
+      api.saveContent(
+        vars.id,
+        {
+          content_markdown: vars.markdown,
+          content_json: vars.json,
+          autosave: vars.autosave,
+          title: vars.title,
+          note: vars.note,
+        },
+        studioScope
+      ),
     onSuccess: (data, vars) => {
-      qc.setQueryData(['studio', 'document', vars.id], data);
+      qc.setQueryData(['studio', 'document', studioScope, vars.id], data);
       setSaveState('saved');
       if (!vars.autosave) {
         qc.invalidateQueries({ queryKey: ['studio', 'versions', vars.id] });
@@ -251,7 +282,10 @@ export default function DocumentStudioPage() {
     },
     onError: err => {
       setSaveState('error');
-      toast({ title: 'Save failed', description: errMessage(err), variant: 'destructive' });
+      // Avoid spamming while browsing binders in read-only preview.
+      const msg = errMessage(err);
+      if (msg.includes('Read-only preview')) return;
+      toast({ title: 'Save failed', description: msg, variant: 'destructive' });
     },
   });
 
@@ -700,7 +734,7 @@ export default function DocumentStudioPage() {
               size="sm"
               data-tour="studio-application-steps-overview"
               className="min-h-[44px] border-white/20 bg-white/5 text-white hover:bg-white/15 hover:text-white md:min-h-9"
-              onClick={() => setOverviewOpen(true)}
+              onClick={() => requestOpenApplicationStepsTour(0)}
             >
               <PlayCircle className="mr-1.5 h-4 w-4" aria-hidden /> Watch overview
             </Button>
@@ -881,6 +915,21 @@ export default function DocumentStudioPage() {
         >
           {!selectedId ? (
             <EmptyEditor canAuthor={canAuthor} onNew={() => setNewOpen(true)} recent={(allDocsQ.data ?? []).slice(0, 5)} onOpen={id => void selectDocument(id)} />
+          ) : docQ.isError ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+              <p className="text-[1.125rem] font-medium text-slate-800">Could not load this document</p>
+              <p className="max-w-md text-[1rem] leading-relaxed text-slate-600">
+                It may belong to a different library. Utility binders live in the district scope (
+                {scopeLabel}), not the statewide program library.
+              </p>
+              {requestedScope ? null : (
+                <p className="text-[0.875rem] text-slate-500">
+                  Open the binder again from Continuity, or add{' '}
+                  <code className="rounded bg-slate-100 px-1">?scope=&lt;district_code&gt;</code> to
+                  the URL.
+                </p>
+              )}
+            </div>
           ) : docQ.isLoading || !doc ? (
             <div className="flex flex-1 items-center justify-center text-sm text-slate-500">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading document…
@@ -1143,7 +1192,7 @@ export default function DocumentStudioPage() {
       ) : null}
 
       <ApplicationStepsOverviewDialog open={overviewOpen} onOpenChange={setOverviewOpen} />
-
+      <ApplicationStepsTourOverlay />
       <Ww360TourOverlay config={tourConfig} autoOpen autoOpenDelayMs={900} onOpenChange={setTourOpen} />
     </div>
   );

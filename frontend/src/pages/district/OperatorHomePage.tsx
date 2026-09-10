@@ -2,12 +2,14 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Camera, GraduationCap } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useKitchenSink } from '@/context/KitchenSinkContext';
 import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
 import { Ww360Section } from '@/components/ww360/Ww360Section';
-import { ww360Greeting } from '@/components/ww360/ww360Greeting';
+import { ww360PersonalizedTitle } from '@/components/ww360/ww360Greeting';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { WorkspaceTourOverlay } from '@/pages/workspaces/WorkspaceTourOverlay';
 import {
   fetchMyTasks,
   fetchRecorderAccess,
@@ -17,16 +19,20 @@ import {
 } from '@/services/documentationTaskService';
 import { fetchCeuSummary } from '@/services/workforceSuccessionService';
 import { WorkforceOperatorResponsibilityForm } from '@/components/workforce/WorkforceOperatorResponsibilityForm';
+import { UsajobsJobListingsPanel } from '@/pages/workspaces/UsajobsJobListingsPanel';
 
-const GRADE_REQUIREMENT = 24;
+const GRADE_REQUIREMENT_FALLBACK = 30;
 
 export default function OperatorHomePage() {
   const { user, actingDistrictCode } = useAuth();
+  const { personaKey } = useKitchenSink();
   const district = actingDistrictCode ?? user?.districts?.[0] ?? 'HFWD';
   const [tasks, setTasks] = useState<DocumentationTask[]>([]);
   const [recorder, setRecorder] = useState<RecorderAccess | null>(null);
   const [ceuHours, setCeuHours] = useState(0);
   const [progressDraft, setProgressDraft] = useState<Record<number, number>>({});
+
+  const [ceuRequired, setCeuRequired] = useState(GRADE_REQUIREMENT_FALLBACK);
 
   const reload = useCallback(async () => {
     const [t, r, ceu] = await Promise.all([
@@ -39,7 +45,12 @@ export default function OperatorHomePage() {
     const mine = ceu?.operators?.find(o =>
       user?.full_name ? o.employee_name?.includes(user.full_name.split(' ')[0]) : false
     );
-    setCeuHours(mine?.earned_hours ?? ceu?.operators?.[0]?.earned_hours ?? 0);
+    const op = mine ?? ceu?.operators?.[0];
+    setCeuHours(op?.earned_hours ?? 0);
+    const required =
+      op?.required_contact_hours ??
+      (op?.required_hours != null ? op.required_hours * 10 : GRADE_REQUIREMENT_FALLBACK);
+    setCeuRequired(required);
   }, [district, user?.full_name]);
 
   useEffect(() => {
@@ -51,21 +62,26 @@ export default function OperatorHomePage() {
       className="mx-auto w-full max-w-3xl space-y-6 p-4 md:p-6 pb-12"
       data-landing="operator"
     >
+      <WorkspaceTourOverlay profile="utility" personaKey={personaKey} autoOpen />
       <Ww360PageHero
         eyebrow={`${district} · Operator home`}
-        title={`${ww360Greeting(user?.full_name ?? user?.username ?? 'Operator')}`}
-        description="Your CEU progress, documentation assignments, and responsibility notes for this utility."
+        title={ww360PersonalizedTitle(user, 'your operator home')}
+        description={
+          personaKey === 'mcwa-operator-1'
+            ? 'Log CEU hours, sign up for training, and complete documentation tasks your manager assigns — no Succession Binder authoring from this role.'
+            : 'Your CEU progress, documentation assignments, and responsibility notes for this utility.'
+        }
       />
 
       <Ww360Section tourId="operator-ceu" title="My CEU hours">
         <div className="px-5 pb-5 space-y-3">
           <div className="flex justify-between text-sm">
             <span>
-              {ceuHours.toFixed(1)} / {GRADE_REQUIREMENT} hrs (Grade IIA cycle)
+              {ceuHours.toFixed(1)} / {ceuRequired.toFixed(0)} contact hrs (3-year cycle)
             </span>
-            <Badge>{Math.round((ceuHours / GRADE_REQUIREMENT) * 100)}%</Badge>
+            <Badge>{Math.round((ceuHours / ceuRequired) * 100)}%</Badge>
           </div>
-          <Progress value={Math.min(100, (ceuHours / GRADE_REQUIREMENT) * 100)} />
+          <Progress value={Math.min(100, (ceuHours / ceuRequired) * 100)} />
           <Button asChild size="sm" variant="outline">
             <Link to="/continuity/ceu-training?tab=ceu">Log CEU hours</Link>
           </Button>
@@ -172,6 +188,8 @@ export default function OperatorHomePage() {
           <WorkforceOperatorResponsibilityForm districtCode={district} />
         </div>
       </Ww360Section>
+
+      <UsajobsJobListingsPanel tourId="operator-federal-jobs" />
     </div>
   );
 }

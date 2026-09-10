@@ -459,6 +459,71 @@ Where this role leads and how the program supports upgrades.
 Contact, deadline and link.
 `,
   },
+  // ── Succession binder (Document Studio pack) ─────────────────────────────
+  {
+    id: 'binder-cover',
+    name: 'Succession Binder — Cover',
+    description: 'Cover page linking all succession binder sections for board and cloud archive.',
+    category: 'operations',
+    audiences: ['district'],
+    preview: 'Purpose → sections → custody note',
+    markdown: `# Succession Binder
+
+**Utility:**  
+**Prepared by:**  
+**Last updated:**
+
+## Purpose
+
+Document critical roles, backups, retirement risk, and knowledge transfer.
+
+## Custody & backup
+
+Export or transfer custody to your utility cloud when ready — WW360 is not your long-term archive.
+`,
+  },
+  {
+    id: 'critical-roles-coverage',
+    name: 'Critical roles & backups',
+    description: 'Role coverage table for succession planning.',
+    category: 'operations',
+    audiences: ['district'],
+    preview: 'Functions → primary → backup → risk',
+    markdown: `## Critical roles & backups
+
+| Function | Primary | Backup | Risk |
+| --- | --- | --- | --- |
+| | | | |
+`,
+  },
+  {
+    id: 'knowledge-transfer-checklist',
+    name: 'Knowledge transfer checklist',
+    description: 'Checklist before planned retirements or promotions.',
+    category: 'operations',
+    audiences: ['district'],
+    preview: 'SOPs → walk-throughs → sign-off',
+    markdown: `## Knowledge transfer checklist
+
+- [ ] Critical SOPs current
+- [ ] Operator walk-through recorded
+- [ ] Emergency contacts updated
+`,
+  },
+  {
+    id: 'ceu-tracker-snapshot',
+    name: 'CEU Tracker snapshot',
+    description: 'Point-in-time CEU and certification status for filing or board review.',
+    category: 'training',
+    audiences: ['district'],
+    preview: 'Operators → hours → cliff → DOH-352',
+    markdown: `## CEU Tracker snapshot
+
+| Operator | Grade | Cycle end | Remaining hr | Status |
+| --- | --- | --- | --- | --- |
+| | | | | |
+`,
+  },
   {
     id: 'succession-memo',
     name: 'Succession planning memo',
@@ -885,6 +950,50 @@ Who uses this procedure and what goes wrong if it is missing.
 ## Shared with supervisor
 
 - [ ] Yes — date:
+`,
+  },
+  {
+    id: 'opcert-epa-annual-report',
+    name: 'EPA Operator Certification Annual Report (Nine Baseline Standards)',
+    description:
+      'NYSDOH primacy program narrative pre-filled from WW360 OpCert coverage metrics.',
+    category: 'compliance',
+    audiences: ['program'],
+    preview: 'Nine Baseline Standards · roster coverage · renewal cliff',
+    markdown: `## EPA Operator Certification Annual Report
+
+**State:** New York  
+**Reporting period:** {{year}}  
+**Prepared by:** NYSDOH Bureau of Water Supply Protection
+
+### Summary metrics (from WW360)
+
+| Metric | Value |
+| --- | --- |
+| Certified operators (roster) | {{total_operators}} |
+| Community water systems | {{active_cws}} |
+| Renewals ≤ 12 months | {{renewal_cliff_12mo}} |
+| Systems per operator | {{systems_per_operator}} |
+
+### Nine Baseline Standards checklist
+
+1. **Authorization** — Statutory authority for operator certification program  
+2. **Classification** — System and operator grade classifications  
+3. **Operator qualifications** — Education, experience, examination requirements  
+4. **Enforcement** — Disciplinary actions and enforcement procedures  
+5. **Certification renewal** — Renewal cycle and continuing education  
+6. **Resources** — Staffing and budget adequate to implement program  
+7. **Recertification** — Reinstatement procedures for lapsed certificates  
+8. **Stakeholder involvement** — Advisory boards and public participation  
+9. **Program review** — Internal audit and continuous improvement
+
+### Narrative
+
+Describe how the state program meets each baseline standard. Attach supporting documentation as required by EPA Region 2.
+
+### Certification
+
+State Attorney General certification attached: [ ] Yes  [ ] N/A
 `,
   },
 ];

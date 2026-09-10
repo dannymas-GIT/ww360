@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.db import base
 from app.db.database import SessionLocal, init_db
 from app.services.sdwis_state_refresh_service import refresh_configured_states
+from app.services.national.sdwis_bulk_ingest import refresh_all_states
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -27,10 +28,32 @@ def _run_sdwis_refresh() -> None:
         return
     db = SessionLocal()
     try:
-        results = refresh_configured_states(db)
+        if settings.WW360_SDWIS_STATES.strip().upper() in ("ALL", ""):
+            results = refresh_all_states(db)
+        else:
+            results = refresh_configured_states(db)
         logger.info("SDWIS state refresh completed: %s", results)
     except Exception as exc:
         logger.warning("SDWIS state refresh failed: %s", exc)
+    finally:
+        db.close()
+
+
+def _run_national_metrics_refresh() -> None:
+    db = SessionLocal()
+    try:
+        from app.services.national.labor_market_adapter import refresh_labor_market
+        from app.services.national.funding_regulatory_adapter import refresh_funding_regulatory
+        from app.services.national.ny_roster_adapter import refresh_ny_roster
+        from app.services.national.kpi_service import compute_kpi_snapshots
+
+        refresh_labor_market(db)
+        refresh_funding_regulatory(db)
+        refresh_ny_roster(db)
+        compute_kpi_snapshots(db)
+        logger.info("National metrics refresh completed")
+    except Exception as exc:
+        logger.warning("National metrics refresh failed: %s", exc)
     finally:
         db.close()
 
@@ -63,6 +86,9 @@ async def lifespan(app: FastAPI):
     if settings.SDWIS_SYNC_ENABLED:
         _scheduler = BackgroundScheduler()
         _scheduler.add_job(_run_sdwis_refresh, "cron", hour=3, minute=0, id="sdwis_state_refresh")
+        _scheduler.add_job(
+            _run_national_metrics_refresh, "cron", hour=4, minute=0, id="national_metrics_refresh"
+        )
         _scheduler.add_job(
             _run_documentation_notifier, "cron", hour=8, minute=0, id="documentation_task_notifier"
         )

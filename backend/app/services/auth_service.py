@@ -24,8 +24,14 @@ async def redeem_aquasafe_handoff(code: str) -> dict[str, Any]:
         return resp.json()
 
 
-def mint_ww360_token(user_payload: dict[str, Any]) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+def mint_ww360_token(
+    user_payload: dict[str, Any],
+    *,
+    act_as: dict[str, Any] | None = None,
+    expire_minutes: int | None = None,
+) -> str:
+    ttl = expire_minutes if expire_minutes is not None else settings.ACCESS_TOKEN_EXPIRE_MINUTES
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ttl)
     claims = {
         "sub": str(user_payload["user_id"]),
         "username": user_payload.get("username"),
@@ -39,6 +45,8 @@ def mint_ww360_token(user_payload: dict[str, Any]) -> str:
         "exp": expire,
         "iss": "ww360",
     }
+    if act_as:
+        claims["act_as"] = act_as
     return jwt.encode(claims, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 

@@ -5,7 +5,7 @@ import { test, expect } from '@playwright/test';
  */
 test.describe('National jurisdiction switching', () => {
   const api = process.env.WW360_API_URL || 'http://127.0.0.1:8002';
-  const username = process.env.WW360_E2E_USERNAME || 'jingrao-aman-OWW';
+  const username = process.env.WW360_E2E_USERNAME || 'jenny-oww';
   const password = process.env.WW360_E2E_PASSWORD;
 
   test.beforeEach(async ({ page, request }) => {

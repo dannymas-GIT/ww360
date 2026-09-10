@@ -60,6 +60,13 @@ from app.schemas.workforce_succession import (
     WorkforceRoleCoverageRead,
     WorkforceSuccessionCandidateRead,
     WorkforceTransitionMilestoneRead,
+    GenerateWorkforceDocPackRequest,
+    WorkforceDocPackResponse,
+    WorkforceBinderIntakeCreate,
+    WorkforceBinderIntakeEnsureResponse,
+    WorkforceBinderIntakeRead,
+    WorkforceBinderIntakeUpdate,
+    WorkforceBinderIntakeCompleteResponse,
 )
 from app.services.district_security_service import DistrictSecurityService
 from app.services.workforce_succession import (
@@ -85,10 +92,23 @@ from app.services.workforce_succession.crud_service import (
     validate_district_workforce_data,
 )
 from app.services.workforce_doc_pack_service import WorkforceDocPackService
+from app.services.workforce_succession.binder_intake_service import (
+    BinderIntakeConflict,
+    BinderIntakeNotFound,
+    abandon_binder_intake_session,
+    ensure_binder_intake_session,
+    get_active_binder_intake,
+    session_to_dict,
+    update_binder_intake_session,
+)
 from app.services.workforce_succession.operator_scope import (
     deny_operator_district_wide,
     is_operator_self_scoped,
+    operator_missing_workforce_profile,
     resolve_operator_employee_code,
+)
+from app.services.workforce_succession.sample_continuity import (
+    build_sample_continuity_response,
 )
 from app.services.workforce_package_service import require_workforce_package_enabled
 from app.schemas.doc_studio import DocDocumentRead
@@ -110,6 +130,7 @@ WORKFORCE_ADMIN_ROLES = [
 # Manager tier: CRUD, imports, planning
 WORKFORCE_MANAGER_ROLES = WORKFORCE_ADMIN_ROLES + [
     "ceu_manager",
+    "workforce_manager",
 ]
 # Viewer tier: read-only access
 WORKFORCE_VIEWER_ROLES = WORKFORCE_MANAGER_ROLES + [
@@ -128,6 +149,28 @@ require_workforce_manager = deps.require_tenant_roles(
 require_workforce_viewer = deps.require_tenant_roles(
     WORKFORCE_VIEWER_ROLES, require_any=True
 )
+
+UTILITY_WORKFORCE_AUTHOR_ROLES = [
+    "district_admin",
+    "district_manager",
+    "workforce_manager",
+    "ceu_manager",
+    "ceu_admin",
+    "admin",
+]
+
+
+def _require_utility_workforce_author(context: TenantContext) -> None:
+    """Utility binders are authored by district roles — not bare platform/section partners."""
+    if any(role in context.roles for role in UTILITY_WORKFORCE_AUTHOR_ROLES):
+        return
+    raise HTTPException(
+        status_code=403,
+        detail=(
+            "Succession Binders are created by utility superintendents or workforce managers. "
+            "Use Act as (audited) to write on behalf of a utility, or ask the utility to sign in."
+        ),
+    )
 
 
 CSV_TEMPLATE_DIR = (
@@ -372,7 +415,9 @@ async def list_employees(
     context: TenantContext = Depends(require_workforce_viewer),
 ):
     code = _require_district_auth(db, context, district_code)
-    own = resolve_operator_employee_code(db, context, code)
+    if operator_missing_workforce_profile(db, context, code):
+        return []
+    own = resolve_operator_employee_code(db, context, code, missing_ok=True)
     return _list_entity(
         db, WorkforceEmployee, code, limit,
         record_status=record_status, q=q, position_code=position_code,
@@ -394,8 +439,10 @@ async def list_certifications(
     context: TenantContext = Depends(require_workforce_viewer),
 ):
     code = _require_district_auth(db, context, district_code)
+    if operator_missing_workforce_profile(db, context, code):
+        return []
     own = resolve_operator_employee_code(
-        db, context, code, requested_employee_code=employee_code
+        db, context, code, requested_employee_code=employee_code, missing_ok=True
     )
     return _list_entity(
         db, WorkforceCertification, code, limit,
@@ -439,8 +486,10 @@ async def list_role_coverage(
     context: TenantContext = Depends(require_workforce_viewer),
 ):
     code = _require_district_auth(db, context, district_code)
+    if operator_missing_workforce_profile(db, context, code):
+        return []
     own = resolve_operator_employee_code(
-        db, context, code, requested_employee_code=employee_code
+        db, context, code, requested_employee_code=employee_code, missing_ok=True
     )
     return _list_entity(
         db, WorkforceRoleCoverage, code, limit,
@@ -464,8 +513,10 @@ async def list_succession_candidates(
     context: TenantContext = Depends(require_workforce_viewer),
 ):
     code = _require_district_auth(db, context, district_code)
+    if operator_missing_workforce_profile(db, context, code):
+        return []
     own = resolve_operator_employee_code(
-        db, context, code, requested_employee_code=employee_code
+        db, context, code, requested_employee_code=employee_code, missing_ok=True
     )
     return _list_entity(
         db, WorkforceSuccessionCandidate, code, limit,
@@ -529,10 +580,35 @@ async def workforce_continuity(
     db: Session = Depends(deps.get_db),
     context: TenantContext = Depends(require_workforce_viewer),
 ):
-    """Compute the workforce continuity scorecard and dashboard payload."""
+    """Compute the workforce continuity scorecard and dashboard payload.
+
+    Returns illustrative sample data (``data_mode=sample``) when the login has
+    no linked workforce profile or the district has no live roster yet.
+    """
     code = _require_district_auth(db, context, district_code)
-    own = resolve_operator_employee_code(db, context, code)
-    return compute_continuity_response(db, code, employee_code=own)
+    if operator_missing_workforce_profile(db, context, code):
+        return build_sample_continuity_response(code, reason="no_linked_profile")
+
+    own = resolve_operator_employee_code(db, context, code, missing_ok=True)
+    # Self-scoped with missing_ok still None only when not operator — managers
+    # get district-wide; operators without a profile already returned sample.
+    if is_operator_self_scoped(context) and own is None:
+        return build_sample_continuity_response(code, reason="no_linked_profile")
+
+    payload = compute_continuity_response(db, code, employee_code=own)
+    sc = payload.get("scorecard") or {}
+    empty = (
+        int(sc.get("total_employees") or 0) == 0
+        and int(sc.get("total_critical_functions") or 0) == 0
+        and int(sc.get("total_positions") or 0) == 0
+    )
+    if empty:
+        return build_sample_continuity_response(code, reason="empty_district")
+
+    payload["data_mode"] = "live"
+    payload["sample_notice"] = None
+    payload["sample_reason"] = None
+    return payload
 
 
 @router.get("/continuity/scorecards", response_model=List[Dict[str, Any]])
@@ -818,22 +894,208 @@ async def workforce_widget_summary(
     }
 
 
-@router.post(
-    "/districts/{district_code}/generate-documentation-pack",
-    response_model=List[DocDocumentRead],
+@router.get(
+    "/districts/{district_code}/workforce-binder",
+    response_model=WorkforceDocPackResponse | None,
 )
-async def generate_workforce_documentation_pack(
+def get_workforce_binder(
     district_code: str,
     db: Session = Depends(deps.get_db),
-    context: TenantContext = Depends(require_workforce_manager),
+    context: TenantContext = Depends(require_workforce_viewer),
 ):
-    """Fill workforce toolkit templates into Document Studio for the district."""
+    """Return the existing succession binder for a district, if one was created."""
     code = _require_district_auth(db, context, district_code)
     require_workforce_package_enabled(db, code)
     user_id = getattr(context, "user_id", None)
-    result = WorkforceDocPackService(db).generate_pack(code, user_id)
+    existing = WorkforceDocPackService(db).find_existing_binder(code)
+    if not existing:
+        return None
     studio = DocStudioService(db)
-    return [studio._doc_with_lock_name(doc, user_id) for doc in result.documents]
+    return WorkforceDocPackResponse(
+        pack_type=existing.pack_type,
+        profile=existing.profile,
+        folder_id=existing.folder_id,
+        cover_document_id=existing.cover_document_id,
+        document_count=len(existing.documents),
+        documents=[studio._doc_with_lock_name(doc, user_id) for doc in existing.documents],
+    )
+
+
+@router.post(
+    "/districts/{district_code}/generate-documentation-pack",
+    response_model=WorkforceDocPackResponse,
+)
+async def generate_workforce_documentation_pack(
+    district_code: str,
+    body: GenerateWorkforceDocPackRequest | None = None,
+    db: Session = Depends(deps.get_db),
+    context: TenantContext = Depends(require_workforce_manager),
+):
+    """Create or refresh a Succession Binder or CEU Tracker pack in Document Studio."""
+    _require_utility_workforce_author(context)
+    code = _require_district_auth(db, context, district_code)
+    require_workforce_package_enabled(db, code)
+    user_id = getattr(context, "user_id", None)
+    req = body or GenerateWorkforceDocPackRequest()
+    result = WorkforceDocPackService(db).generate_pack(
+        code,
+        user_id,
+        pack_type=req.pack_type,
+        profile=req.profile,
+        contact_name=req.contact_name,
+        contact_email=req.contact_email,
+        use_live_data=req.use_live_data,
+    )
+    studio = DocStudioService(db)
+    return WorkforceDocPackResponse(
+        pack_type=result.pack_type,
+        profile=result.profile,
+        folder_id=result.folder_id,
+        cover_document_id=result.cover_document_id,
+        document_count=len(result.documents),
+        documents=[studio._doc_with_lock_name(doc, user_id) for doc in result.documents],
+    )
+
+
+def _intake_to_read(data: dict[str, Any]) -> WorkforceBinderIntakeRead:
+    return WorkforceBinderIntakeRead(**data)
+
+
+def _pack_to_response(result, studio, user_id) -> WorkforceDocPackResponse:
+    return WorkforceDocPackResponse(
+        pack_type=result.pack_type,
+        profile=result.profile,
+        folder_id=result.folder_id,
+        cover_document_id=result.cover_document_id,
+        document_count=len(result.documents),
+        documents=[studio._doc_with_lock_name(doc, user_id) for doc in result.documents],
+    )
+
+
+# ---------------------------------------------------------------------------
+# Binder intake wizard
+# ---------------------------------------------------------------------------
+
+
+@router.get("/binder-intake", response_model=Optional[WorkforceBinderIntakeRead])
+async def get_binder_intake_draft(
+    district_code: str = Query(..., min_length=1),
+    db: Session = Depends(deps.get_db),
+    context: TenantContext = Depends(require_workforce_viewer),
+):
+    code = _require_district_auth(db, context, district_code)
+    row = get_active_binder_intake(db, district_code=code, user_id=context.user_id)
+    if row is None:
+        return None
+    return _intake_to_read(session_to_dict(row))
+
+
+@router.post("/binder-intake", response_model=WorkforceBinderIntakeEnsureResponse)
+async def ensure_binder_intake_draft(
+    body: WorkforceBinderIntakeCreate,
+    db: Session = Depends(deps.get_db),
+    context: TenantContext = Depends(require_workforce_manager),
+):
+    _require_utility_workforce_author(context)
+    code = _require_district_auth(db, context, body.district_code)
+    require_workforce_package_enabled(db, code)
+    row, created = ensure_binder_intake_session(
+        db, district_code=code, user_id=context.user_id
+    )
+    return WorkforceBinderIntakeEnsureResponse(
+        session=_intake_to_read(session_to_dict(row)),
+        created=created,
+    )
+
+
+@router.patch("/binder-intake/{session_id}", response_model=WorkforceBinderIntakeRead)
+async def patch_binder_intake_draft(
+    session_id: int,
+    body: WorkforceBinderIntakeUpdate,
+    db: Session = Depends(deps.get_db),
+    context: TenantContext = Depends(require_workforce_manager),
+):
+    _require_utility_workforce_author(context)
+    try:
+        row = update_binder_intake_session(
+            db,
+            session_id=session_id,
+            user_id=context.user_id,
+            answers=body.answers,
+            current_step=body.current_step,
+            completed_steps=body.completed_steps,
+        )
+    except BinderIntakeNotFound:
+        raise HTTPException(status_code=404, detail="Binder intake session not found")
+    except BinderIntakeConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return _intake_to_read(session_to_dict(row))
+
+
+@router.post(
+    "/binder-intake/{session_id}/complete",
+    response_model=WorkforceBinderIntakeCompleteResponse,
+)
+async def complete_binder_intake(
+    session_id: int,
+    db: Session = Depends(deps.get_db),
+    context: TenantContext = Depends(require_workforce_manager),
+):
+    _require_utility_workforce_author(context)
+    try:
+        row = update_binder_intake_session(
+            db,
+            session_id=session_id,
+            user_id=context.user_id,
+        )
+    except BinderIntakeNotFound:
+        raise HTTPException(status_code=404, detail="Binder intake session not found")
+    code = _require_district_auth(db, context, row.district_code)
+    require_workforce_package_enabled(db, code)
+    user_id = getattr(context, "user_id", None)
+    answers = session_to_dict(row)["answers"]
+    pack_svc = WorkforceDocPackService(db)
+    result = pack_svc.generate_pack(
+        code,
+        user_id,
+        pack_type="succession_binder",
+        profile=answers.get("profile", "small_system"),
+        contact_name=answers.get("contact_name"),
+        contact_email=answers.get("contact_email"),
+        use_live_data=bool(answers.get("use_live_data", True)),
+        intake_answers=answers,
+        force_refresh=True,
+    )
+    row = update_binder_intake_session(
+        db,
+        session_id=session_id,
+        user_id=context.user_id,
+        binder_folder_id=result.folder_id,
+        status="completed",
+    )
+    studio = DocStudioService(db)
+    return WorkforceBinderIntakeCompleteResponse(
+        session=_intake_to_read(session_to_dict(row)),
+        pack=_pack_to_response(result, studio, user_id),
+    )
+
+
+@router.post("/binder-intake/{session_id}/abandon", response_model=WorkforceBinderIntakeRead)
+async def abandon_binder_intake_draft(
+    session_id: int,
+    db: Session = Depends(deps.get_db),
+    context: TenantContext = Depends(require_workforce_manager),
+):
+    _require_utility_workforce_author(context)
+    try:
+        row = abandon_binder_intake_session(
+            db, session_id=session_id, user_id=context.user_id
+        )
+    except BinderIntakeNotFound:
+        raise HTTPException(status_code=404, detail="Binder intake session not found")
+    except BinderIntakeConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return _intake_to_read(session_to_dict(row))
 
 
 from app.api.endpoints.workforce_crud_routes import router as workforce_crud_router

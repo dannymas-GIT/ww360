@@ -44,7 +44,7 @@ export function Ww360KpiTile({
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
+            <p className="text-sm font-medium uppercase tracking-wide text-slate-500">{label}</p>
             {dataMode ? (
               <div className="mt-1">
                 <Ww360DataModeBadgeLight mode={dataMode} />
@@ -54,7 +54,7 @@ export function Ww360KpiTile({
           <span className="rounded-md bg-slate-100 p-1.5 text-slate-600">{icon}</span>
         </div>
         <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">{value}</p>
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
           {hasDelta ? (
             <span
               className={`inline-flex items-center gap-1 font-medium ${good ? 'text-emerald-700' : 'text-red-600'}`}
@@ -67,7 +67,7 @@ export function Ww360KpiTile({
           <span className="text-slate-500">{sub}</span>
         </div>
         {target ? (
-          <p className="mt-2 text-[11px] text-slate-500">
+          <p className="mt-2 text-sm text-slate-500">
             <span className="font-medium text-slate-600">EPA target:</span> {target}
           </p>
         ) : null}
@@ -84,11 +84,23 @@ export function Ww360KpiTile({
 }
 
 /** Simple stat tile without delta (for SDWIS landscape KPIs). */
-export function Ww360StatTile({ label, value }: { label: string; value: string }) {
+export function Ww360StatTile({
+  label,
+  value,
+  dataMode,
+}: {
+  label: string;
+  value: string;
+  /** Optional per-tile fidelity chip (prefer a shared strip badge when all tiles share one mode). */
+  dataMode?: Ww360DataMode;
+}) {
   return (
     <div className="rounded-xl border border-sky-100 bg-sky-50/50 px-4 py-3">
-      <p className="text-xs font-medium text-sky-800">{label}</p>
-      <p className="text-2xl font-semibold tabular-nums text-[#07111f]">{value}</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-medium text-sky-800">{label}</p>
+        {dataMode ? <Ww360DataModeBadgeLight mode={dataMode} /> : null}
+      </div>
+      <p className="mt-1 text-2xl font-semibold tabular-nums text-[#07111f]">{value}</p>
     </div>
   );
 }

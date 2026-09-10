@@ -69,12 +69,14 @@ import {
 } from './owwMockData';
 import { fetchWorkforceInsights, type SDWISWorkforceInsights } from '@/services/sdwisService';
 import { fetchDigitalTeaser, downloadEpaQuarterlyPackagePdf, type DigitalTeaser } from '@/services/digitalAnalyticsService';
+import { fetchStateWorkforce } from '@/services/nationalService';
+import { OpCertProgramPanel } from '@/components/regulator/OpCertProgramPanel';
 import { Ww360KpiTile } from '@/components/ww360/Ww360KpiTile';
 import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
 import { Ww360Section } from '@/components/ww360/Ww360Section';
 import { Ww360SourceChip } from '@/components/ww360/Ww360SourceChip';
 import { ww360ChartTooltipStyle } from '@/components/ww360/ww360ChartTooltip';
-import { ww360Greeting } from '@/components/ww360/ww360Greeting';
+import { ww360PersonalizedTitle } from '@/components/ww360/ww360Greeting';
 import type { Ww360SourceId } from '@/components/ww360/ww360SourceTokens';
 import type { Ww360DataMode } from '@/components/ww360/Ww360DataModeBadge';
 import { AlertTriangle, Droplets } from 'lucide-react';
@@ -122,7 +124,7 @@ interface SourceStatusCard {
 const tooltipStyle = ww360ChartTooltipStyle;
 
 export default function OwwExecutiveDashboard() {
-  const { userRoles } = useAuth();
+  const { userRoles, user } = useAuth();
   const location = useLocation();
   const { activeState, pack } = useJurisdiction();
   const [regionSort, setRegionSort] = useState<'gap' | 'retirements' | 'utilities'>('gap');
@@ -131,6 +133,7 @@ export default function OwwExecutiveDashboard() {
   const [digitalTeaser, setDigitalTeaser] = useState<DigitalTeaser | null>(null);
   const [epaExportNote, setEpaExportNote] = useState<string | null>(null);
   const [epaExportBusy, setEpaExportBusy] = useState(false);
+  const [stateWorkforce, setStateWorkforce] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
     if (!epaExportNote) return;
@@ -159,6 +162,20 @@ export default function OwwExecutiveDashboard() {
       })
       .finally(() => {
         if (!cancelled) setSdwisLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeState]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchStateWorkforce(activeState)
+      .then(data => {
+        if (!cancelled) setStateWorkforce(data);
+      })
+      .catch(() => {
+        if (!cancelled) setStateWorkforce(null);
       });
     return () => {
       cancelled = true;
@@ -358,7 +375,29 @@ export default function OwwExecutiveDashboard() {
     []
   );
 
+  const liveDistrictRows = (
+    (stateWorkforce?.continuity_rollup as { districts?: Array<Record<string, unknown>> })?.districts ||
+    []
+  );
+
   const regionRows = useMemo(() => {
+    if (liveDistrictRows.length) {
+      const mapped = liveDistrictRows.map(d => ({
+        region: String(d.district_code || 'District'),
+        utilities: 1,
+        staff: 0,
+        vacancies: 0,
+        retirements24mo: Number(d.employees_retirement_eligible_24mo || 0),
+        criticalNoSuccessor: Number(d.cert_cliff_90d || 0),
+        candidates: Math.round(Number(d.coverage_pct || 0)),
+      }));
+      mapped.sort((a, b) => {
+        if (regionSort === 'retirements') return b.retirements24mo - a.retirements24mo;
+        if (regionSort === 'utilities') return b.utilities - a.utilities;
+        return regionGap(b) - regionGap(a);
+      });
+      return mapped;
+    }
     const rows = [...WW360_REGION_DEMAND];
     rows.sort((a, b) => {
       if (regionSort === 'gap') return regionGap(b) - regionGap(a);
@@ -366,7 +405,11 @@ export default function OwwExecutiveDashboard() {
       return b.utilities - a.utilities;
     });
     return rows;
-  }, [regionSort]);
+  }, [liveDistrictRows, regionSort]);
+
+  const showOpCertPanel =
+    user?.username === 'ny-doh-opcert-manager' ||
+    user?.orgs?.some(o => o.org_code === 'NY_DOH_BWSP');
 
   const maxPipeline = PIPELINE_STAGES[0]?.count ?? 1;
   const isPlatform = userRoles.includes('platform_admin') || userRoles.includes('global_admin');
@@ -391,7 +434,10 @@ export default function OwwExecutiveDashboard() {
       {/* Header */}
       <Ww360PageHero
         eyebrow={pack?.section_eyebrow ?? 'One Water Workforce · New York Section AWWA'}
-        title={`${ww360Greeting()}, Jenny — here is your 360 view of the statewide water workforce.`}
+        title={ww360PersonalizedTitle(
+          user,
+          'here is your 360 view of the statewide water workforce.'
+        )}
         description={
           pack?.exec_description ??
           'Live EPA SDWIS compliance for New York, plus sample program metrics for Learning Stream, onewaterworkforce.org, and utility Continuity reporting until those feeds are connected.'
@@ -1159,13 +1205,13 @@ export default function OwwExecutiveDashboard() {
         )}
       </Ww360Section>
 
-      {/* Regions (sample employer demand until Continuity feeds are populated) */}
+      {/* Regions — live continuity roll-up when districts enrolled; else sample */}
       <Ww360Section
         tourId="regions"
         eyebrow="Water Workforce 360 · employer reporting"
         title="Regional workforce risk"
         sources={['ww360', 'oww-web']}
-        dataMode="sample"
+        dataMode={liveDistrictRows.length ? 'mixed' : 'sample'}
         action={
           <div className="inline-flex rounded-lg border border-slate-200 p-0.5 text-xs">
             {(
@@ -1326,7 +1372,7 @@ export default function OwwExecutiveDashboard() {
         <Ww360Section
           tourId="access"
           eyebrow="Your platform access"
-          title="What jingrao-aman-OWW can see and do"
+          title="What jenny-oww can see and do"
           dataMode="live"
           className="lg:col-span-2"
         >
@@ -1414,6 +1460,8 @@ export default function OwwExecutiveDashboard() {
           ))}
         </div>
       </Ww360Section>
+
+      {showOpCertPanel && <OpCertProgramPanel stateCode={activeState} />}
 
       <OwwTourOverlay autoOpen />
     </div>

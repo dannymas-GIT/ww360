@@ -181,6 +181,11 @@ class DocStudioStats(BaseModel):
     drafts: int
     published: int
     words: int
+    pending_approval: int = 0
+    tutorials: int = 0
+    succession_docs: int = 0
+    succession_published: int = 0
+    operations_docs: int = 0
     recent: list[DocDocumentRead] = Field(default_factory=list)
 
 

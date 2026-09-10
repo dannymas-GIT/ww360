@@ -72,6 +72,9 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+    /* WW360 accessible baseline: prefer 18px body when content inherits from body */
+    font-size: 1.125rem;
+    line-height: 1.55;
   }
 }
 

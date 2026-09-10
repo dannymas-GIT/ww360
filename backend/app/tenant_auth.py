@@ -38,6 +38,7 @@ class Roles:
     PLATFORM_ADMIN = "platform_admin"
     STATE_ADMIN = "state_admin"
     OWW_PARTNER = "oww_partner"
+    NATIONAL_OBSERVER = "national_observer"
     CEU_ADMIN = "ceu_admin"
     CEU_MANAGER = "ceu_manager"
     CEU_USER = "ceu_user"
@@ -69,6 +70,12 @@ class TenantContext:
         active_org_code: Optional[str] = None,
         is_national_admin: bool = False,
         orgs: Optional[List[dict[str, Any]]] = None,
+        *,
+        actor_user_id: Optional[int] = None,
+        is_impersonating: bool = False,
+        impersonation_mode: Optional[str] = None,
+        impersonation_session_id: Optional[str] = None,
+        impersonation_persona_key: Optional[str] = None,
     ):
         self.user_id = user_id
         self.username = username
@@ -82,10 +89,13 @@ class TenantContext:
         self.active_org_code = active_org_code
         self.is_national_admin = is_national_admin
         self.orgs = orgs or []
+        self.actor_user_id = actor_user_id or user_id
+        self.is_impersonating = is_impersonating
+        self.impersonation_mode = impersonation_mode
+        self.impersonation_session_id = impersonation_session_id
+        self.impersonation_persona_key = impersonation_persona_key
 
-        self.is_global_admin = is_system_admin or any(
-            role in GLOBAL_ADMIN_ROLES for role in self.roles
-        )
+        self.is_global_admin = any(role in GLOBAL_ADMIN_ROLES for role in self.roles)
 
     def has_module(self, module_key: str) -> bool:
         if self.is_global_admin:
@@ -143,43 +153,72 @@ class TenantAuthService:
 
         sub = payload.get("sub")
         try:
-            user_id = int(sub) if sub is not None else 0
+            actor_user_id = int(sub) if sub is not None else 0
         except (TypeError, ValueError):
             return None
 
-        districts = _normalize_str_list(payload.get("districts"))
-        roles = _normalize_str_list(payload.get("roles"))
-        is_global = any(r in GLOBAL_ADMIN_ROLES for r in roles)
-        orgs = payload.get("orgs") or []
+        act_as = payload.get("act_as")
+        is_impersonating = isinstance(act_as, dict) and act_as.get("target_user_id")
+
+        if is_impersonating:
+            effective_user_id = int(act_as.get("target_user_id") or actor_user_id)
+            districts = _normalize_str_list(act_as.get("districts"))
+            roles = _normalize_str_list(act_as.get("roles"))
+            orgs = act_as.get("orgs") or []
+            active_state = str(act_as.get("active_state_code") or DEFAULT_STATE_CODE).upper()[:2]
+            active_org = act_as.get("active_org_code")
+            is_national = bool(act_as.get("is_national_admin"))
+            username = str(act_as.get("target_username") or payload.get("username") or "")
+            impersonation_mode = str(act_as.get("mode") or "preview")
+            impersonation_session_id = act_as.get("session_id")
+            impersonation_persona_key = act_as.get("persona_key")
+        else:
+            effective_user_id = actor_user_id
+            districts = _normalize_str_list(payload.get("districts"))
+            roles = _normalize_str_list(payload.get("roles"))
+            orgs = payload.get("orgs") or []
+            active_state = str(payload.get("active_state_code") or DEFAULT_STATE_CODE).upper()[:2]
+            active_org = payload.get("active_org_code")
+            is_national = bool(payload.get("is_national_admin"))
+            username = str(payload.get("username") or "")
+            impersonation_mode = None
+            impersonation_session_id = None
+            impersonation_persona_key = None
+
         if not isinstance(orgs, list):
             orgs = []
 
-        active_state = str(payload.get("active_state_code") or DEFAULT_STATE_CODE).upper()[:2]
-        active_org = payload.get("active_org_code")
-        is_national = bool(payload.get("is_national_admin"))
+        is_global = any(r in GLOBAL_ADMIN_ROLES for r in roles)
 
         if requested_state:
             req = requested_state.upper()[:2]
-            if is_global:
+            if is_global or is_national:
                 active_state = req
             elif any(o.get("state_code") == req for o in orgs if isinstance(o, dict)):
                 active_state = req
             elif Roles.OWW_PARTNER in roles and req == DEFAULT_STATE_CODE:
                 active_state = req
+            elif Roles.NATIONAL_OBSERVER in roles and req == "US":
+                active_state = req
 
         return TenantContext(
-            user_id=user_id,
-            username=str(payload.get("username") or ""),
+            user_id=effective_user_id,
+            username=username,
             email=payload.get("email"),
             district_code=districts[0] if districts and not is_global else None,
             roles=roles,
             assigned_districts=districts,
-            is_system_admin=is_global,
+            is_system_admin=False,
             modules=["workforce"],
             active_state_code=active_state,
             active_org_code=active_org,
             is_national_admin=is_national,
             orgs=[o for o in orgs if isinstance(o, dict)],
+            actor_user_id=actor_user_id,
+            is_impersonating=bool(is_impersonating),
+            impersonation_mode=impersonation_mode,
+            impersonation_session_id=impersonation_session_id,
+            impersonation_persona_key=impersonation_persona_key,
         )
 
     async def set_database_context(self, db, context: TenantContext) -> None:

@@ -7,6 +7,12 @@ import { ww360NavGroups, navItemTo, navGroupsForRoles } from './navConfig';
 import { Button } from '@/components/ui/button';
 import { StateSwitcher } from './StateSwitcher';
 import { NotificationBell } from './NotificationBell';
+import { KitchenSinkToggle } from './KitchenSinkToggle';
+import { CustomizeHomeButton } from './CustomizeHomeButton';
+import { PersonaSwitcher } from '@/components/impersonation/PersonaSwitcher';
+import { ImpersonationBanner } from '@/components/impersonation/PersonaSwitcher';
+import { useKitchenSink } from '@/context/KitchenSinkContext';
+import { userDisplayName, ww360Greeting } from '@/components/ww360/ww360Greeting';
 
 function ensureWw360Fonts() {
   if (typeof document === 'undefined') return;
@@ -22,7 +28,11 @@ function ensureWw360Fonts() {
 
 export const AppShell: React.FC = () => {
   const { user, logout, userRoles } = useAuth();
-  const navGroups = navGroupsForRoles(userRoles, user?.districts ?? []);
+  const { kitchenSink, workspaceProfile } = useKitchenSink();
+  const navGroups = navGroupsForRoles(userRoles, user?.districts ?? [], {
+    kitchenSink,
+    workspaceProfile,
+  });
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -53,62 +63,71 @@ export const AppShell: React.FC = () => {
             />
           </Link>
         </div>
-        <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-6">
-          <StateSwitcher />
-          {navGroups.map(group => (
-            <div key={group.id}>
-              {!collapsed && (
-                <p className="px-3 mb-2 text-[10px] uppercase tracking-wider text-slate-400">
-                  {group.label}
-                </p>
-              )}
-              <ul className="space-y-1">
-                {group.items.map(item => {
-                  const to = navItemTo(item);
-                  const active =
-                    location.pathname === item.path ||
-                    (item.path !== '/dashboard' &&
-                      item.path !== '/continuity' &&
-                      location.pathname.startsWith(item.path)) ||
-                    (item.path === '/continuity' && location.pathname === '/continuity');
-                  return (
-                    <li key={`${group.id}-${item.label}`}>
-                      <NavLink
-                        to={to}
-                        className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm ${
-                          active ? 'bg-white/10 text-white' : 'text-slate-300 hover:bg-white/5'
-                        }`}
-                        title={item.label}
-                      >
-                        <item.icon className="h-4 w-4 shrink-0" />
-                        {!collapsed && <span>{item.label}</span>}
-                      </NavLink>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
-        </nav>
-        <div className="p-3 border-t border-white/10 space-y-2">
-          <div className="flex justify-end md:justify-start">
-            <NotificationBell />
+        <nav className="flex-1 overflow-y-auto py-4 px-2">
+          <div className="space-y-6">
+            <StateSwitcher />
+            <PersonaSwitcher />
+            <KitchenSinkToggle />
+            <CustomizeHomeButton />
+            {navGroups.map(group => (
+              <div key={group.id}>
+                {!collapsed && (
+                  <p className="px-3 mb-2 text-[10px] uppercase tracking-wider text-slate-400">
+                    {group.label}
+                  </p>
+                )}
+                <ul className="space-y-1">
+                  {group.items.map(item => {
+                    const to = navItemTo(item);
+                    const active =
+                      location.pathname === item.path ||
+                      (item.path !== '/dashboard' &&
+                        item.path !== '/continuity' &&
+                        location.pathname.startsWith(item.path)) ||
+                      (item.path === '/continuity' && location.pathname === '/continuity');
+                    return (
+                      <li key={`${group.id}-${item.label}`}>
+                        <NavLink
+                          to={to}
+                          className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-base ${
+                            active ? 'bg-white/10 text-white' : 'text-slate-300 hover:bg-white/5'
+                          }`}
+                          title={item.label}
+                        >
+                          <item.icon className="h-4 w-4 shrink-0" />
+                          {!collapsed && <span>{item.label}</span>}
+                        </NavLink>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
           </div>
-          {!collapsed && user && (
-            <p className="text-xs text-slate-400 truncate mb-2">{user.username}</p>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start text-slate-300 hover:text-white hover:bg-white/5"
-            onClick={logout}
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            {!collapsed && 'Sign out'}
-          </Button>
+
+          {/* Keep account actions directly under the last nav item (not viewport-bottom). */}
+          <div className="mt-4 pt-3 border-t border-white/10 space-y-2">
+            <div className="flex justify-end md:justify-start px-1">
+              <NotificationBell />
+            </div>
+            {!collapsed && user && (
+              <p className="px-3 text-sm text-slate-400 truncate">{userDisplayName(user)}</p>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start text-slate-300 hover:text-white hover:bg-white/5"
+              onClick={logout}
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              {!collapsed && 'Sign out'}
+            </Button>
+          </div>
+        </nav>
+        <div className="p-3 border-t border-white/10">
           <button
             type="button"
-            className="mt-2 w-full flex justify-center text-slate-500 hover:text-white"
+            className="w-full flex justify-center text-slate-500 hover:text-white"
             onClick={() => setCollapsed(c => !c)}
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
@@ -130,8 +149,8 @@ export const AppShell: React.FC = () => {
               }}
             />
           </Link>
-          <button type="button" onClick={() => setMobileOpen(o => !o)} aria-label="Menu">
-            <Menu className="h-6 w-6" />
+          <button type="button" onClick={() => setMobileOpen(o => !o)} aria-label="Menu" className="p-2 -mr-1">
+            <Menu className="h-8 w-8" />
           </button>
         </header>
         {mobileOpen && (
@@ -140,7 +159,7 @@ export const AppShell: React.FC = () => {
               <Link
                 key={item.label}
                 to={navItemTo(item)}
-                className="block py-2 text-sm min-h-[44px]"
+                className="block py-2 text-base min-h-[44px]"
                 onClick={() => setMobileOpen(false)}
               >
                 {item.label}
@@ -148,7 +167,19 @@ export const AppShell: React.FC = () => {
             ))}
           </div>
         )}
+        {user ? (
+          <div
+            className="border-b border-slate-200/90 bg-white px-4 py-2.5 md:px-6"
+            data-testid="ww360-user-topbar"
+          >
+            <p className="text-base text-slate-800">
+              <span className="text-slate-600">{ww360Greeting()}, </span>
+              <span className="font-semibold">{userDisplayName(user)}</span>
+            </p>
+          </div>
+        ) : null}
         <main className="flex-1 overflow-auto">
+          <ImpersonationBanner />
           <Outlet />
         </main>
       </div>

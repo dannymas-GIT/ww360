@@ -2,14 +2,14 @@ import React, { Suspense, lazy } from 'react';
 import { Navigate, Route, Routes, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { JurisdictionProvider, PublicJurisdictionProvider } from '@/context/JurisdictionContext';
+import { ImpersonationProvider } from '@/context/ImpersonationContext';
+import { KitchenSinkProvider } from '@/context/KitchenSinkContext';
 import { AppShell } from '@/components/ww360/AppShell';
 import { AnalyticsRouteTracker } from '@/components/analytics/AnalyticsRouteTracker';
 import LoginPage from '@/pages/LoginPage';
 import HandoffPage from '@/pages/HandoffPage';
 import Workforce360Landing from '@/pages/workforce360/Workforce360Landing';
-import OwwExecutiveDashboard from '@/pages/oww/OwwExecutiveDashboard';
-import DistrictDashboardPage from '@/pages/district/DistrictDashboardPage';
-import OperatorHomePage from '@/pages/district/OperatorHomePage';
+import WorkspaceHomePage from '@/pages/workspaces/WorkspaceHomePage';
 import DigitalReachPage from '@/pages/analytics/DigitalReachPage';
 import WorkforceContinuityPage from '@/pages/WorkforceContinuityPage';
 import SdwisLandscapePage from '@/pages/sdwis/SdwisLandscapePage';
@@ -20,9 +20,10 @@ import AdminPwsidLinksPage from '@/pages/admin/AdminPwsidLinksPage';
 import AdminUsersPage from '@/pages/admin/AdminUsersPage';
 import AdminSettingsPage from '@/pages/admin/AdminSettingsPage';
 import AdminJurisdictionsPage from '@/pages/admin/AdminJurisdictionsPage';
-import { resolveLandingKind } from '@/utils/resolveLandingKind';
+import NationalOverviewPage from '@/pages/national/NationalOverviewPage';
+import StateScorecardPage from '@/pages/national/StateScorecardPage';
+import JobOpeningsPage from '@/pages/jobs/JobOpeningsPage';
 
-// Document Studio carries the TipTap editor bundle — load it only when visited.
 const DocumentStudioPage = lazy(() => import('@/pages/studio/DocumentStudioPage'));
 
 function StudioFallback() {
@@ -49,19 +50,16 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function RoleLanding() {
+function DashboardRoute() {
   const { user, loading } = useAuth();
   if (loading || !user) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center text-sm text-slate-500">
+      <div className="flex min-h-[40vh] items-center justify-center text-[1.125rem] text-slate-500">
         Loading your workspace…
       </div>
     );
   }
-  const kind = resolveLandingKind(user);
-  if (kind === 'operator') return <OperatorHomePage />;
-  if (kind === 'district') return <DistrictDashboardPage />;
-  return <OwwExecutiveDashboard />;
+  return <WorkspaceHomePage />;
 }
 
 function LandingRoute() {
@@ -84,13 +82,17 @@ export default function App() {
         element={
           <ProtectedRoute>
             <JurisdictionProvider>
-              <AnalyticsRouteTracker />
-              <AppShell />
+              <ImpersonationProvider>
+                <KitchenSinkProvider>
+                  <AnalyticsRouteTracker />
+                  <AppShell />
+                </KitchenSinkProvider>
+              </ImpersonationProvider>
             </JurisdictionProvider>
           </ProtectedRoute>
         }
       >
-        <Route path="/dashboard" element={<RoleLanding />} />
+        <Route path="/dashboard" element={<DashboardRoute />} />
         <Route path="/analytics" element={<DigitalReachPage />} />
         <Route path="/continuity" element={<WorkforceContinuityPage workspace="continuity" />} />
         <Route
@@ -109,6 +111,9 @@ export default function App() {
             </Suspense>
           }
         />
+        <Route path="/national" element={<NationalOverviewPage />} />
+        <Route path="/national/states/:st" element={<StateScorecardPage />} />
+        <Route path="/jobs" element={<JobOpeningsPage />} />
         <Route path="/admin/pwsid-links" element={<AdminPwsidLinksPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/admin/jurisdictions" element={<AdminJurisdictionsPage />} />

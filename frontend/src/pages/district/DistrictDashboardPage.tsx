@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   AlertTriangle,
+  BookOpen,
   CheckCircle2,
   Circle,
   ClipboardList,
@@ -14,12 +15,13 @@ import { useAuth } from '@/context/AuthContext';
 import { Ww360KpiTile } from '@/components/ww360/Ww360KpiTile';
 import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
 import { Ww360Section } from '@/components/ww360/Ww360Section';
-import { ww360Greeting } from '@/components/ww360/ww360Greeting';
+import { ww360PersonalizedTitle } from '@/components/ww360/ww360Greeting';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   fetchWorkforceScorecards,
   fetchCeuSummary,
+  fetchWorkforceBinder,
   type WorkforceCeuOperatorSummary,
   type WorkforceContinuityScorecard,
 } from '@/services/workforceSuccessionService';
@@ -31,6 +33,7 @@ import {
   type DocumentationTask,
   type DocumentationTaskSummary,
 } from '@/services/documentationTaskService';
+import { UsajobsJobListingsPanel } from '@/pages/workspaces/UsajobsJobListingsPanel';
 
 type ChecklistStatus = 'done' | 'attention' | 'todo';
 
@@ -50,7 +53,7 @@ function statusIcon(status: ChecklistStatus) {
 }
 
 export default function DistrictDashboardPage() {
-  const { user, actingDistrictCode } = useAuth();
+  const { user, actingDistrictCode, canManageWorkforce } = useAuth();
   const district = actingDistrictCode ?? user?.districts?.[0] ?? 'HFWD';
   const [summary, setSummary] = useState<DocumentationTaskSummary>({
     open: 0,
@@ -61,25 +64,30 @@ export default function DistrictDashboardPage() {
   const [tasks, setTasks] = useState<DocumentationTask[]>([]);
   const [scorecard, setScorecard] = useState<WorkforceContinuityScorecard | null>(null);
   const [operators, setOperators] = useState<WorkforceCeuOperatorSummary[]>([]);
+  const [hasBinder, setHasBinder] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     setLoadError(null);
     try {
-      const [s, t, sc, ceu] = await Promise.all([
+      const [s, t, sc, ceu, binder] = await Promise.all([
         fetchTaskSummary(district),
         fetchDistrictTasks(district),
         fetchWorkforceScorecards([district]).catch(() => []),
         fetchCeuSummary(district).catch(() => null),
+        canManageWorkforce
+          ? fetchWorkforceBinder(district).catch(() => null)
+          : Promise.resolve(null),
       ]);
       setSummary(s);
       setTasks(t);
       setScorecard(sc[0] ?? null);
       setOperators(ceu?.operators ?? []);
+      setHasBinder(Boolean(binder?.cover_document_id));
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Failed to load district dashboard');
     }
-  }, [district]);
+  }, [district, canManageWorkforce]);
 
   useEffect(() => {
     void reload();
@@ -100,7 +108,7 @@ export default function DistrictDashboardPage() {
     const ceuOk = operators.length > 0 && shortfallOps.length === 0;
     const docsOk = summary.open === 0 && summary.overdue === 0 && summary.review_queue === 0;
 
-    return [
+    const items: ChecklistItem[] = [
       {
         id: 'roster',
         title: 'Confirm positions & employee roster',
@@ -182,7 +190,32 @@ export default function DistrictDashboardPage() {
         cta: 'DOH-352 readiness',
       },
     ];
-  }, [scorecard, uncovered, retirement, operators, shortfallOps.length, summary, certCliff]);
+
+    if (canManageWorkforce) {
+      items.splice(3, 0, {
+        id: 'binder',
+        title: 'Create or open Succession Binder',
+        detail: hasBinder
+          ? 'Succession Binder is in Document Studio — refresh CEU packs as cycles change.'
+          : 'Start the Succession Binder in Continuity so roster and CEU evidence stay in one place.',
+        status: hasBinder ? 'done' : hasRoster ? 'attention' : 'todo',
+        href: '/continuity?tab=dashboard',
+        cta: hasBinder ? 'Open binder hub' : 'Create binder',
+      });
+    }
+
+    return items;
+  }, [
+    scorecard,
+    uncovered,
+    retirement,
+    operators,
+    shortfallOps.length,
+    summary,
+    certCliff,
+    canManageWorkforce,
+    hasBinder,
+  ]);
 
   const doneCount = checklist.filter(c => c.status === 'done').length;
 
@@ -190,7 +223,7 @@ export default function DistrictDashboardPage() {
     <div className="mx-auto w-full max-w-[1200px] space-y-6 p-4 md:p-6 pb-12" data-landing="district">
       <Ww360PageHero
         eyebrow={`${district} · Utility workspace`}
-        title={`${ww360Greeting(user?.full_name ?? user?.username ?? 'Manager')} — your compliance path`}
+        title={ww360PersonalizedTitle(user, 'your compliance path')}
         description="CEU renewal, succession coverage, and documentation tasks for this utility only. Complete the checklist to stay workforce-compliant."
       />
 
@@ -326,6 +359,8 @@ export default function DistrictDashboardPage() {
           ) : null}
         </Ww360Section>
       </div>
+
+      <UsajobsJobListingsPanel tourId="district-federal-jobs" />
     </div>
   );
 }

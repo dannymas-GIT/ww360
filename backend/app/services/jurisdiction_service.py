@@ -12,10 +12,21 @@ from pydantic import BaseModel, Field
 
 PACKS_DIR = Path(__file__).resolve().parents[1] / "jurisdictions" / "packs"
 
+# Normalize common SDWIS / OpCert county spellings onto pack names.
+_COUNTY_ALIASES: dict[str, str] = {
+    "st lawrence": "st. lawrence",
+    "saint lawrence": "st. lawrence",
+    "st.lawrence": "st. lawrence",
+    "brooklyn": "kings",
+    "manhattan": "new york",
+    "staten island": "richmond",
+}
+
 
 class EconomicRegion(BaseModel):
     id: str
     label: str
+    counties: list[str] = Field(default_factory=list)
 
 
 class ExecTourCopy(BaseModel):
@@ -41,6 +52,14 @@ class JurisdictionPack(BaseModel):
 
 def _normalize_state(state: str) -> str:
     return (state or "NY").strip().upper()[:2]
+
+
+def normalize_county_name(county: str | None) -> str:
+    """Trim and apply known aliases so SDWIS names match pack counties."""
+    key = (county or "").strip().lower()
+    if not key:
+        return ""
+    return _COUNTY_ALIASES.get(key, key)
 
 
 @lru_cache(maxsize=32)
@@ -73,3 +92,34 @@ def pack_summary(state_code: str) -> dict[str, Any]:
         "sdwis_default_state": pack.sdwis_default_state,
         "region_count": len(pack.economic_regions),
     }
+
+
+def region_for_county(state_code: str, county: str | None) -> EconomicRegion | None:
+    """Map a county name to its economic region from the state pack (if listed)."""
+    key = normalize_county_name(county)
+    if not key:
+        return None
+    try:
+        pack = load_pack(state_code)
+    except HTTPException:
+        return None
+    for region in pack.economic_regions:
+        for listed in region.counties:
+            if normalize_county_name(listed) == key:
+                return region
+    return None
+
+
+def county_region_index(state_code: str) -> dict[str, EconomicRegion]:
+    """county_normalized → region for every county listed in the pack."""
+    try:
+        pack = load_pack(state_code)
+    except HTTPException:
+        return {}
+    index: dict[str, EconomicRegion] = {}
+    for region in pack.economic_regions:
+        for listed in region.counties:
+            key = normalize_county_name(listed)
+            if key:
+                index[key] = region
+    return index

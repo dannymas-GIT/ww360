@@ -25,9 +25,16 @@ import {
   fetchScheduledTrainings,
   fetchTrainingCourses,
   fetchWorkforceContinuity,
+  fetchWorkforceBinder,
+  fetchBinderIntake,
+  ensureBinderIntake,
+  patchBinderIntake,
+  completeBinderIntake,
+  abandonBinderIntake,
   fetchWorkforceEntities,
   fetchWorkforceScorecards,
   fetchWorkforceWidgetSummary,
+  generateWorkforceDocumentationPack,
   patchPlanningSession,
   previewWorkforceImport,
   publishPlanningSession,
@@ -42,8 +49,9 @@ import {
   validatePlanningSession,
   WorkforceEntityType,
   WorkforceListFilters,
-  TrainingCourseFilters,
+  GenerateWorkforceDocPackRequest,
   ScheduledTrainingFilters,
+  TrainingCourseFilters,
 } from '@/services/workforceSuccessionService';
 
 export const workforceKeys = {
@@ -71,7 +79,105 @@ export const workforceKeys = {
     ['workforce-succession', 'scheduled-trainings', filters] as const,
   widgetSummary: (districtCode: string) =>
     ['workforce-succession', 'widget-summary', districtCode] as const,
+  binder: (districtCode: string) => ['workforce-succession', 'binder', districtCode] as const,
+  binderIntake: (districtCode: string) =>
+    ['workforce-succession', 'binder-intake', districtCode] as const,
 };
+
+export function useWorkforceBinder(districtCode: string | undefined) {
+  return useQuery({
+    queryKey: workforceKeys.binder(districtCode ?? ''),
+    queryFn: () => fetchWorkforceBinder(districtCode as string),
+    enabled: Boolean(districtCode),
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useGenerateWorkforceDocPack() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      districtCode,
+      body,
+    }: {
+      districtCode: string;
+      body?: GenerateWorkforceDocPackRequest;
+    }) => generateWorkforceDocumentationPack(districtCode, body),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: workforceKeys.binder(vars.districtCode) });
+    },
+  });
+}
+
+export function useBinderIntakeSession(districtCode: string | undefined) {
+  return useQuery({
+    queryKey: workforceKeys.binderIntake(districtCode ?? ''),
+    queryFn: () => fetchBinderIntake(districtCode as string),
+    enabled: Boolean(districtCode),
+    staleTime: 15 * 1000,
+  });
+}
+
+export function useEnsureBinderIntake() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (districtCode: string) => ensureBinderIntake(districtCode),
+    onSuccess: (_data, districtCode) => {
+      qc.invalidateQueries({ queryKey: workforceKeys.binderIntake(districtCode) });
+    },
+  });
+}
+
+export function usePatchBinderIntake() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      sessionId,
+      districtCode,
+      body,
+    }: {
+      sessionId: number;
+      districtCode: string;
+      body: Parameters<typeof patchBinderIntake>[1];
+    }) => patchBinderIntake(sessionId, body),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: workforceKeys.binderIntake(vars.districtCode) });
+    },
+  });
+}
+
+export function useCompleteBinderIntake() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      sessionId,
+      districtCode,
+    }: {
+      sessionId: number;
+      districtCode: string;
+    }) => completeBinderIntake(sessionId),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: workforceKeys.binderIntake(vars.districtCode) });
+      qc.invalidateQueries({ queryKey: workforceKeys.binder(vars.districtCode) });
+    },
+  });
+}
+
+export function useAbandonBinderIntake() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      sessionId,
+      districtCode,
+    }: {
+      sessionId: number;
+      districtCode: string;
+    }) => abandonBinderIntake(sessionId),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: workforceKeys.binderIntake(vars.districtCode) });
+    },
+  });
+}
 
 export function useWorkforceContinuity(districtCode: string | undefined) {
   return useQuery({

@@ -115,9 +115,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         'district_viewer'
       ),
       isDistrictManager: hasAnyRole('district_admin', 'district_manager', 'ceu_manager', 'workforce_manager'),
-      canManageWorkforce:
-        isPlatformAdmin ||
-        hasAnyRole('district_admin', 'admin', 'ceu_admin', 'workforce_manager', 'district_manager', 'ceu_manager'),
+      canManageWorkforce: hasAnyRole(
+        'district_admin',
+        'admin',
+        'ceu_admin',
+        'workforce_manager',
+        'district_manager',
+        'ceu_manager'
+      ),
       actingDistrictCode: user?.districts?.[0] ?? null,
       login,
       applySessionUser,

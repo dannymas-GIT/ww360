@@ -1,0 +1,28 @@
+---
+description: When creating or updating agent rules, sync Cursor + Mission Control
+alwaysApply: true
+---
+
+# Dual-sync agent rules (Cursor ↔ Mission Control)
+
+Learnings must land in **both** places so IDE agents and Mission Control / OpenClaw agents share the same standards.
+
+## When you add or change a rule
+
+Update **all** of these in the same change set:
+
+1. **Cursor (app repo)** — e.g. `saas-repos/ww360/.cursor/rules/<name>.mdc` (committed; developer tooling)
+2. **Cursor (Mission Control workspace)** — `workspace/.cursor/rules/<name>.mdc` (same content when the rule applies beyond one app)
+3. **Mission Control agents** — `/opt/projects/agents/<name>.json` and/or reference in `workspace/AGENTS.md` / `config/mission_control_agents.json` when an agent should enforce it
+4. **Shared memory** — `POST http://127.0.0.1:8089/api/memory/store` with `source: "cursor"`, tags like `rules`, `ww360`, `accessibility`
+5. **Runbook pointer** — short note in `workspace/docs/where-knowledge-lives.md` or `docs/agent-rules-dual-sync.md` if the rule is durable product policy
+
+## Do not
+
+- Update only personal Cursor Settings rules without writing the `.mdc` into the repo
+- Leave Mission Control / OpenClaw without a copy when the rule affects content they create
+- Put secrets in rules
+
+## Developer-only path
+
+Rules live under **`.cursor/rules/`** (and optional `docs/dev/`). They are versioned for agents/devs, excluded from customer runtime via Docker build context (frontend image copies `frontend/` only). Path-level “hide from non-devs” is not possible with normal Git clone — use **CODEOWNERS** / branch protection for who may *change* them.

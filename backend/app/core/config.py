@@ -57,7 +57,10 @@ class Settings(BaseSettings):
     SDWIS_LOOKUP_FILTERED_MAX_PAGES: int = 3
     SDWIS_LOOKUP_UNFILTERED_MAX_PAGES: int = 5
     SDWIS_LOOKUP_MIN_QUERY_LEN: int = 2
-    WW360_SDWIS_STATES: str = "NY"
+    WW360_SDWIS_STATES: str = "ALL"
+    BLS_API_KEY: str = ""
+    USAJOBS_API_KEY: str = ""
+    USAJOBS_USER_AGENT: str = ""
     # Document Studio (rich content library for OWW partners and utilities)
     WW360_DOC_STUDIO_ENABLED: bool = True
     # Optional OpenAI-compatible API for tutorial guide generation (Groq, OpenAI, etc.)
@@ -72,7 +75,12 @@ class Settings(BaseSettings):
 
     @property
     def sdwis_states(self) -> List[str]:
-        return [s.strip().upper() for s in self.WW360_SDWIS_STATES.split(",") if s.strip()]
+        raw = [s.strip().upper() for s in self.WW360_SDWIS_STATES.split(",") if s.strip()]
+        if not raw or raw == ["ALL"]:
+            from app.services.national.constants import ALL_SDWIS_STATE_CODES
+
+            return list(ALL_SDWIS_STATE_CODES)
+        return raw
 
     @property
     def cors_origins(self) -> List[str]:

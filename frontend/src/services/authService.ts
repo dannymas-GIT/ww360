@@ -12,6 +12,8 @@ export interface OrgMembership {
   name: string;
   role: string;
   content_pack_key?: string | null;
+  org_type?: string | null;
+  parent_org_code?: string | null;
 }
 
 export interface ImpersonationInfo {

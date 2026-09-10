@@ -7,9 +7,9 @@ folder tree and sample docs (manager + operator starters) on first access.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
-from app.models.doc_document import is_program_scope
+from app.models.doc_document import is_national_program_scope, is_program_scope
 
 PROGRAM_SCOPE = "program"
 LIBRARY_SEED_TAG = "library_seed"
@@ -21,16 +21,71 @@ class SeedDoc(TypedDict):
     title: str
     markdown: str
     doc_type: str
+    status: NotRequired[str]
 
 
-DEFAULT_PROGRAM_FOLDERS: Sequence[tuple[str, str]] = (
-    ("Program briefs", "Regional and statewide workforce briefs — the picture partners and funders need."),
-    ("Training & cohorts", "Cohort plans, course outlines and Learning Stream delivery."),
-    ("Grant reporting", "EPA Area 3 narratives, success stories and measure write-ups."),
-    ("Outreach", "Utility invitations, newsletters, job profiles and career-pipeline messaging."),
-    ("Operations", "SOPs, succession memos, meeting notes and day-to-day procedures."),
-    ("Tutorials", "Recorded walkthroughs and step-by-step guides from Tutorial Studio."),
-    ("Templates", "Blank starters — copy into a working folder before editing."),
+class SeedFolder(TypedDict):
+    name: str
+    description: str
+    audience: NotRequired[str]
+
+
+DEFAULT_PROGRAM_FOLDERS: Sequence[SeedFolder] = (
+    {
+        "name": "Getting started",
+        "description": "First steps for every signed-in user.",
+        "audience": "all",
+    },
+    {
+        "name": "Tutorials",
+        "description": "Recorded walkthroughs and step-by-step guides from Tutorial Studio.",
+        "audience": "all",
+    },
+    {
+        "name": "Operators",
+        "description": "Field and plant operator procedures and training.",
+        "audience": "operator",
+    },
+    {
+        "name": "Managers",
+        "description": "Supervisor and district manager playbooks.",
+        "audience": "manager",
+    },
+    {
+        "name": "Partners",
+        "description": "OWW partner and state program resources.",
+        "audience": "partner",
+    },
+    {
+        "name": "Program briefs",
+        "description": "Regional and statewide workforce briefs — the picture partners and funders need.",
+        "audience": "partner",
+    },
+    {
+        "name": "Training & cohorts",
+        "description": "Cohort plans, course outlines and Learning Stream delivery.",
+        "audience": "partner",
+    },
+    {
+        "name": "Grant reporting",
+        "description": "EPA Area 3 narratives, success stories and measure write-ups.",
+        "audience": "partner",
+    },
+    {
+        "name": "Outreach",
+        "description": "Utility invitations, newsletters, job profiles and career-pipeline messaging.",
+        "audience": "partner",
+    },
+    {
+        "name": "Operations",
+        "description": "SOPs, succession memos, meeting notes and day-to-day procedures.",
+        "audience": "partner",
+    },
+    {
+        "name": "Templates",
+        "description": "Blank starters — copy into a working folder before editing.",
+        "audience": "partner",
+    },
 )
 
 DEFAULT_DISTRICT_FOLDERS: Sequence[tuple[str, str]] = (
@@ -44,10 +99,39 @@ DEFAULT_DISTRICT_FOLDERS: Sequence[tuple[str, str]] = (
 )
 
 
-def folders_for_scope(scope: str) -> Sequence[tuple[str, str]]:
+DEFAULT_NATIONAL_FOLDERS: Sequence[SeedFolder] = (
+    {
+        "name": "Getting started",
+        "description": "National platform orientation for agency and partner users.",
+        "audience": "all",
+    },
+    {
+        "name": "EPA & federal",
+        "description": "EPA Area measures, federal workforce programs, and agency briefs.",
+        "audience": "partner",
+    },
+    {
+        "name": "State primacy",
+        "description": "Cross-state primacy agency coordination and scorecards.",
+        "audience": "partner",
+    },
+    {
+        "name": "National tutorials",
+        "description": "Platform how-tos shared across all jurisdictions.",
+        "audience": "all",
+    },
+)
+
+
+def folders_for_scope(scope: str) -> Sequence[SeedFolder]:
+    if is_national_program_scope(scope):
+        return DEFAULT_NATIONAL_FOLDERS
     if is_program_scope(scope):
         return DEFAULT_PROGRAM_FOLDERS
-    return DEFAULT_DISTRICT_FOLDERS
+    return [
+        {"name": name, "description": desc, "audience": "all"}
+        for name, desc in DEFAULT_DISTRICT_FOLDERS
+    ]
 
 
 # Sample docs for every utility library (managers + operators share the scope).
@@ -376,6 +460,45 @@ Authorization to fill the Grade II role and budget for exam prep coursework.
 
 PROGRAM_SEED_DOCS: Sequence[SeedDoc] = (
     {
+        "template_id": "platform-record-tutorial",
+        "folder": "Getting started",
+        "title": "Record a procedure in Document Studio",
+        "doc_type": "document",
+        "status": "published",
+        "markdown": """## Record a procedure in Document Studio
+
+Use **Record tutorial** to capture a walkthrough others can follow in the library.
+
+### Before you start
+
+- Sign in as an author (partner, manager, or operator with recorder access).
+- Open **Content → Document Studio** and pick the **WW360 platform library**.
+- Choose **Getting started** or **Tutorials** as the destination folder.
+
+### Recording settings
+
+1. Click **Record tutorial**.
+2. Choose **Screen + mic** (or **Screenshots only** if video is blocked).
+3. Click **Start**. When the browser asks what to share:
+   - **This tab** — best for documenting Water Workforce 360 itself (auto-logged steps).
+   - **Window** or **Entire screen** — when the work happens in another program.
+
+### During the recording
+
+- Clicks in this Water Workforce tab become steps automatically.
+- Clicks in another program are **not** logged — narrate what you did or use **Capture frame**.
+- Use the floating bar for **Stop** and **Capture frame**.
+
+### After you stop
+
+1. Review and edit step titles.
+2. Generate or edit the written guide.
+3. **Save**, then **Publish** (or submit for manager review).
+
+> **Tip:** Film external-app work in a separate clip if needed. Auto steps only come from this browser tab.
+""",
+    },
+    {
         "template_id": "regional-brief",
         "folder": "Program briefs",
         "title": "Sample — Regional workforce brief",
@@ -411,7 +534,36 @@ North Country systems need Grade II operators faster than training currently del
 )
 
 
+NATIONAL_SEED_DOCS: Sequence[SeedDoc] = (
+    {
+        "template_id": "national-platform-overview",
+        "folder": "Getting started",
+        "title": "National → State → Utility hierarchy",
+        "doc_type": "document",
+        "status": "published",
+        "markdown": """## Water Workforce 360 jurisdiction model
+
+WW360 is built for EPA and other US agencies as a **National → State → Utility** tool.
+
+| Tier | Who | Document Studio library |
+| --- | --- | --- |
+| **National** | EPA, ASDWA, federal partners, platform admins | `program:US` — this library |
+| **State** | Primacy agencies and OWW partners | `program:{ST}` (e.g. NY, NJ) |
+| **Utility** | District managers and operators | District code (e.g. HFWD) |
+
+### What lives here
+
+National briefs, EPA Area measures, cross-state coordination, and shared platform tutorials.
+
+State and utility libraries stay scoped so primacy agencies and plant teams only see what they need.
+""",
+    },
+)
+
+
 def seed_docs_for_scope(scope: str) -> Sequence[SeedDoc]:
+    if is_national_program_scope(scope):
+        return NATIONAL_SEED_DOCS
     if is_program_scope(scope):
         return PROGRAM_SEED_DOCS
     return DISTRICT_SEED_DOCS

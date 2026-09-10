@@ -16,6 +16,7 @@ import SdwisLandscapePage from '@/pages/sdwis/SdwisLandscapePage';
 import SdwisWatchlistPage from '@/pages/sdwis/SdwisWatchlistPage';
 import SdwisLookupPage from '@/pages/sdwis/SdwisLookupPage';
 import SdwisCompliancePage from '@/pages/sdwis/SdwisCompliancePage';
+import SdwisAnalysisPage from '@/pages/sdwis/SdwisAnalysisPage';
 import AdminPwsidLinksPage from '@/pages/admin/AdminPwsidLinksPage';
 import AdminUsersPage from '@/pages/admin/AdminUsersPage';
 import AdminSettingsPage from '@/pages/admin/AdminSettingsPage';
@@ -23,6 +24,7 @@ import AdminJurisdictionsPage from '@/pages/admin/AdminJurisdictionsPage';
 import NationalOverviewPage from '@/pages/national/NationalOverviewPage';
 import StateScorecardPage from '@/pages/national/StateScorecardPage';
 import JobOpeningsPage from '@/pages/jobs/JobOpeningsPage';
+import DistrictUsersPage from '@/pages/district/DistrictUsersPage';
 
 const DocumentStudioPage = lazy(() => import('@/pages/studio/DocumentStudioPage'));
 
@@ -103,6 +105,7 @@ export default function App() {
         <Route path="/water-systems/watchlist" element={<SdwisWatchlistPage />} />
         <Route path="/water-systems/lookup" element={<SdwisLookupPage />} />
         <Route path="/water-systems/compliance" element={<SdwisCompliancePage />} />
+        <Route path="/water-systems/analysis" element={<SdwisAnalysisPage />} />
         <Route
           path="/studio"
           element={
@@ -118,6 +121,7 @@ export default function App() {
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/admin/jurisdictions" element={<AdminJurisdictionsPage />} />
         <Route path="/admin/settings" element={<AdminSettingsPage />} />
+        <Route path="/district/users" element={<DistrictUsersPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

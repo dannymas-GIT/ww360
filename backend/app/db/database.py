@@ -47,3 +47,18 @@ def init_db() -> None:
     ensure_national_schema(engine)
     ensure_workspace_customization_schema(engine)
     ensure_binder_intake_schema(engine)
+
+    from app.services.role_catalog_service import ensure_role_catalog_schema
+
+    ensure_role_catalog_schema(engine)
+
+    try:
+        from app.services.national_hierarchy_service import ensure_national_hierarchy
+
+        db = SessionLocal()
+        try:
+            ensure_national_hierarchy(db)
+        finally:
+            db.close()
+    except Exception:
+        pass

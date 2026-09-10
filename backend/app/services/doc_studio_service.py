@@ -15,11 +15,13 @@ from datetime import datetime
 from typing import Any
 
 from app.models.doc_document import (
+    NATIONAL_PROGRAM_SCOPE,
     PROGRAM_SCOPE,
     DocAsset,
     DocDocument,
     DocFolder,
     DocVersion,
+    is_national_program_scope,
     is_program_scope,
     normalize_doc_scope,
     program_scope_for_state,
@@ -39,6 +41,7 @@ from app.schemas.doc_studio import (
     DocVersionDetail,
     DocVersionRead,
 )
+from app.services.doc_studio_folder_audience import folder_visible, visible_folder_audiences
 from app.services.doc_studio_seeds import (
     LIBRARY_SEED_TAG,
     folders_for_scope,
@@ -75,14 +78,24 @@ def _word_count(markdown: str | None) -> int:
 
 
 def resolve_scope(context: TenantContext, requested: str | None = None) -> str:
-    """State-keyed program library or district scope."""
+    """National, state program, or district Document Studio scope."""
     default_program = context.program_scope()
+    roles = set(context.roles)
+    can_view_national = (
+        context.is_global_admin
+        or "national_observer" in roles
+        or context.is_state_exec()
+    )
 
     if requested:
         norm = normalize_doc_scope(requested, default_state=context.active_state_code)
         if context.is_global_admin:
             return norm
-        if is_program_scope(norm) and context.is_state_exec():
+        if is_national_program_scope(norm):
+            if can_view_national:
+                return NATIONAL_PROGRAM_SCOPE
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "No access to that document scope")
+        if is_program_scope(norm):
             if norm == default_program:
                 return norm
             raise HTTPException(status.HTTP_403_FORBIDDEN, "No access to that document scope")
@@ -90,6 +103,8 @@ def resolve_scope(context: TenantContext, requested: str | None = None) -> str:
             return norm
         raise HTTPException(status.HTTP_403_FORBIDDEN, "No access to that document scope")
 
+    if context.is_global_admin and (context.active_state_code or "").upper() == "US":
+        return NATIONAL_PROGRAM_SCOPE
     if context.is_global_admin or context.is_state_exec():
         return default_program
     if context.district_code:
@@ -107,18 +122,32 @@ class DocStudioService:
         roles = set(context.roles)
         operator_roles = {"ceu_user", "district_operator", "workforce_operator"}
         can_author = context.is_global_admin or bool(roles & AUTHOR_ROLES)
-        if not can_author and roles & operator_roles:
+        if not can_author and roles & operator_roles and not is_program_scope(scope):
             from app.services.documentation_task_service import recorder_access
 
             rec = recorder_access(self.db, context, scope)
             can_author = rec.can_record
         can_publish = context.is_global_admin or bool(roles & PUBLISH_ROLES)
         can_custody = context.is_global_admin or bool(roles & CUSTODY_TRANSFER_ROLES)
-        label = (
-            f"{context.active_state_code} program library"
-            if is_program_scope(scope)
-            else f"{scope} library"
+        if is_national_program_scope(scope):
+            label = "National library (US)"
+        elif is_program_scope(scope):
+            state = scope.split(":", 1)[-1] if ":" in scope else context.active_state_code
+            label = f"{state} program library"
+        else:
+            label = f"{scope} utility library"
+        platform_scope = context.program_scope()
+        national_scope = NATIONAL_PROGRAM_SCOPE
+        can_view_national = (
+            context.is_global_admin
+            or "national_observer" in roles
+            or context.is_state_exec()
         )
+        district_scope: str | None = None
+        if context.district_code and context.has_district_access(context.district_code):
+            district_scope = context.district_code
+        elif context.assigned_districts:
+            district_scope = context.assigned_districts[0]
         return DocStudioAccess(
             scope=scope,
             scope_label=label,
@@ -129,6 +158,17 @@ class DocStudioService:
             can_connect_library=can_author,
             can_custody_transfer=can_custody,
             roles=sorted(roles),
+            platform_scope=platform_scope,
+            national_scope=national_scope if can_view_national else None,
+            district_scope=district_scope,
+            show_library_switcher=bool(district_scope) or can_view_national,
+            hierarchy_tier=(
+                "national"
+                if is_national_program_scope(scope)
+                else "state"
+                if is_program_scope(scope)
+                else "utility"
+            ),
         )
 
     def require_author(self, context: TenantContext, scope: str) -> None:
@@ -148,25 +188,35 @@ class DocStudioService:
     def ensure_default_folders(self, scope: str, user_id: int | None) -> None:
         """Create any missing default folders (safe to call on every access)."""
         defaults = folders_for_scope(scope)
-        existing_names = {
-            name
-            for (name,) in self.db.query(DocFolder.name).filter(DocFolder.scope == scope).all()
+        existing = {
+            f.name: f
+            for f in self.db.query(DocFolder).filter(DocFolder.scope == scope).all()
         }
+        audience_by_name = {d["name"]: d.get("audience") or "all" for d in defaults}
         added = False
-        for idx, (name, desc) in enumerate(defaults):
-            if name in existing_names:
+        for idx, spec in enumerate(defaults):
+            name = spec["name"]
+            if name in existing:
                 continue
             self.db.add(
                 DocFolder(
                     scope=scope,
                     name=name,
-                    description=desc,
+                    description=spec["description"],
+                    audience=spec.get("audience") or "all",
                     sort_order=idx,
                     is_system=True,
                     created_by=user_id,
                 )
             )
             added = True
+        for folder in existing.values():
+            if not folder.is_system:
+                continue
+            expected = audience_by_name.get(folder.name)
+            if expected and getattr(folder, "audience", "all") != expected:
+                folder.audience = expected
+                added = True
         if added:
             self.db.commit()
 
@@ -205,12 +255,13 @@ class DocStudioService:
                 continue
             folder = folders.get(seed["folder"])
             md = seed["markdown"]
+            seed_status = seed.get("status") or "draft"
             d = DocDocument(
                 scope=scope,
                 folder_id=folder.id if folder else None,
                 title=seed["title"],
                 doc_type=seed.get("doc_type") or "document",
-                status="draft",
+                status=seed_status,
                 summary="Starter sample — edit or duplicate for your utility.",
                 tags=[LIBRARY_SEED_TAG, f"template:{seed['template_id']}"],
                 template_id=seed["template_id"],
@@ -219,6 +270,7 @@ class DocStudioService:
                 word_count=_word_count(md),
                 created_by=user_id,
                 updated_by=user_id,
+                published_at=datetime.utcnow() if seed_status == "published" else None,
             )
             self.db.add(d)
             self.db.flush()
@@ -229,7 +281,7 @@ class DocStudioService:
                     title=d.title,
                     content_markdown=md,
                     note=f"Library sample from template {seed['template_id']}",
-                    kind="save",
+                    kind="publish" if seed_status == "published" else "save",
                     created_by=user_id,
                 )
             )
@@ -241,7 +293,22 @@ class DocStudioService:
         """Folders + sample docs for the active scope."""
         self.ensure_library_samples(scope, user_id)
 
-    def list_folders(self, scope: str) -> list[DocFolderRead]:
+    def _visible_folder_ids(self, context: TenantContext, scope: str) -> set[str] | None:
+        """Return visible folder ids, or None when every folder in scope is visible."""
+        if not is_program_scope(scope):
+            return None
+        audiences = visible_folder_audiences(context)
+        rows = self.db.query(DocFolder.id, DocFolder.audience).filter(DocFolder.scope == scope).all()
+        visible = {fid for fid, aud in rows if folder_visible(context, aud)}
+        if len(visible) == len(rows):
+            return None
+        return visible
+
+    def _require_folder_visible(self, context: TenantContext, folder: DocFolder) -> None:
+        if not folder_visible(context, getattr(folder, "audience", "all")):
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Folder not found")
+
+    def list_folders(self, context: TenantContext, scope: str) -> list[DocFolderRead]:
         counts = dict(
             self.db.query(DocDocument.folder_id, func.count(DocDocument.id))
             .filter(DocDocument.scope == scope, DocDocument.status != "archived")
@@ -256,12 +323,16 @@ class DocStudioService:
         )
         out: list[DocFolderRead] = []
         for f in rows:
+            if is_program_scope(scope) and not folder_visible(context, getattr(f, "audience", "all")):
+                continue
             item = DocFolderRead.model_validate(f)
             item.document_count = int(counts.get(f.id, 0))
             out.append(item)
         return out
 
-    def _get_folder(self, scope: str, folder_id: str) -> DocFolder:
+    def _get_folder(
+        self, scope: str, folder_id: str, context: TenantContext | None = None
+    ) -> DocFolder:
         f = (
             self.db.query(DocFolder)
             .filter(DocFolder.id == folder_id, DocFolder.scope == scope)
@@ -269,6 +340,8 @@ class DocStudioService:
         )
         if not f:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Folder not found")
+        if context is not None:
+            self._require_folder_visible(context, f)
         return f
 
     def create_folder(
@@ -334,6 +407,7 @@ class DocStudioService:
 
     def list_documents(
         self,
+        context: TenantContext,
         scope: str,
         folder_id: str | None = None,
         q: str | None = None,
@@ -346,7 +420,14 @@ class DocStudioService:
         if folder_id == "__root__":
             query = query.filter(DocDocument.folder_id.is_(None))
         elif folder_id:
+            self._get_folder(scope, folder_id, context)
             query = query.filter(DocDocument.folder_id == folder_id)
+        else:
+            visible_ids = self._visible_folder_ids(context, scope)
+            if visible_ids is not None:
+                query = query.filter(
+                    or_(DocDocument.folder_id.is_(None), DocDocument.folder_id.in_(visible_ids))
+                )
         if status_filter:
             query = query.filter(DocDocument.status == status_filter)
         if review_state:
@@ -372,8 +453,13 @@ class DocStudioService:
                 "Custody transfer requires a manager or publish role",
             )
 
-    def document_detail(self, scope: str, document_id: str) -> DocDocumentDetail:
+    def document_detail(
+        self, context: TenantContext, scope: str, document_id: str
+    ) -> DocDocumentDetail:
         row = self._get_document_row(scope, document_id)
+        if row.folder_id:
+            folder = self._get_folder(scope, row.folder_id, context)
+            self._require_folder_visible(context, folder)
         detail = DocDocumentDetail.model_validate(row)
         if row.external_ref:
             from app.schemas.doc_studio import DocExternalRefRead
@@ -381,14 +467,20 @@ class DocStudioService:
             detail.external_ref = DocExternalRefRead.model_validate(row.external_ref)
         return detail
 
-    def get_document(self, scope: str, document_id: str) -> DocDocumentDetail:
-        return self.document_detail(scope, document_id)
+    def get_document(
+        self, context: TenantContext, scope: str, document_id: str
+    ) -> DocDocumentDetail:
+        return self.document_detail(context, scope, document_id)
 
     def create_document(
-        self, scope: str, payload: DocDocumentCreate, user_id: int | None
+        self,
+        scope: str,
+        payload: DocDocumentCreate,
+        user_id: int | None,
+        context: TenantContext | None = None,
     ) -> DocDocumentDetail:
         if payload.folder_id:
-            self._get_folder(scope, payload.folder_id)
+            self._get_folder(scope, payload.folder_id, context)
         md = payload.content_markdown or ""
         d = DocDocument(
             scope=scope,
@@ -436,9 +528,10 @@ class DocStudioService:
         folder_id: str | None,
         source_filename: str,
         user_id: int | None,
+        context: TenantContext | None = None,
     ) -> DocDocumentDetail:
         if folder_id:
-            self._get_folder(scope, folder_id)
+            self._get_folder(scope, folder_id, context)
         d = DocDocument(
             scope=scope,
             folder_id=folder_id,
@@ -470,12 +563,19 @@ class DocStudioService:
         return DocDocumentDetail.model_validate(d)
 
     def update_document(
-        self, scope: str, document_id: str, payload: DocDocumentUpdate, user_id: int | None
+        self,
+        scope: str,
+        document_id: str,
+        payload: DocDocumentUpdate,
+        user_id: int | None,
+        context: TenantContext | None = None,
     ) -> DocDocumentDetail:
         d = self._get_document_row(scope, document_id)
+        if context is not None and d.folder_id:
+            self._require_folder_visible(context, self._get_folder(scope, d.folder_id))
         data = payload.model_dump(exclude_unset=True)
         if "folder_id" in data and data["folder_id"]:
-            self._get_folder(scope, data["folder_id"])
+            self._get_folder(scope, data["folder_id"], context)
         for k, v in data.items():
             setattr(d, k, v.strip() if isinstance(v, str) and k == "title" else v)
         if data.get("status") == "published" and not d.published_at:

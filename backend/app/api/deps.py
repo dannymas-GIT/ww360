@@ -175,3 +175,25 @@ def require_global_admin():
 
 def require_state_or_global_admin():
     return require_tenant_roles(["platform_admin", "state_admin", "oww_partner"], require_any=True)
+
+
+def require_reviewer_roles():
+    """National / state / OWW reviewers (analysis sets, compare)."""
+    return require_tenant_roles(
+        ["platform_admin", "state_admin", "oww_partner", "national_observer"],
+        require_any=True,
+    )
+
+
+def require_district_link_manager():
+    """Utility admins who may link a PWSID to their district (not platform-global)."""
+
+    async def dependency(context: TenantContext = Depends(get_current_tenant_user)):
+        if context.has_any_role("district_admin", "district_manager", "ceu_admin"):
+            return context
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Linking a water system requires district_admin or district_manager",
+        )
+
+    return dependency

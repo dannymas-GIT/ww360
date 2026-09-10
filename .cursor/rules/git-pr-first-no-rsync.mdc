@@ -1,0 +1,29 @@
+---
+description: Ship via git PR to develop — do not rsync WIP to staging
+alwaysApply: true
+---
+
+# Git + PR first (no ad-hoc rsync)
+
+WW360 product changes go through **branches and PRs into `develop`**. Staging must not become the only copy of work.
+
+## Do
+
+- Start each topic from a clean `origin/develop` → `feature/<topic>`
+- Commit, push, `gh pr create --base develop`
+- When the user pivots topics: park WIP (`wip/` branch or labeled stash), then new branch from `develop`
+- Deploy staging from a **git ref** (merged `develop` or an explicit PR branch checkout on the VM)
+
+## Do not
+
+- `rsync` a dirty local tree to staging as the normal ship path
+- Keep stacking unrelated WIP on long-lived kitchen-sink branches (e.g. landing-slider)
+- Leave “works on staging” uncommitted
+
+## Override
+
+Only rsync if the user **explicitly** asks for an emergency hotfix — then commit and open a PR with the same changes immediately.
+
+## Pointer
+
+See [docs/dev/git-pr-first-no-rsync.md](docs/dev/git-pr-first-no-rsync.md).

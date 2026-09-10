@@ -244,14 +244,18 @@ class SDWISClient:
 
         max_pages = max_pages or settings.SDWIS_LOOKUP_FILTERED_MAX_PAGES
         for candidate in self._name_query_candidates(raw_q):
-            use_server = " " in candidate or not re.match(
-                r"^[A-Z0-9-]+$", candidate, re.IGNORECASE
-            )
-            systems_resp = self.get_systems(
-                state=state,
-                activity="A",
-                facility_name=candidate if use_server else None,
-            )
+            # Always use EPA facility-name filter (p_fn). Skipping it for single
+            # tokens forced a partial state-wide page scan that timed out / 502'd
+            # and often missed systems beyond the first few pages (e.g. Westbury).
+            try:
+                systems_resp = self.get_systems(
+                    state=state,
+                    activity="A",
+                    facility_name=candidate,
+                )
+            except SDWISClientError as exc:
+                logger.warning("EPA p_fn lookup failed for %s/%s: %s", state, candidate, exc)
+                continue
             results = self._results(systems_resp)
             qid = results.get("QueryID")
             if not qid:
@@ -259,9 +263,9 @@ class SDWISClient:
             rows = self._paginate_qid(
                 str(qid),
                 max_pages=max_pages,
-                name_query=None if use_server else candidate,
+                name_query=None,
                 page_size_check=page_size_check,
-                server_filtered=use_server,
+                server_filtered=True,
             )
             if rows:
                 return rows

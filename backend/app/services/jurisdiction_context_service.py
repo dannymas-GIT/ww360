@@ -44,6 +44,8 @@ def orgs_payload(db: Session, user: User) -> list[dict[str, Any]]:
                 "name": org.name,
                 "role": row.role,
                 "content_pack_key": org.content_pack_key or org.state_code,
+                "org_type": org.org_type or "state_program",
+                "parent_org_code": org.parent_org_code,
             }
         )
     return out

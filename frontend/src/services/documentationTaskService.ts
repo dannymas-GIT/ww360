@@ -125,3 +125,37 @@ export async function fetchRecorderAccess(districtCode: string): Promise<Recorde
   });
   return data;
 }
+
+export interface DocumentationGrant {
+  id: number;
+  district_code: string;
+  user_id: number;
+  granted_by?: number | null;
+  expires_at?: string | null;
+  allowed_modes?: string | null;
+  created_at: string;
+}
+
+export async function fetchRecorderGrants(districtCode: string): Promise<DocumentationGrant[]> {
+  const { data } = await axios.get<DocumentationGrant[]>(`${base}/grants`, {
+    params: { district_code: districtCode },
+    headers: headers(),
+  });
+  return data;
+}
+
+export async function createRecorderGrant(body: {
+  district_code: string;
+  user_id: number;
+  expires_at?: string | null;
+  allowed_modes?: string | null;
+}): Promise<DocumentationGrant> {
+  const { data } = await axios.post<DocumentationGrant>(`${base}/grants`, body, {
+    headers: headers(),
+  });
+  return data;
+}
+
+export async function deleteRecorderGrant(grantId: number): Promise<void> {
+  await axios.delete(`${base}/grants/${grantId}`, { headers: headers() });
+}

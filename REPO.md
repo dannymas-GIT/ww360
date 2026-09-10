@@ -50,7 +50,7 @@ bash /opt/projects/workspace/scripts/ww360/sync-staging-env.sh
 WW360 issues its own JWT until AquaSafe handoff is deployed on staging:
 
 - URL: `https://ww360.aquasafe-solutions.us/login`
-- Seed user: `jenny-oww` (`platform_admin` + `oww_partner`)
+- Seed user: `jenny-oww` (`state_admin` + `oww_partner` — state / section partner, not national platform)
 - Set `WW360_SEED_ADMIN_PASSWORD` in `openclaw.env`, then on VM: `docker compose exec backend python scripts/seed_ww360_admin.py`
 
 ### Demo accounts (national + NJ)
@@ -77,7 +77,7 @@ docker compose exec backend python scripts/seed_demo_personas.py
 # optional: WW360_SEED_DEMO_PASSWORD (default ChangeMe-Demo!)
 ```
 
-Jenny (`jenny-oww`) and other platform/state admins see **View as role** in the app shell. Read-only **preview** is default; **act-as** (writes allowed, audited) requires `platform_admin` + reason.
+Jenny (`jenny-oww`) and other state/platform admins see **View as role** in the app shell. Catalog includes **National** (observer demos), **State**, and **Utility** personas. Read-only **preview** is default; **act-as** (writes allowed, audited) requires `platform_admin` + reason.
 
 **Kitchen Sink** (sidebar toggle, default **off**): simplified role workspace with KPIs, charts, Document Studio, and a guided **Role tour**. Turn on to reveal the full navigation and executive tool set.
 
@@ -105,9 +105,9 @@ Available to **all authenticated roles**. Sidebar **Customize home** opens the p
 Available to **all authenticated users** via sidebar **Careers → Job openings** (`/jobs`).
 
 - **Page:** Multi-source careers hub — USAJOBS live today; OWW job board and utility Continuity vacancies marked coming soon
-- **API:** `GET /api/v1/jobs/federal?state=NY&limit=12`
-- **Source:** [USAJOBS Search API](https://developer.usajobs.gov/) — federal announcements only
-- **Env:** `USAJOBS_API_KEY` and `USAJOBS_USER_AGENT` (email used when requesting the key) in `openclaw.env`, synced to VM `.env`
+- **API:** `GET /api/v1/jobs/federal?limit=12` (optional `state=NY`). UI defaults to **nationwide** — a single primacy state often has 0 federal water/treatment matches
+- **Source:** [USAJOBS Search API](https://developer.usajobs.gov/) — federal announcements only; live proxy with 1h cache (not stored in Postgres)
+- **Env:** `USAJOBS_API_KEY` and `USAJOBS_USER_AGENT` in `openclaw.env` and VM `.env`. `sync-staging-env.sh` preserves VM keys if missing from openclaw.env
 
 Request a free API key at https://developer.usajobs.gov/APIRequest/Index . Without the key, the UI shows a configuration notice (no fabricated listings).
 

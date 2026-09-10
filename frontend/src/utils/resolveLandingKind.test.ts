@@ -38,6 +38,15 @@ describe('resolveLandingKind', () => {
     ).toBe('exec');
   });
 
+  it('routes state partner (Jenny) without districts to exec', () => {
+    expect(
+      resolveLandingKind({
+        roles: ['state_admin', 'oww_partner'],
+        districts: [],
+      })
+    ).toBe('exec');
+  });
+
   it('routes national observer without districts to exec', () => {
     expect(
       resolveLandingKind({

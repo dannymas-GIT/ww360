@@ -1,6 +1,6 @@
 /**
- * Application Steps guided tour — avatar PiP bottom-right + left-docked step card.
- * Narration cues sync to the Mission Control sample MP4 / VTT script.
+ * Document Studio overview — avatar PiP bottom-right + left-docked benefit card.
+ * Video plays through while cards explain why Studio matters (no click-by-click steps).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -82,6 +82,7 @@ export function ApplicationStepsTourOverlay() {
 
   const [open, setOpen] = useState(false);
   const [minimized, setMinimized] = useState(false);
+  const [videoOpen, setVideoOpen] = useState(true);
   const [index, setIndex] = useState(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -114,6 +115,7 @@ export function ApplicationStepsTourOverlay() {
       setIndex(idx);
       setOpen(true);
       setMinimized(false);
+      setVideoOpen(true);
       writeStep(stepKey, idx);
       window.setTimeout(() => {
         applyHighlight(slides[idx]);
@@ -122,6 +124,16 @@ export function ApplicationStepsTourOverlay() {
     },
     [dismissedKey, seekAvatar, slides, stepKey, total]
   );
+
+  const hideVideo = useCallback(() => {
+    videoRef.current?.pause();
+    setVideoOpen(false);
+  }, []);
+
+  const showVideo = useCallback(() => {
+    setVideoOpen(true);
+    window.setTimeout(() => seekAvatar(slides[index]?.cueStart ?? 0), 60);
+  }, [index, seekAvatar, slides]);
 
   const dismiss = useCallback(
     (permanent: boolean) => {
@@ -132,6 +144,7 @@ export function ApplicationStepsTourOverlay() {
       closeBtn?.click();
       videoRef.current?.pause();
       setOpen(false);
+      setVideoOpen(true);
       if (permanent) {
         writeFlag(dismissedKey, true);
         writeStep(stepKey, 0);
@@ -158,7 +171,8 @@ export function ApplicationStepsTourOverlay() {
       writeStep(stepKey, next);
       window.setTimeout(() => {
         applyHighlight(slides[next]);
-        seekAvatar(slides[next].cueStart);
+        const nextCue = slides[next].cueStart;
+        if (nextCue !== slides[index].cueStart) seekAvatar(nextCue);
       }, 60);
     },
     [dismiss, index, seekAvatar, slides, stepKey, total]
@@ -183,6 +197,18 @@ export function ApplicationStepsTourOverlay() {
     []
   );
 
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      if (videoOpen) hideVideo();
+      else dismiss(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [dismiss, hideVideo, open, videoOpen]);
+
   if (typeof document === 'undefined') return null;
 
   if (!open) {
@@ -192,11 +218,11 @@ export function ApplicationStepsTourOverlay() {
         type="button"
         className="fixed bottom-4 right-4 z-[10000] inline-flex min-h-[44px] items-center gap-2 rounded-full border border-sky-200 bg-white px-4 py-2 text-[1rem] font-medium text-sky-800 shadow-lg hover:bg-sky-50"
         onClick={() => void openAt(readStep(stepKey, total))}
-        aria-label="Resume application steps tour"
+        aria-label="Resume Document Studio overview"
         data-tour="application-steps-tour-fab"
       >
         <CircleHelp className="h-4 w-4" aria-hidden />
-        Steps tour
+        Studio overview
       </button>,
       document.body
     );
@@ -229,15 +255,17 @@ export function ApplicationStepsTourOverlay() {
         data-tour-side="left"
         data-tour-dock="bottom"
         data-step-id={slide.id}
-        className="fixed bottom-4 left-4 z-[10000] flex w-[min(100vw-2rem,24rem)] max-h-[min(58vh,32rem)] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl max-sm:bottom-[calc(0.75rem+42vw*9/16+3.25rem)] max-sm:left-3 max-sm:right-3 max-sm:w-auto"
+        className={`fixed bottom-4 left-4 z-[10000] flex w-[min(100vw-2rem,24rem)] max-h-[min(58vh,32rem)] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl max-sm:left-3 max-sm:right-3 max-sm:w-auto ${
+          videoOpen ? 'max-sm:bottom-[calc(1rem+min(92vw,22rem)*9/16+3.5rem)]' : ''
+        }`}
         role="dialog"
-        aria-label="Record application steps tour"
+        aria-label="Document Studio overview"
         aria-modal="false"
       >
         <header className="flex shrink-0 items-start justify-between gap-2 border-b border-slate-100 px-4 py-3">
           <div className="min-w-0">
             <p className="text-[0.875rem] font-semibold uppercase tracking-wide text-sky-700">
-              Application steps · {index + 1}/{total}
+              Studio overview · {index + 1}/{total}
             </p>
             <p className="truncate text-[1rem] font-medium text-slate-700">Document Studio</p>
           </div>
@@ -245,7 +273,7 @@ export function ApplicationStepsTourOverlay() {
             type="button"
             className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded p-1 text-slate-500 hover:bg-slate-100"
             onClick={() => dismiss(false)}
-            aria-label="Close tour"
+            aria-label="Close overview"
           >
             <X className="h-4 w-4" />
           </button>
@@ -268,13 +296,25 @@ export function ApplicationStepsTourOverlay() {
           ))}
         </div>
         <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-4 py-3">
-          <button
-            type="button"
-            className="min-h-[44px] text-[1rem] text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline"
-            onClick={() => dismiss(true)}
-          >
-            Don&apos;t show again
-          </button>
+          <div className="flex min-h-[44px] flex-wrap items-center gap-x-3">
+            <button
+              type="button"
+              className="text-[1rem] text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline"
+              onClick={() => dismiss(true)}
+            >
+              Don&apos;t show again
+            </button>
+            {!videoOpen ? (
+              <button
+                type="button"
+                className="text-[1rem] font-medium text-sky-800 underline-offset-2 hover:underline"
+                onClick={showVideo}
+                data-tour="application-steps-show-video"
+              >
+                Show video
+              </button>
+            ) : null}
+          </div>
           <div className="flex gap-2">
             <Button
               type="button"
@@ -299,32 +339,42 @@ export function ApplicationStepsTourOverlay() {
         </footer>
       </aside>
 
-      {/* Avatar PiP — bottom right (same corner as other tour FABs) */}
-      <div
-        data-tour="application-steps-avatar"
-        className="fixed bottom-4 right-4 z-[9990] w-[min(42vw,15rem)] overflow-hidden rounded-xl border border-slate-200 bg-black shadow-2xl max-sm:left-1/2 max-sm:right-auto max-sm:w-[min(88vw,16rem)] max-sm:-translate-x-1/2 sm:w-[15rem]"
-      >
-        <div className="flex items-center gap-1.5 border-b border-white/10 bg-slate-900 px-2 py-1.5">
-          <PlayCircle className="h-3.5 w-3.5 text-sky-300" aria-hidden />
-          <span className="min-w-0 flex-1 truncate text-[0.875rem] font-medium text-slate-100">
-            {media.label}
-          </span>
-        </div>
-        <video
-          key={media.src}
-          ref={videoRef}
-          className="aspect-video w-full"
-          playsInline
-          preload="metadata"
-          crossOrigin="anonymous"
-          muted={false}
-          controls
-          aria-label="Application steps avatar overview"
+      {videoOpen ? (
+        <div
+          data-tour="application-steps-avatar"
+          className="fixed bottom-4 right-4 z-[9990] w-[min(92vw,22rem)] overflow-hidden rounded-xl border border-slate-200 bg-black shadow-2xl max-sm:left-1/2 max-sm:right-auto max-sm:-translate-x-1/2 sm:w-[min(44vw,26rem)] lg:w-[min(40vw,32rem)]"
         >
-          <source src={media.src} type="video/mp4" />
-          <track kind="captions" src={media.captions} srcLang="en" label="English" default />
-        </video>
-      </div>
+          <div className="flex items-center gap-1.5 border-b border-white/10 bg-slate-900 pl-2 pr-1">
+            <PlayCircle className="h-3.5 w-3.5 shrink-0 text-sky-300" aria-hidden />
+            <span className="min-w-0 flex-1 truncate text-[0.875rem] font-medium text-slate-100">
+              {media.label}
+            </span>
+            <button
+              type="button"
+              className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded text-slate-200 hover:bg-white/10 hover:text-white"
+              onClick={hideVideo}
+              aria-label="Close video"
+              data-tour="application-steps-close-video"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <video
+            key={media.src}
+            ref={videoRef}
+            className="aspect-video w-full"
+            playsInline
+            preload="metadata"
+            crossOrigin="anonymous"
+            muted={false}
+            controls
+            aria-label="Document Studio overview video"
+          >
+            <source src={media.src} type="video/mp4" />
+            <track kind="captions" src={media.captions} srcLang="en" label="English" default />
+          </video>
+        </div>
+      ) : null}
     </>,
     document.body
   );

@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { buildApplicationStepsTourSlides } from '../src/components/doc-studio/applicationStepsTourContent';
 
 /**
- * Application Steps tour — Playwright script aligned to the avatar VO
+ * Document Studio overview tour — Playwright aligned to benefit cards
  * (workspace docs/tour-video-scripts/ww360-application-steps.md).
  */
 test.describe('Application Steps guided tour', () => {
@@ -75,7 +75,7 @@ test.describe('Application Steps guided tour', () => {
     expect(parseFloat(bodyFont)).toBeGreaterThanOrEqual(17.5);
   });
 
-  test('each slide matches the avatar script and highlights the right control', async ({ page }) => {
+  test('each slide matches the benefit copy and highlights the right control', async ({ page }) => {
     await openTour(page);
     const card = page.locator('[data-tour="application-steps-tour-card"]');
     const next = page.locator('[data-tour="application-steps-tour-next"]');
@@ -92,7 +92,6 @@ test.describe('Application Steps guided tour', () => {
         await expect(target).toHaveClass(/ww360-tour-highlight/);
       }
 
-      // Avatar video is present and seeks (source points at sample)
       await expect(page.locator('[data-tour="application-steps-avatar"] source')).toHaveAttribute(
         'src',
         /application-steps-sample(-dmas)?\.mp4/
@@ -108,40 +107,29 @@ test.describe('Application Steps guided tour', () => {
     await expect(card).toBeHidden({ timeout: 5_000 });
   });
 
-  test('mode-picker steps open the recorder; later steps close it', async ({ page }) => {
+  test('overview does not open the tutorial recorder', async ({ page }) => {
     await openTour(page);
     const next = page.locator('[data-tour="application-steps-tour-next"]');
 
-    // welcome → open-studio → record-tutorial
-    await next.click();
-    await next.click();
-    await expect(page.locator('[data-tour="studio-record"]')).toHaveClass(/ww360-tour-highlight/);
-
-    // pick-mode opens recorder
-    await next.click();
-    await expect(page.locator('[data-tour="application-steps-tour-card"]')).toHaveAttribute(
-      'data-step-id',
-      'pick-mode'
-    );
-    await expect(page.locator('[data-tutorial-recorder]')).toBeVisible();
-    await expect(page.locator('[data-tour="studio-mode-picker"]')).toBeVisible();
-    await expect(page.locator('[data-tour="studio-mode-picker"]')).toContainText(/Screen \+ mic/i);
-    await expect(page.locator('[data-tour="studio-mode-picker"]')).toContainText(/Screenshots/i);
-
-    // advance through start-recording still in picker
-    await next.click();
-    await expect(page.locator('[data-tour="application-steps-tour-card"]')).toHaveAttribute(
-      'data-step-id',
-      'start-recording'
-    );
-    await expect(page.locator('[data-tutorial-recorder]')).toBeVisible();
-
-    // review closes recorder
-    await next.click();
-    await expect(page.locator('[data-tour="application-steps-tour-card"]')).toHaveAttribute(
-      'data-step-id',
-      'review-steps'
-    );
+    for (let i = 0; i < slides.length - 1; i += 1) {
+      await expect(page.locator('[data-tutorial-recorder]')).toHaveCount(0);
+      await next.click();
+      await page.waitForTimeout(200);
+    }
     await expect(page.locator('[data-tutorial-recorder]')).toHaveCount(0);
+  });
+
+  test('video close hides the player and can be shown again', async ({ page }) => {
+    await openTour(page);
+    const video = page.locator('[data-tour="application-steps-avatar"]');
+    const card = page.locator('[data-tour="application-steps-tour-card"]');
+    await expect(video).toBeVisible();
+
+    await page.locator('[data-tour="application-steps-close-video"]').click();
+    await expect(video).toHaveCount(0);
+    await expect(card).toBeVisible();
+
+    await page.locator('[data-tour="application-steps-show-video"]').click();
+    await expect(page.locator('[data-tour="application-steps-avatar"]')).toBeVisible();
   });
 });

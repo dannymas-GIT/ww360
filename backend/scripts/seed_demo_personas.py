@@ -163,10 +163,14 @@ def main() -> int:
             name="Water Workforce 360 National",
             org_type="national",
             state_code="US",
+            parent_org_code=None,
             partner_label="WW360",
             section_label="National platform",
-            content_pack_key="NY",
+            content_pack_key="US",
         )
+        from app.services.national_hierarchy_service import link_state_programs_to_national
+
+        link_state_programs_to_national(db)
         _ensure_district(
             db,
             MCWA,
@@ -339,7 +343,7 @@ def main() -> int:
             ["US headline KPIs", "State comparison", "Funding pipeline"],
             10,
             state_code="US",
-            scopes=["platform_admin", "national_observer"],
+            scopes=["platform_admin", "national_observer", "state_admin", "oww_partner"],
         )
         link(
             asdwa,
@@ -350,7 +354,7 @@ def main() -> int:
             ["OpCert coverage by state", "Compliance pressure map", "Section adoption"],
             11,
             state_code="US",
-            scopes=["platform_admin", "national_observer"],
+            scopes=["platform_admin", "national_observer", "state_admin", "oww_partner"],
         )
         link(
             awwa_hq,
@@ -361,7 +365,7 @@ def main() -> int:
             ["National workforce gap", "Digital reach analytics", "Section benchmarks"],
             12,
             state_code="US",
-            scopes=["platform_admin", "national_observer"],
+            scopes=["platform_admin", "national_observer", "state_admin", "oww_partner"],
         )
         link(
             epa_r2,
@@ -372,7 +376,7 @@ def main() -> int:
             ["Regional compliance backdrop", "State scorecards", "OpCert program metrics"],
             20,
             state_code="NY",
-            scopes=["platform_admin", "national_observer"],
+            scopes=["platform_admin", "national_observer", "state_admin", "oww_partner"],
         )
         link(
             jenny,

@@ -21,6 +21,11 @@ class DocStudioAccess(BaseModel):
     can_connect_library: bool = False
     can_custody_transfer: bool = False
     roles: list[str] = Field(default_factory=list)
+    platform_scope: str | None = None
+    national_scope: str | None = None
+    district_scope: str | None = None
+    show_library_switcher: bool = False
+    hierarchy_tier: str | None = None
 
 
 # ── Folders ──────────────────────────────────────────────────────────────────
@@ -47,6 +52,7 @@ class DocFolderRead(BaseModel):
     parent_id: str | None = None
     name: str
     description: str | None = None
+    audience: str = "all"
     sort_order: int = 0
     is_system: bool = False
     document_count: int = 0

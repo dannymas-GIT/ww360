@@ -1,12 +1,12 @@
 /**
- * Platform-partner privilege model for One Water Workforce executives.
+ * State-partner privilege model for One Water Workforce executives.
  *
- * Roles behind it (both granted to jenny-oww):
- *  - `platform_admin`  — existing global-scope role: every module, every district,
- *                        used for platform-level privileges (user mgmt, exports).
- *  - `oww_partner`     — marker role: routes the user to the OWW workspace,
- *                        switches nav, and labels the tenant as a program partner.
+ * Roles behind it (granted to jenny-oww):
+ *  - `state_admin`  — state / section administration (not national platform).
+ *  - `oww_partner`  — marker role: routes to the OWW workspace, switches nav,
+ *                     and labels the tenant as a program partner.
  *
+ * National platform demos use `ww360-national` / `aquasafe-admin` (`platform_admin`).
  * Utility-owned records stay utility-owned: partner access to per-utility
  * detail is governed by each utility's data-sharing consent captured in the
  * Water Workforce 360 enrollment form, never by the role alone.

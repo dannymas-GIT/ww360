@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Seed WW360 admin user (Jenny) and WW360 district."""
+"""Seed WW360 state-partner admin (Jenny) and WW360 district."""
 
 import os
 import sys
@@ -7,9 +7,12 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.core.security import get_password_hash
-from app.db.database import SessionLocal, init_db
+from app.db.database import SessionLocal
 from app.models.user import User
 from app.models.water_district import WaterDistrict
+
+# State / section partner — not platform (national) admin.
+JENNY_ROLES = ["state_admin", "oww_partner"]
 
 
 def main() -> None:
@@ -36,19 +39,19 @@ def main() -> None:
                 username="jenny-oww",
                 email="jingrao@onewaterworkforce.org",
                 full_name="Jenny Ingrao",
-                roles=["platform_admin", "oww_partner"],
+                roles=list(JENNY_ROLES),
                 is_active=True,
             )
             user.set_password(password)
             db.add(user)
         else:
             user.username = "jenny-oww"
-            user.roles = ["platform_admin", "oww_partner"]
+            user.roles = list(JENNY_ROLES)
             if password and password != "ChangeMe-WW360!":
                 user.hashed_password = get_password_hash(password)
 
         db.commit()
-        print("Seeded jenny-oww with platform_admin + oww_partner")
+        print(f"Seeded jenny-oww with {' + '.join(JENNY_ROLES)} (state-level, not platform_admin)")
     finally:
         db.close()
 

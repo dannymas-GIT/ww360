@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""Seed a One Water Workforce platform-partner executive account.
+"""Seed a One Water Workforce state-partner executive account.
 
 Creates (or updates) the user, registers the ``oww_partner`` role definition,
-and grants two global-scope roles:
+and grants state-level roles:
 
-* ``platform_admin`` — platform privileges (all modules / districts)
-* ``oww_partner``    — routes the user to the OWW executive workspace
+* ``state_admin`` — state / primacy administration within her section
+* ``oww_partner`` — routes the user to the OWW executive workspace
+
+Does **not** grant ``platform_admin`` (national). Use ``ww360-national`` /
+``aquasafe-admin`` for platform-level demos.
 
 Idempotent: safe to re-run. Passwords are only changed when ``--password`` or
 ``--rotate-password`` is supplied.
@@ -45,7 +48,8 @@ DEFAULT_USERNAME = "jenny-oww"
 DEFAULT_EMAIL = "jingrao-aman@onewaterworkforce.org"
 DEFAULT_FIRST = "Jenny"
 DEFAULT_LAST = "Ingrao-Aman"
-GRANT_ROLES = [Roles.PLATFORM_ADMIN, Roles.OWW_PARTNER]
+GRANT_ROLES = [Roles.STATE_ADMIN, Roles.OWW_PARTNER]
+REVOKE_ROLES = [Roles.PLATFORM_ADMIN]
 
 ROLE_DEFINITIONS = [
     {
@@ -53,7 +57,7 @@ ROLE_DEFINITIONS = [
         "display_name": "One Water Workforce partner",
         "description": (
             "Program-partner executive (NYSAWWA / One Water Workforce). Lands on the "
-            "OWW executive workspace; pair with platform_admin for platform privileges. "
+            "OWW executive workspace at state / section scope — not national platform admin. "
             "Utility-level detail follows each utility's data-sharing consent."
         ),
         "scope": "global",
@@ -96,7 +100,6 @@ def ensure_role_definitions(db: Session, dry_run: bool) -> None:
             role_name=spec["role_name"],
             display_name=spec["display_name"],
             description=spec["description"],
-            district_code=None,
             scope=spec["scope"],
             is_system_role=True,
             is_active=True,
@@ -125,16 +128,18 @@ def ensure_user(
         user.first_name = first_name
         user.last_name = last_name
         user.is_active = True
-        user.default_role = Roles.PLATFORM_ADMIN
+        user.default_role = Roles.STATE_ADMIN
         user.login_attempts = 0
         user.locked_until = None
+        if hasattr(user, "roles"):
+            user.roles = list(GRANT_ROLES)
         if password:
             user.hashed_password = get_password_hash(password)
         print(f"users: updated {username} (id={user.id})")
     else:
         if not password:
             raise SystemExit("New user requires a password (use --password or --rotate-password)")
-        user = User(
+        kwargs = dict(
             username=username,
             email=email,
             hashed_password=get_password_hash(password),
@@ -142,9 +147,14 @@ def ensure_user(
             last_name=last_name,
             is_active=True,
             is_superuser=False,
-            default_role=Roles.PLATFORM_ADMIN,
+            default_role=Roles.STATE_ADMIN,
             primary_district=None,
         )
+        # Some deployments store roles on the users row as JSON.
+        try:
+            user = User(**kwargs, roles=list(GRANT_ROLES))
+        except TypeError:
+            user = User(**kwargs)
         if not dry_run:
             db.add(user)
             db.flush()
@@ -153,6 +163,25 @@ def ensure_user(
 
 
 def ensure_roles(db: Session, user_id: int, dry_run: bool) -> None:
+    if not inspect(db.get_bind()).has_table("user_roles"):
+        print("user_roles: table missing — relying on users.roles JSON")
+        return
+
+    for role_name in REVOKE_ROLES:
+        if dry_run:
+            print(f"user_roles: would revoke {role_name}")
+            continue
+        db.execute(
+            text(
+                """
+                UPDATE user_roles SET is_active = false
+                WHERE user_id = :uid AND role_name = :role AND district_code IS NULL
+                """
+            ),
+            {"uid": user_id, "role": role_name},
+        )
+        print(f"user_roles: revoked {role_name} (state partner is not platform admin)")
+
     for role_name in GRANT_ROLES:
         exists = db.execute(
             text(
@@ -219,21 +248,19 @@ def main() -> int:
             password=password,
             dry_run=args.dry_run,
         )
-        if not args.dry_run:
+        if user and user.id:
             ensure_roles(db, user.id, args.dry_run)
+        if not args.dry_run:
             db.commit()
-        else:
-            print("dry-run: no changes committed")
+        print(f"Roles:    {', '.join(GRANT_ROLES)}")
+        if password:
+            print(f"Password: {password}")
+        return 0
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
-
-    print("")
-    print(f"Login:    {args.username}")
-    print(f"Roles:    {', '.join(GRANT_ROLES)}")
-    if password:
-        print(f"Password: {password}")
-    print("Home:     /dashboard/oww (waterworkforce360.org)")
-    return 0
 
 
 if __name__ == "__main__":

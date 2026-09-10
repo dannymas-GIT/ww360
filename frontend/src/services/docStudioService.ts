@@ -20,6 +20,11 @@ export interface DocStudioAccess {
   can_connect_library?: boolean;
   can_custody_transfer?: boolean;
   roles: string[];
+  platform_scope?: string | null;
+  national_scope?: string | null;
+  district_scope?: string | null;
+  show_library_switcher?: boolean;
+  hierarchy_tier?: string | null;
 }
 
 export interface DocFolder {
@@ -28,6 +33,7 @@ export interface DocFolder {
   parent_id: string | null;
   name: string;
   description?: string | null;
+  audience?: string;
   sort_order: number;
   is_system: boolean;
   document_count: number;

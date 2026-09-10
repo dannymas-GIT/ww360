@@ -231,22 +231,41 @@ def list_personas_for_actor(db: Session, actor: User) -> list[dict[str, Any]]:
     )
     out: list[dict[str, Any]] = []
     for persona, user in rows:
-        scopes = persona.visible_to_scopes or []
+        # Never offer self or platform admins as preview targets.
+        if user.id == actor.id:
+            continue
+        if set(user.roles or []) & BLOCKED_TARGET_ROLES:
+            continue
+
+        scopes = set(persona.visible_to_scopes or [])
+        # Platform-only personas stay hidden from state partners.
+        if scopes and scopes <= {"platform_admin"} and not is_platform:
+            continue
         if scopes and "platform_admin" in scopes and not is_platform:
             if not is_state_exec:
                 continue
+            # State execs may preview national_observer / state personas whose
+            # scopes also list national_observer, state_admin, or oww_partner.
+            if not scopes.intersection({"national_observer", "state_admin", "oww_partner", "*"}):
+                if persona.tier not in ("state", "utility", "regional"):
+                    continue
+
         if persona.tier == "national" and not is_platform:
-            if "national_observer" not in scopes or not is_state_exec:
+            # National observer demos are available to state partners for View as role.
+            if not is_state_exec:
                 if "*" not in actor_states:
                     continue
+            elif "national_observer" not in scopes and "*" not in scopes:
+                # Allow if scopes explicitly include state partner roles.
+                if not scopes.intersection({"state_admin", "oww_partner"}):
+                    if "*" not in actor_states:
+                        continue
+
         if persona.state_code and "*" not in actor_states:
             st = persona.state_code.upper()[:2]
-            if st not in actor_states and persona.tier != "national":
+            # National / US personas are not limited by actor state membership.
+            if persona.tier not in ("national",) and st not in actor_states and st != "US":
                 continue
-
-        # Section partners (Jenny): curated MCWA walkthrough only — full catalog for platform-only admins.
-        if Roles.OWW_PARTNER in actor_roles and persona.catalog_group != "utility_walkthrough":
-            continue
 
         payload = build_session_payload(db, user)
         out.append(

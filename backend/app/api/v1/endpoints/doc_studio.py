@@ -149,7 +149,7 @@ def list_folders(pair=Depends(_ctx), db: Session = Depends(deps.get_db)):
     context, scope = pair
     svc = DocStudioService(db)
     svc.provision_library(scope, context.user_id)
-    return svc.list_folders(scope)
+    return svc.list_folders(context, scope)
 
 
 @router.post("/folders", response_model=DocFolderRead, status_code=status.HTTP_201_CREATED)
@@ -192,8 +192,9 @@ def list_documents(
     pair=Depends(_ctx),
     db: Session = Depends(deps.get_db),
 ):
-    _, scope = pair
+    context, scope = pair
     return DocStudioService(db).list_documents(
+        context,
         scope,
         folder_id=folder_id,
         q=q,
@@ -210,7 +211,7 @@ def create_document(
     context, scope = pair
     svc = DocStudioService(db)
     svc.require_author(context, scope)
-    return svc.create_document(scope, payload, context.user_id)
+    return svc.create_document(scope, payload, context.user_id, context)
 
 
 @router.post(
@@ -246,13 +247,14 @@ async def import_document(
         folder_id=folder_id or None,
         source_filename=file.filename or fallback,
         user_id=context.user_id,
+        context=context,
     )
 
 
 @router.get("/documents/{document_id}", response_model=DocDocumentDetail)
 def get_document(document_id: str, pair=Depends(_ctx), db: Session = Depends(deps.get_db)):
-    _, scope = pair
-    return DocStudioService(db).get_document(scope, document_id)
+    context, scope = pair
+    return DocStudioService(db).get_document(context, scope, document_id)
 
 
 @router.patch("/documents/{document_id}", response_model=DocDocumentDetail)
@@ -267,7 +269,7 @@ def update_document(
     svc.require_author(context, scope)
     if payload.status == "published":
         svc.require_publisher(context, scope)
-    return svc.update_document(scope, document_id, payload, context.user_id)
+    return svc.update_document(scope, document_id, payload, context.user_id, context)
 
 
 @router.put("/documents/{document_id}/content", response_model=DocDocumentDetail)

@@ -94,6 +94,11 @@ def _ensure_membership(
 
 
 def seed(db: Session, dry_run: bool = False) -> None:
+    from app.services.national_hierarchy_service import ensure_national_org, link_state_programs_to_national
+
+    if not dry_run:
+        ensure_national_org(db)
+
     _upsert_org(
         db,
         org_code=NY_OWW_CODE,
@@ -113,6 +118,9 @@ def seed(db: Session, dry_run: bool = False) -> None:
         section_label="New Jersey Section AWWA",
         dry_run=dry_run,
     )
+
+    if not dry_run:
+        link_state_programs_to_national(db)
 
     jenny = (
         db.query(User)

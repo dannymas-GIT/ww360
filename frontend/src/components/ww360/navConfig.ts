@@ -33,6 +33,56 @@ export interface NavGroup {
   items: NavItem[];
 }
 
+/** Roles that may open Users & access (National / State / Utility admins). */
+export function rolesCanManageUsers(roles: string[]): boolean {
+  const r = new Set(roles);
+  return (
+    r.has('platform_admin') ||
+    r.has('state_admin') ||
+    r.has('oww_partner') ||
+    r.has('district_admin') ||
+    r.has('district_manager') ||
+    r.has('ceu_admin') ||
+    r.has('ceu_manager') ||
+    r.has('workforce_manager') ||
+    r.has('admin')
+  );
+}
+
+function isPlatformAdminRole(roles: string[]): boolean {
+  const r = new Set(roles);
+  return r.has('platform_admin') || r.has('global_admin') || r.has('admin');
+}
+
+function usersAccessItem(): NavItem {
+  return { label: 'Users & access', path: '/district/users', icon: Users };
+}
+
+/** Administration group — visible for any admin-capable role, even without Kitchen Sink. */
+export function adminNavGroup(roles: string[]): NavGroup | null {
+  if (!rolesCanManageUsers(roles)) return null;
+
+  const items: NavItem[] = [usersAccessItem()];
+
+  if (isPlatformAdminRole(roles)) {
+    items.push(
+      { label: 'Platform accounts', path: '/admin/users', icon: Users },
+      { label: 'Jurisdictions', path: '/admin/jurisdictions', icon: Map },
+      { label: 'Linked utilities', path: '/admin/pwsid-links', icon: Link2 },
+      { label: 'Settings', path: '/admin/settings', icon: Settings }
+    );
+  }
+
+  return { id: 'administration', label: 'Administration', items };
+}
+
+function appendAdminNav(groups: NavGroup[], roles: string[]): NavGroup[] {
+  const admin = adminNavGroup(roles);
+  if (!admin) return groups;
+  const withoutLegacyAdmin = groups.filter(g => g.id !== 'admin' && g.id !== 'administration');
+  return [...withoutLegacyAdmin, admin];
+}
+
 export const ww360NavGroups: NavGroup[] = [
   {
     id: 'today',
@@ -54,6 +104,7 @@ export const ww360NavGroups: NavGroup[] = [
       { label: 'Landscape', path: '/water-systems', icon: Droplets },
       { label: 'Watchlist', path: '/water-systems/watchlist', icon: Shield },
       { label: 'System lookup', path: '/water-systems/lookup', icon: Map },
+      { label: 'Analysis', path: '/water-systems/analysis', icon: BarChart3 },
     ],
   },
   {
@@ -98,16 +149,6 @@ export const ww360NavGroups: NavGroup[] = [
     items: [
       { label: 'Digital reach', path: '/analytics', icon: Globe },
       { label: 'EPA measures', path: '/dashboard', icon: ClipboardList, hash: 'epa' },
-    ],
-  },
-  {
-    id: 'admin',
-    label: 'Administration',
-    items: [
-      { label: 'Jurisdictions', path: '/admin/jurisdictions', icon: Map },
-      { label: 'PWSID links', path: '/admin/pwsid-links', icon: Link2 },
-      { label: 'Users & access', path: '/admin/users', icon: Users },
-      { label: 'Settings', path: '/admin/settings', icon: Settings },
     ],
   },
 ];
@@ -159,10 +200,8 @@ function navGroupsForRolesFull(roles: string[], districts: string[] = []): NavGr
     const groups = [...ww360NavGroups];
     const isNational =
       r.has('platform_admin') || r.has('national_observer') || r.has('global_admin');
-    if (!isNational) {
-      return groups.filter(g => g.id !== 'national');
-    }
-    return groups;
+    const filtered = !isNational ? groups.filter(g => g.id !== 'national') : groups;
+    return appendAdminNav(filtered, roles);
   }
 
   if (isOperator || (hasDistrict && isOperator)) {
@@ -203,50 +242,66 @@ function navGroupsForRolesFull(roles: string[], districts: string[] = []): NavGr
     ];
   }
 
-  // District managers / admins — utility-only nav (no statewide SDWIS / analytics / admin).
-  return [
-    {
-      id: 'today',
-      label: 'Today',
-      items: [{ label: 'District dashboard', path: '/dashboard', icon: LayoutDashboard }],
-    },
-    {
-      id: 'workforce',
-      label: 'Workforce',
-      items: [
-        { label: 'Continuity workspace', path: '/continuity', icon: Workflow },
-        { label: 'Succession board', path: '/continuity', icon: BarChart3, search: 'tab=succession' },
-      ],
-    },
-    {
-      id: 'careers',
-      label: 'Careers',
-      items: [{ label: 'Job openings', path: '/jobs', icon: Briefcase }],
-    },
-    {
-      id: 'learning',
-      label: 'Learning',
-      items: [
-        {
-          label: 'CEU & renewals',
-          path: '/continuity/ceu-training',
-          icon: GraduationCap,
-          search: 'tab=ceu',
-        },
-        {
-          label: 'Training calendar',
-          path: '/continuity/ceu-training',
-          icon: BookOpen,
-          search: 'tab=training',
-        },
-      ],
-    },
-    {
-      id: 'content',
-      label: 'Content',
-      items: [{ label: 'Document Studio', path: '/studio', icon: PenSquare }],
-    },
-  ];
+  // District managers / admins — utility nav with district PWS linking.
+  return appendAdminNav(
+    [
+      {
+        id: 'today',
+        label: 'Today',
+        items: [{ label: 'District dashboard', path: '/dashboard', icon: LayoutDashboard }],
+      },
+      {
+        id: 'water-systems',
+        label: 'Water Systems',
+        items: [
+          { label: 'Our water system', path: '/water-systems/compliance', icon: Droplets },
+          { label: 'Find PWS', path: '/water-systems/lookup', icon: Map },
+        ],
+      },
+      {
+        id: 'workforce',
+        label: 'Workforce',
+        items: [
+          { label: 'Continuity workspace', path: '/continuity', icon: Workflow },
+          {
+            label: 'Succession board',
+            path: '/continuity',
+            icon: BarChart3,
+            search: 'tab=succession',
+          },
+        ],
+      },
+      {
+        id: 'careers',
+        label: 'Careers',
+        items: [{ label: 'Job openings', path: '/jobs', icon: Briefcase }],
+      },
+      {
+        id: 'learning',
+        label: 'Learning',
+        items: [
+          {
+            label: 'CEU & renewals',
+            path: '/continuity/ceu-training',
+            icon: GraduationCap,
+            search: 'tab=ceu',
+          },
+          {
+            label: 'Training calendar',
+            path: '/continuity/ceu-training',
+            icon: BookOpen,
+            search: 'tab=training',
+          },
+        ],
+      },
+      {
+        id: 'content',
+        label: 'Content',
+        items: [{ label: 'Document Studio', path: '/studio', icon: PenSquare }],
+      },
+    ],
+    roles
+  );
 }
 
 function navGroupsSimplified(
@@ -299,7 +354,11 @@ function navGroupsSimplified(
     extras.push({
       id: 'water-systems',
       label: 'Water Systems',
-      items: [{ label: 'Landscape', path: '/water-systems', icon: Droplets }],
+      items: [
+        { label: 'Landscape', path: '/water-systems', icon: Droplets },
+        { label: 'System lookup', path: '/water-systems/lookup', icon: Map },
+        { label: 'Analysis', path: '/water-systems/analysis', icon: BarChart3 },
+      ],
     });
     extras.push({
       id: 'workforce',
@@ -309,6 +368,14 @@ function navGroupsSimplified(
   }
 
   if (profile === 'utility') {
+    extras.unshift({
+      id: 'water-systems',
+      label: 'Water Systems',
+      items: [
+        { label: 'Our water system', path: '/water-systems/compliance', icon: Droplets },
+        { label: 'Find PWS', path: '/water-systems/lookup', icon: Map },
+      ],
+    });
     extras.push({
       id: 'workforce',
       label: 'Workforce',
@@ -328,5 +395,7 @@ function navGroupsSimplified(
     });
   }
 
-  return [today, ...extras, careersGroup, studioGroup];
+  const base = [today, ...extras, careersGroup, studioGroup];
+  const admin = adminNavGroup(roles);
+  return admin ? [...base, admin] : base;
 }

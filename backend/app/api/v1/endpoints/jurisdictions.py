@@ -21,6 +21,8 @@ class OrgSummary(BaseModel):
     org_code: str
     name: str
     state_code: str
+    org_type: str = "state_program"
+    parent_org_code: str | None = None
     partner_label: str | None = None
     section_label: str | None = None
     content_pack_key: str
@@ -30,6 +32,7 @@ class OrgSummary(BaseModel):
 class JurisdictionListOut(BaseModel):
     states: list[str]
     organizations: list[OrgSummary]
+    hierarchy_note: str = "National → State → Utility"
 
 
 @router.get("/jurisdictions", response_model=JurisdictionListOut)
@@ -41,7 +44,7 @@ def list_jurisdictions(
     orgs = (
         db.query(WorkforceOrganization)
         .filter(WorkforceOrganization.is_active.is_(True))
-        .order_by(WorkforceOrganization.state_code)
+        .order_by(WorkforceOrganization.org_type.asc(), WorkforceOrganization.state_code)
         .all()
     )
     return JurisdictionListOut(
@@ -51,6 +54,8 @@ def list_jurisdictions(
                 org_code=o.org_code,
                 name=o.name,
                 state_code=(o.state_code or "NY").upper(),
+                org_type=o.org_type or "state_program",
+                parent_org_code=o.parent_org_code,
                 partner_label=o.partner_label,
                 section_label=o.section_label,
                 content_pack_key=o.content_pack_key or o.state_code,

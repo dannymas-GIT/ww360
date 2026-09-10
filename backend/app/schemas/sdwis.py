@@ -103,6 +103,10 @@ class SDWISLookupRow(BaseModel):
     state_code: Optional[str] = None
     population_served: Optional[str] = None
     snc: Optional[str] = None
+    """0–100 similarity when returned from fuzzy landscape match."""
+    match_score: Optional[float] = None
+    """Why this row matched (substring, acronym, similar spelling, …)."""
+    match_reason: Optional[str] = None
 
 
 class SDWISSyncResponse(BaseModel):
@@ -124,6 +128,95 @@ class SDWISDistrictRememberedPwsidOut(BaseModel):
 
 class SDWISDistrictRememberedPwsidPut(BaseModel):
     pwsid: str = Field(..., min_length=7, max_length=12)
+
+
+class SDWISPreviewViolation(BaseModel):
+    violation_epa_id: str
+    rule_name: Optional[str] = None
+    contaminant_name: Optional[str] = None
+    category_code: Optional[str] = None
+    category_desc: Optional[str] = None
+    violation_measure: Optional[str] = None
+    state_mcl: Optional[str] = None
+    federal_mcl: Optional[str] = None
+    compliance_period_begin: Optional[str] = None
+    compliance_period_end: Optional[str] = None
+    non_compliance_begin: Optional[str] = None
+    non_compliance_end: Optional[str] = None
+    resolved_date: Optional[str] = None
+    status: Optional[str] = None
+
+
+class SDWISPreviewEnforcement(BaseModel):
+    enforcement_epa_id: str
+    enforcement_type: Optional[str] = None
+    action_description: Optional[str] = None
+    action_date: Optional[str] = None
+    agency: Optional[str] = None
+
+
+class SDWISPreviewOut(BaseModel):
+    pwsid: str
+    pws_name: Optional[str] = None
+    state_code: Optional[str] = None
+    epa_region: Optional[str] = None
+    facility_status: Optional[str] = None
+    population_served: Optional[int] = None
+    snc: Optional[str] = None
+    health_flag: Optional[str] = None
+    serious_violator: Optional[str] = None
+    qtrs_with_vio: Optional[int] = None
+    qtrs_with_snc: Optional[int] = None
+    violation_count: int = 0
+    open_violation_count: int = 0
+    enforcement_count: int = 0
+    violations: List[SDWISPreviewViolation] = Field(default_factory=list)
+    enforcement_actions: List[SDWISPreviewEnforcement] = Field(default_factory=list)
+    source: str = "landscape"
+    preview_only: bool = True
+    is_linked: bool = False
+
+
+class SDWISAnalysisSetItemOut(BaseModel):
+    id: int
+    pwsid: str
+    pws_name: Optional[str] = None
+    state_code: Optional[str] = None
+    population_served: Optional[int] = None
+    snc: Optional[str] = None
+    added_at: datetime
+    open_violation_count: Optional[int] = None
+    enforcement_count: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+class SDWISAnalysisSetOut(BaseModel):
+    id: int
+    name: str
+    created_at: datetime
+    updated_at: datetime
+    items: List[SDWISAnalysisSetItemOut] = Field(default_factory=list)
+
+    class Config:
+        from_attributes = True
+
+
+class SDWISAnalysisSetCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=128)
+
+
+class SDWISAnalysisSetUpdate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=128)
+
+
+class SDWISAnalysisSetItemAdd(BaseModel):
+    pwsid: str = Field(..., min_length=7, max_length=12)
+    pws_name: Optional[str] = None
+    state_code: Optional[str] = None
+    population_served: Optional[int] = None
+    snc: Optional[str] = None
 
 
 class SDWISWorkforceInsightsOut(BaseModel):

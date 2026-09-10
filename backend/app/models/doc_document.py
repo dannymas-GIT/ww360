@@ -33,23 +33,33 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
 PROGRAM_SCOPE = "program"  # legacy alias — migrated to program:{state_code}
+NATIONAL_PROGRAM_SCOPE = "program:US"
 CUSTODY_STATUSES = ("local", "transferred", "purge_scheduled", "purged")
 OWNER_TYPES = ("district", "program")
 
 
 def program_scope_for_state(state_code: str) -> str:
-    return f"program:{(state_code or 'NY').upper()[:2]}"
+    code = (state_code or "NY").upper()[:2]
+    if code == "US":
+        return NATIONAL_PROGRAM_SCOPE
+    return f"program:{code}"
 
 
 def normalize_doc_scope(scope: str, *, default_state: str = "NY") -> str:
     """Map legacy ``program`` to a state-keyed program library scope."""
     if scope == PROGRAM_SCOPE:
         return program_scope_for_state(default_state)
+    if scope in ("program:US", "national", "US"):
+        return NATIONAL_PROGRAM_SCOPE
     return scope
 
 
 def is_program_scope(scope: str) -> bool:
     return scope == PROGRAM_SCOPE or scope.startswith("program:")
+
+
+def is_national_program_scope(scope: str) -> bool:
+    return scope == NATIONAL_PROGRAM_SCOPE
 
 
 def _uuid() -> str:
@@ -66,6 +76,7 @@ class DocFolder(Base):
     )
     name = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
+    audience = Column(String(32), nullable=False, default="all")
     sort_order = Column(Integer, nullable=False, default=0)
     is_system = Column(Boolean, nullable=False, default=False)
     created_by = Column(Integer, nullable=True)
@@ -347,6 +358,7 @@ def ensure_doc_studio_schema(engine) -> None:
         "CREATE INDEX IF NOT EXISTS ix_doc_documents_scope ON doc_documents (scope)",
         "CREATE INDEX IF NOT EXISTS ix_doc_documents_folder_id ON doc_documents (folder_id)",
         "CREATE INDEX IF NOT EXISTS ix_doc_documents_custody_status ON doc_documents (custody_status)",
+        "ALTER TABLE doc_folders ADD COLUMN IF NOT EXISTS audience VARCHAR(32) NOT NULL DEFAULT 'all'",
     ]
     table_ddl = [
         """

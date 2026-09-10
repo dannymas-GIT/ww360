@@ -32,6 +32,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -126,6 +133,24 @@ export default function DocumentStudioPage() {
   const canCustodyTransfer = !!accessQ.data?.can_custody_transfer;
   const scopeLabel = accessQ.data?.scope_label ?? 'Program library';
   const studioScope = accessQ.data?.scope ?? requestedScope ?? 'program';
+  const platformScope = accessQ.data?.platform_scope ?? undefined;
+  const nationalScope = accessQ.data?.national_scope ?? undefined;
+  const districtScope = accessQ.data?.district_scope ?? undefined;
+  const showLibrarySwitcher =
+    !!accessQ.data?.show_library_switcher &&
+    Boolean(nationalScope || (platformScope && districtScope) || (nationalScope && platformScope));
+
+  const switchLibrary = useCallback(
+    (nextScope: string) => {
+      const next = new URLSearchParams(params);
+      next.set('scope', nextScope);
+      next.delete('doc');
+      setParams(next, { replace: true });
+      setSelectedId(null);
+      setFolderSel(ALL_DOCS);
+    },
+    [params, setParams]
+  );
   const tourAudience = resolveStudioTourAudience({
     landingKind: resolveLandingKind(user),
     canAuthor: accessQ.isSuccess ? canAuthor : true,
@@ -708,7 +733,31 @@ export default function DocumentStudioPage() {
         description={hero.description}
         badges={
           <>
-            <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs text-slate-200 ring-1 ring-white/15">{scopeLabel}</span>
+            {showLibrarySwitcher ? (
+              <Select value={studioScope} onValueChange={switchLibrary}>
+                <SelectTrigger
+                  aria-label="Choose library"
+                  className="h-11 min-h-[44px] w-auto min-w-[14rem] border-white/20 bg-white/10 text-base text-white md:h-9 md:min-h-9"
+                >
+                  <SelectValue placeholder="Choose library" />
+                </SelectTrigger>
+                <SelectContent>
+                  {nationalScope ? (
+                    <SelectItem value={nationalScope}>National library (US)</SelectItem>
+                  ) : null}
+                  {platformScope ? (
+                    <SelectItem value={platformScope}>
+                      State program ({platformScope.replace('program:', '')})
+                    </SelectItem>
+                  ) : null}
+                  {districtScope ? (
+                    <SelectItem value={districtScope}>Utility ({districtScope})</SelectItem>
+                  ) : null}
+                </SelectContent>
+              </Select>
+            ) : (
+              <span className="rounded-full bg-white/10 px-2.5 py-1 text-sm text-slate-200 ring-1 ring-white/15">{scopeLabel}</span>
+            )}
             <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs text-slate-200 ring-1 ring-white/15">
               {totalCount} document{totalCount === 1 ? '' : 's'} · {folders.length} folder{folders.length === 1 ? '' : 's'}
             </span>

@@ -15,8 +15,17 @@ def _uuid() -> str:
     return str(uuid.uuid4())
 
 
+# Canonical national org for EPA / federal agency tier.
+NATIONAL_ORG_CODE = "US_PLATFORM"
+NATIONAL_STATE_CODE = "US"
+
+
 class WorkforceOrganization(Base):
-    """State or regional workforce program that may own document custody."""
+    """National, state, or regional workforce program in the jurisdiction hierarchy.
+
+    Hierarchy: National (US_PLATFORM) → State program (NY_OWW, …) → Utility (via
+    OrganizationDistrictMembership).
+    """
 
     __tablename__ = "workforce_organizations"
 
@@ -24,6 +33,12 @@ class WorkforceOrganization(Base):
     name = Column(String(255), nullable=False)
     org_type = Column(String(50), nullable=False, default="state_program")
     state_code = Column(String(2), nullable=False, default="NY", index=True)
+    parent_org_code = Column(
+        String(50),
+        ForeignKey("workforce_organizations.org_code", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     partner_label = Column(String(255), nullable=True)
     section_label = Column(String(255), nullable=True)
     logo_url = Column(String(500), nullable=True)
@@ -47,6 +62,11 @@ class WorkforceOrganization(Base):
         "OrganizationUserMembership",
         back_populates="organization",
         cascade="all, delete-orphan",
+    )
+    parent = relationship(
+        "WorkforceOrganization",
+        remote_side=[org_code],
+        foreign_keys=[parent_org_code],
     )
 
 
@@ -123,6 +143,7 @@ def ensure_workforce_organization_schema(engine) -> None:
         "ALTER TABLE workforce_organizations ADD COLUMN IF NOT EXISTS section_label VARCHAR(255)",
         "ALTER TABLE workforce_organizations ADD COLUMN IF NOT EXISTS logo_url VARCHAR(500)",
         "ALTER TABLE workforce_organizations ADD COLUMN IF NOT EXISTS content_pack_key VARCHAR(10) NOT NULL DEFAULT 'NY'",
+        "ALTER TABLE workforce_organizations ADD COLUMN IF NOT EXISTS parent_org_code VARCHAR(50)",
         """
         CREATE TABLE IF NOT EXISTS organization_user_memberships (
             id VARCHAR(36) PRIMARY KEY,
@@ -135,6 +156,7 @@ def ensure_workforce_organization_schema(engine) -> None:
         """,
         "CREATE INDEX IF NOT EXISTS ix_org_user_memberships_user_id ON organization_user_memberships(user_id)",
         "CREATE INDEX IF NOT EXISTS ix_org_user_memberships_org_code ON organization_user_memberships(org_code)",
+        "CREATE INDEX IF NOT EXISTS ix_workforce_organizations_parent ON workforce_organizations(parent_org_code)",
     ]
     with engine.begin() as conn:
         for stmt in statements:

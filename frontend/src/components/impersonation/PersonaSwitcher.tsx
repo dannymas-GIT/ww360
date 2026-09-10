@@ -21,12 +21,14 @@ const TIER_LABELS: Record<string, string> = {
 };
 
 const WALKTHROUGH_INTRO =
-  'You are a section partner — no home district. Use preview to see the same Monroe County Water Authority as three people who work together. Start with Superintendent, then Manager, then Operator. Exit preview anytime to return to your section home.';
+  'You are a section partner — no home district. Use preview to see Monroe County Water Authority as Superintendent, Manager, and Operator. Exit anytime to return to your section home.';
+
+const FULL_CATALOG_INTRO =
+  'Preview the app as a national observer, another state partner, or a utility role. Read-only preview is the default.';
 
 export const PersonaSwitcher: React.FC = () => {
   const { canUsePersonaSwitcher, canActAs, personas, personasLoading, loadPersonas, startPreview, startActAs } =
     useImpersonation();
-  const { isOwwPartner } = useAuth();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<'preview' | 'act'>('preview');
   const [reason, setReason] = useState('');
@@ -119,16 +121,13 @@ export const PersonaSwitcher: React.FC = () => {
       <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto text-base">
         <DialogHeader>
           <DialogTitle className="text-xl">
-            {isWalkthroughCatalog || isOwwPartner ? 'Utility roles walkthrough' : 'Preview a role'}
+            {isWalkthroughCatalog ? 'Utility roles walkthrough' : 'View as role'}
           </DialogTitle>
         </DialogHeader>
-        {isWalkthroughCatalog || (isOwwPartner && personas.length <= 3) ? (
+        {isWalkthroughCatalog ? (
           <p className="text-[1.125rem] leading-relaxed text-slate-600">{WALKTHROUGH_INTRO}</p>
         ) : (
-          <p className="text-[1.125rem] leading-relaxed text-slate-600">
-            See the app exactly as a utility operator, state partner, or national observer would.
-            Read-only preview is the default.
-          </p>
+          <p className="text-[1.125rem] leading-relaxed text-slate-600">{FULL_CATALOG_INTRO}</p>
         )}
         {canActAs && (
           <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">

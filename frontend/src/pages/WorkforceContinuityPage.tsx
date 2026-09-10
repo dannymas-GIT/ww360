@@ -14,7 +14,6 @@ import {
   ShieldCheck,
   Sparkles,
   Upload,
-  UserPlus,
   CircleHelp,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -724,7 +723,6 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
     isOwwPartner,
     isPlatformAdmin,
   } = useAuth();
-  const canManageUsers = hasAnyRole('district_admin', 'ceu_admin');
   const canAuthorWorkforceDocs = canManageWorkforce && !isPreviewMode;
   const isWorkforceOversight =
     !canManageWorkforce && !isWorkforceOperator && (isOwwPartner || isPlatformAdmin);
@@ -1278,16 +1276,6 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
                 <CircleHelp className="mr-1.5 h-4 w-4" />
                 Tour
               </Button>
-              {canManageUsers ? (
-                <Button
-                  variant="outline"
-                  className="min-h-[44px] text-[1rem]"
-                  onClick={() => navigate('/admin/users')}
-                >
-                  <UserPlus className="mr-1.5 h-4 w-4" />
-                  Add users
-                </Button>
-              ) : null}
               {canAuthorWorkforceDocs ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

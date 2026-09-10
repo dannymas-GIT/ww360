@@ -1393,7 +1393,7 @@ export default function OwwExecutiveDashboard() {
               ))
             ) : (
               <span className="rounded-md bg-slate-900 px-2 py-0.5 font-mono text-[11px] text-white">
-                platform_admin · oww_partner
+                state_admin · oww_partner
               </span>
             )}
           </div>

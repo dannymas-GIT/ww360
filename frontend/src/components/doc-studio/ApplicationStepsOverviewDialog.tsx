@@ -1,6 +1,6 @@
 /**
- * Avatar overview for “Record application steps” — full-frame player (optional).
- * Primary teaching path is ApplicationStepsTourOverlay (avatar PiP + step card).
+ * Full-frame avatar overview for Document Studio (optional).
+ * Primary path is ApplicationStepsTourOverlay (avatar PiP + benefit cards).
  */
 import { PlayCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -26,11 +26,11 @@ export function ApplicationStepsOverviewDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-[1.25rem] text-slate-900">
             <PlayCircle className="h-5 w-5 text-sky-600" aria-hidden />
-            Record application steps — full video
+            Document Studio — full video
           </DialogTitle>
           <DialogDescription className="text-[1.125rem] leading-relaxed text-slate-600">
             Full avatar overview. Prefer <strong className="font-semibold">Watch overview</strong> for
-            the step-by-step tour with highlights; this dialog plays the complete clip.
+            the benefit cards beside the clip; this dialog plays the video full-frame.
           </DialogDescription>
         </DialogHeader>
         <div

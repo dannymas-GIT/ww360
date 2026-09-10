@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+/** National → State jurisdiction switcher (utility scope stays on the signed-in district). */
 export const StateSwitcher: React.FC = () => {
   const { user, isPlatformAdmin, userRoles } = useAuth();
   const { activeState, switchState } = useJurisdiction();
@@ -40,9 +41,10 @@ export const StateSwitcher: React.FC = () => {
 
   return (
     <div className="px-3 pb-2">
-      <label className="text-[10px] uppercase tracking-wider text-slate-400 block mb-1">
-        Primacy state
+      <label className="mb-1 block text-sm uppercase tracking-wider text-slate-400">
+        Jurisdiction
       </label>
+      <p className="mb-1.5 text-sm text-slate-500">National → State → Utility</p>
       <Select
         value={activeState}
         disabled={busy}
@@ -58,13 +60,13 @@ export const StateSwitcher: React.FC = () => {
             .finally(() => setBusy(false));
         }}
       >
-        <SelectTrigger className="h-9 bg-white/5 border-white/10 text-white text-xs">
-          <SelectValue placeholder="State" />
+        <SelectTrigger className="h-11 min-h-[44px] border-white/10 bg-white/5 text-base text-white">
+          <SelectValue placeholder="Jurisdiction" />
         </SelectTrigger>
         <SelectContent>
           {options.map(s => (
-            <SelectItem key={s} value={s}>
-              {s === 'US' ? 'United States' : s}
+            <SelectItem key={s} value={s} className="text-base">
+              {s === 'US' ? 'National (United States)' : `State · ${s}`}
             </SelectItem>
           ))}
         </SelectContent>

@@ -26,6 +26,8 @@ interface AuthContextValue {
   isDistrictUser: boolean;
   isDistrictManager: boolean;
   canManageWorkforce: boolean;
+  /** National / State / Utility admins who may open Users & access */
+  canManageUsers: boolean;
   actingDistrictCode: string | null;
   login: (username: string, password: string) => Promise<void>;
   applySessionUser: (user: WW360User) => void;
@@ -114,7 +116,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         'ceu_user',
         'district_viewer'
       ),
-      isDistrictManager: hasAnyRole('district_admin', 'district_manager', 'ceu_manager', 'workforce_manager'),
+      isDistrictManager: hasAnyRole('district_admin', 'district_manager', 'ceu_manager', 'workforce_manager', 'ceu_admin'),
       canManageWorkforce: hasAnyRole(
         'district_admin',
         'admin',
@@ -123,6 +125,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         'district_manager',
         'ceu_manager'
       ),
+      canManageUsers:
+        isPlatformAdmin ||
+        isStateAdmin ||
+        hasAnyRole(
+          'district_admin',
+          'district_manager',
+          'ceu_admin',
+          'ceu_manager',
+          'workforce_manager',
+          'admin'
+        ),
       actingDistrictCode: user?.districts?.[0] ?? null,
       login,
       applySessionUser,

@@ -7,6 +7,7 @@ from app.api.v1.endpoints import (
     admin_users,
     auth,
     digital_analytics,
+    district_users,
     districts,
     doc_studio,
     impersonation,
@@ -46,6 +47,10 @@ api_router.include_router(
 api_router.include_router(
     districts.router,
     tags=["districts"],
+)
+api_router.include_router(
+    district_users.router,
+    tags=["district-users"],
 )
 api_router.include_router(
     tenant.router,

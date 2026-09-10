@@ -1,0 +1,55 @@
+---
+description: AquaSafe-standard user & role management UX for WW360 and new SaaS apps
+alwaysApply: true
+---
+
+# AquaSafe-standard user & role management
+
+New SaaS apps and WW360 admin surfaces follow the **AquaSafe user-management UX pattern** at the **WW360 accessible type scale** (body `text-lg`, UI min `text-base`, captions floor `text-sm`, touch targets ≥44px).
+
+## Required UX patterns
+
+1. **Page hero** — Use site `Ww360PageHero` (dark navy + sky accents), not a bright blue/indigo AquaSafe marketing banner. Same structure: title, supporting sentence, optional hierarchy badge, optional CTA.
+2. **Toolbar** — search left; primary **Add User** (solid) right when create is supported; utility/district selector when multi-tenant.
+3. **Card + HTML table** — title shows count `Users (N)`; subtitle shows Filtered vs All users.
+4. **Row content** — avatar initials, role **chips** (color-coded), status pill (Active/Inactive).
+5. **Icon action strip** — Eye (details), Edit, Shield (roles), recording grant, Lock/Unlock (deactivate), **Key (reset password)** when local passwords exist.
+6. **Create/edit dialogs** — bordered role **checkboxes**, not tiny toggle pills.
+7. **Underline tabs** — **Users** | **Roles & permissions** on the same page (sky accent underline).
+
+**Parity:** Platform accounts (`/admin/users`) must use the same layout patterns as utility Users & access (`/district/users`).
+
+## Profile area (required whenever the app has user accounts)
+
+Any SaaS app with signed-in users / user management **must** ship a first-class **Profile** surface (AquaSafe pattern), not only admin user tables.
+
+1. **Route** — `/profile` (or app-equivalent), reachable without Kitchen Sink.
+2. **Nav** — Account action in the shell (under display name / next to Sign out). Mobile menu includes Profile.
+3. **Account section** — Show name, username, email, roles, and tenant/org/district context the user needs to understand their access.
+4. **Self-service password** — Current + new + confirm; AuthZ as the signed-in user; reject while impersonating/previewing as someone else.
+5. **Admin reset** — Platform/tenant admins can reset another user's password from Users & access (audited). Self-service does not replace admin reset.
+6. **Deep link** — Support `#password` (or equivalent) to scroll to the password form.
+7. **Type scale** — WW360 accessible type (body `text-lg`, controls ≥ `text-base`, captions ≥ `text-sm`, touch ≥44px).
+
+**Reference:** AquaSafe Profile (`/profile`, account + password); WW360 `ProfilePage` + `POST /api/v1/auth/change-password` + admin `POST /api/v1/admin/users/{id}/reset-password`.
+
+## Role definition area
+
+- **System vs custom:** National and State tiers are **locked** (lock icon, read-only cards). Utility managers fine-tune utility-tier roles only.
+- **Hierarchy:** National → State → Utility. Do not let utility admins invent national/state roles in UI or API.
+- **Utility fine-tune:** Category-grouped list (Administration, Workforce, CEU, Operator) with enable/disable toggles and **Select all** per category.
+- **Reference implementation:** WW360 `/district/users` + role catalog API (`role_catalog_service.py`).
+
+## Navigation
+
+- All admin functions live under an **Administration** nav group — not under Today/dashboard.
+- **Users & access** → `/district/users` for any admin-capable role (even without Kitchen Sink).
+- Platform admins also get Platform accounts, Jurisdictions, PWSID links, Settings in the same group.
+- **Profile** is personal account management — keep it outside Administration.
+
+## Do not
+
+- Ship user management as a dashboard hero CTA only — Administration nav is the entry point.
+- Ship accounts without a Profile / self-service password path when local passwords exist.
+- Use AquaSafe's smaller text sizes; apply WW360 type scale instead.
+- Hide admin features with UI-only checks — enforce AuthZ on every mutating API (see `security-by-default.mdc`).

@@ -104,6 +104,17 @@ export async function fetchMe(): Promise<WW360User> {
   return data;
 }
 
+export async function changePassword(body: {
+  current_password: string;
+  new_password: string;
+  confirm_password: string;
+}): Promise<{ ok: boolean; message: string }> {
+  const { data } = await axios.post(`${API_BASE_URL}/auth/change-password`, body, {
+    headers: getAuthHeader(),
+  });
+  return data;
+}
+
 export function logout() {
   clearWw360TourStorage();
   localStorage.removeItem(AUTH_TOKEN_KEY);

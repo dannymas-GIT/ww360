@@ -2,10 +2,12 @@
  * Script-driven Application Steps tour — voiceover from Mission Control slot
  * `application-steps` (see workspace docs/tour-video-scripts/ww360-application-steps.md).
  *
- * Each slide maps to a spoken cue in application-steps-sample.vtt and a UI highlight.
+ * Current MP4 is HeyGen AI Studio `ww360-document-studio`
+ * (`2497c7dd361b4e008199f273f7cf18e6`). Cue times stay aligned to slides while
+ * the clip plays; update cues when a new script lands.
  *
  * Avatar A/B: set `localStorage.ww360-application-steps-avatar = 'dmas' | 'abigail'`
- * (default `dmas` when the watermarked dmas sample is deployed).
+ * (default `dmas` when the Studio dmas sample is deployed).
  */
 import type { Ww360TourSlide } from '@/components/ww360/Ww360TourOverlay';
 
@@ -18,9 +20,13 @@ export const APPLICATION_STEPS_AVATAR_KEY = 'ww360-application-steps-avatar';
 export const APPLICATION_STEPS_SAMPLE_ABIGAIL_SRC = '/tutorials/application-steps-sample.mp4';
 export const APPLICATION_STEPS_SAMPLE_ABIGAIL_CAPTIONS = '/tutorials/application-steps-sample.vtt';
 
-/** Watermarked Instant Avatar look `Professional in beige blazer` + voice `dmas`. */
-export const APPLICATION_STEPS_SAMPLE_DMAS_SRC = '/tutorials/application-steps-sample-dmas.mp4';
+/** HeyGen AI Studio clip — Document Studio overview (polo). */
+export const APPLICATION_STEPS_SAMPLE_DMAS_SRC =
+  '/tutorials/application-steps-sample-dmas.mp4?v=2497c7dd';
 export const APPLICATION_STEPS_SAMPLE_DMAS_CAPTIONS = '/tutorials/application-steps-sample-dmas.vtt';
+
+/** HeyGen video id currently published for the dmas sample. */
+export const APPLICATION_STEPS_HEYGEN_VIDEO_ID = '2497c7dd361b4e008199f273f7cf18e6';
 
 export type ApplicationStepsAvatarChoice = 'dmas' | 'abigail';
 
@@ -48,8 +54,8 @@ export function applicationStepsMediaFor(
   return {
     src: APPLICATION_STEPS_SAMPLE_DMAS_SRC,
     captions: APPLICATION_STEPS_SAMPLE_DMAS_CAPTIONS,
-    label: 'dmas — beige blazer (watermarked WIP)',
-    watermarked: true,
+    label: 'Document Studio overview',
+    watermarked: false,
   };
 }
 

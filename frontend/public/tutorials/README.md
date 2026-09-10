@@ -2,8 +2,9 @@
 
 | File | Purpose |
 |------|---------|
-| `application-steps-sample-dmas.mp4` | **Watermarked WIP** — Instant Avatar look **Professional in beige blazer** (`10cf2af0…`) + voice `dmas`. Default Application Steps tour avatar. |
-| `application-steps-sample-dmas.vtt` | Captions for the dmas beige-blazer sample |
+| `application-steps-sample-dmas.mp4` | **Default** — HeyGen AI Studio Document Studio overview (`2497c7dd…`, ~29s). |
+| `application-steps-sample-dmas.vtt` | Captions for the Studio overview |
+| `application-steps-heygen.json` | Provenance (HeyGen video / project ids) |
 | `application-steps-sample.mp4` | Prior watermarked Abigail catalog sample (fallback A/B) |
 | `application-steps-sample.vtt` | Captions for Abigail |
 

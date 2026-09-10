@@ -16,6 +16,7 @@ import SdwisLandscapePage from '@/pages/sdwis/SdwisLandscapePage';
 import SdwisWatchlistPage from '@/pages/sdwis/SdwisWatchlistPage';
 import SdwisLookupPage from '@/pages/sdwis/SdwisLookupPage';
 import SdwisCompliancePage from '@/pages/sdwis/SdwisCompliancePage';
+import SdwisAnalysisPage from '@/pages/sdwis/SdwisAnalysisPage';
 import AdminPwsidLinksPage from '@/pages/admin/AdminPwsidLinksPage';
 import AdminUsersPage from '@/pages/admin/AdminUsersPage';
 import AdminSettingsPage from '@/pages/admin/AdminSettingsPage';
@@ -103,6 +104,7 @@ export default function App() {
         <Route path="/water-systems/watchlist" element={<SdwisWatchlistPage />} />
         <Route path="/water-systems/lookup" element={<SdwisLookupPage />} />
         <Route path="/water-systems/compliance" element={<SdwisCompliancePage />} />
+        <Route path="/water-systems/analysis" element={<SdwisAnalysisPage />} />
         <Route
           path="/studio"
           element={

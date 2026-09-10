@@ -1,0 +1,26 @@
+# EPA DWSRF FY2026 allotments (curated from EPA allotment tables, April 2026)
+fiscal_year: FY2026
+source_url: https://www.epa.gov/dwsrf/fy-2026-allotments-tables
+states:
+  NY:
+    dwsrf_total: 116282000
+    base: 404699000
+    iija_general: 116282000
+  NJ:
+    dwsrf_total: 46890000
+  CA:
+    dwsrf_total: 387650000
+  TX:
+    dwsrf_total: 175000000
+  PA:
+    dwsrf_total: 82105000
+  FL:
+    dwsrf_total: 97888000
+  OH:
+    dwsrf_total: 65340000
+  MI:
+    dwsrf_total: 58120000
+  IL:
+    dwsrf_total: 71230000
+  GA:
+    dwsrf_total: 52450000

@@ -2,6 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 import {
   BarChart3,
   BookOpen,
+  Briefcase,
   ClipboardList,
   Droplets,
   GraduationCap,
@@ -15,6 +16,7 @@ import {
   Users,
   Workflow,
 } from 'lucide-react';
+import type { WorkspaceProfile } from '@/utils/workspaceProfile';
 
 export interface NavItem {
   label: string;
@@ -38,6 +40,14 @@ export const ww360NavGroups: NavGroup[] = [
     items: [{ label: 'Executive overview', path: '/dashboard', icon: LayoutDashboard }],
   },
   {
+    id: 'national',
+    label: 'National',
+    items: [
+      { label: 'US overview', path: '/national', icon: Globe },
+      { label: 'State scorecards', path: '/national', icon: Map },
+    ],
+  },
+  {
     id: 'water-systems',
     label: 'Water Systems',
     items: [
@@ -54,6 +64,11 @@ export const ww360NavGroups: NavGroup[] = [
       { label: 'Continuity workspace', path: '/continuity', icon: Workflow },
       { label: 'Regional risk', path: '/dashboard', icon: BarChart3, hash: 'regions' },
     ],
+  },
+  {
+    id: 'careers',
+    label: 'Careers',
+    items: [{ label: 'Job openings', path: '/jobs', icon: Briefcase }],
   },
   {
     id: 'learning',
@@ -104,11 +119,26 @@ export function navItemTo(item: NavItem): string {
   return `${item.path}${q}${hash}`;
 }
 
-export function navGroupsForRoles(roles: string[], districts: string[] = []): NavGroup[] {
+export function navGroupsForRoles(
+  roles: string[],
+  districts: string[] = [],
+  options?: { kitchenSink?: boolean; workspaceProfile?: WorkspaceProfile }
+): NavGroup[] {
+  const kitchenSink = options?.kitchenSink ?? false;
+  const profile = options?.workspaceProfile ?? 'state_partner';
+  const full = navGroupsForRolesFull(roles, districts);
+  if (kitchenSink) return full;
+  return navGroupsSimplified(profile, roles, districts, full);
+}
+
+function navGroupsForRolesFull(roles: string[], districts: string[] = []): NavGroup[] {
   const r = new Set(roles);
   const hasDistrict = districts.some(Boolean);
   const isExecOnly =
-    (r.has('platform_admin') || r.has('oww_partner') || r.has('state_admin')) &&
+    (r.has('platform_admin') ||
+      r.has('oww_partner') ||
+      r.has('state_admin') ||
+      r.has('national_observer')) &&
     !hasDistrict &&
     !r.has('district_admin') &&
     !r.has('district_manager') &&
@@ -127,7 +157,13 @@ export function navGroupsForRoles(roles: string[], districts: string[] = []): Na
     !isDistrictManager;
 
   if (isExecOnly) {
-    return ww360NavGroups;
+    const groups = [...ww360NavGroups];
+    const isNational =
+      r.has('platform_admin') || r.has('national_observer') || r.has('global_admin');
+    if (!isNational) {
+      return groups.filter(g => g.id !== 'national');
+    }
+    return groups;
   }
 
   if (isOperator || (hasDistrict && isOperator)) {
@@ -136,6 +172,11 @@ export function navGroupsForRoles(roles: string[], districts: string[] = []): Na
         id: 'today',
         label: 'Home',
         items: [{ label: 'My dashboard', path: '/dashboard', icon: LayoutDashboard }],
+      },
+      {
+        id: 'careers',
+        label: 'Careers',
+        items: [{ label: 'Job openings', path: '/jobs', icon: Briefcase }],
       },
       {
         id: 'learning',
@@ -187,6 +228,11 @@ export function navGroupsForRoles(roles: string[], districts: string[] = []): Na
       ],
     },
     {
+      id: 'careers',
+      label: 'Careers',
+      items: [{ label: 'Job openings', path: '/jobs', icon: Briefcase }],
+    },
+    {
       id: 'learning',
       label: 'Learning',
       items: [
@@ -210,4 +256,86 @@ export function navGroupsForRoles(roles: string[], districts: string[] = []): Na
       items: [{ label: 'Document Studio', path: '/studio', icon: PenSquare }],
     },
   ];
+}
+
+function navGroupsSimplified(
+  profile: WorkspaceProfile,
+  roles: string[],
+  districts: string[],
+  fullNav: NavGroup[]
+): NavGroup[] {
+  const studioGroup = fullNav.find(g => g.id === 'content') ?? {
+    id: 'content',
+    label: 'Content',
+    items: [{ label: 'Document Studio', path: '/studio', icon: PenSquare }],
+  };
+
+  const todayLabel =
+    profile === 'utility'
+      ? districts.length
+        ? 'District dashboard'
+        : 'My dashboard'
+      : profile === 'national' || profile === 'regional'
+        ? 'US overview'
+        : 'Executive overview';
+
+  const todayPath =
+    profile === 'national' || profile === 'regional' ? '/national' : '/dashboard';
+
+  const today: NavGroup = {
+    id: 'today',
+    label: 'Today',
+    items: [{ label: todayLabel, path: todayPath, icon: LayoutDashboard }],
+  };
+
+  const careersGroup: NavGroup = {
+    id: 'careers',
+    label: 'Careers',
+    items: [{ label: 'Job openings', path: '/jobs', icon: Briefcase }],
+  };
+
+  const extras: NavGroup[] = [];
+
+  if (profile === 'national' || profile === 'regional') {
+    extras.push({
+      id: 'national',
+      label: 'National',
+      items: [{ label: 'State scorecards', path: '/national', icon: Map }],
+    });
+  }
+
+  if (profile === 'state_partner' || profile === 'regulator') {
+    extras.push({
+      id: 'water-systems',
+      label: 'Water Systems',
+      items: [{ label: 'Landscape', path: '/water-systems', icon: Droplets }],
+    });
+    extras.push({
+      id: 'workforce',
+      label: 'Workforce',
+      items: [{ label: 'Continuity workspace', path: '/continuity', icon: Workflow }],
+    });
+  }
+
+  if (profile === 'utility') {
+    extras.push({
+      id: 'workforce',
+      label: 'Workforce',
+      items: [{ label: 'Continuity workspace', path: '/continuity', icon: Workflow }],
+    });
+    extras.push({
+      id: 'learning',
+      label: 'Learning',
+      items: [
+        {
+          label: 'CEU & renewals',
+          path: '/continuity/ceu-training',
+          icon: GraduationCap,
+          search: 'tab=ceu',
+        },
+      ],
+    });
+  }
+
+  return [today, ...extras, careersGroup, studioGroup];
 }

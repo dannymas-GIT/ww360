@@ -26,10 +26,14 @@ def main() -> None:
             )
             db.add(district)
 
-        user = db.query(User).filter(User.username == "jingrao-aman-OWW").one_or_none()
+        user = (
+            db.query(User)
+            .filter(User.username.in_(["jenny-oww", "jingrao-aman-OWW"]))
+            .one_or_none()
+        )
         if not user:
             user = User(
-                username="jingrao-aman-OWW",
+                username="jenny-oww",
                 email="jingrao@onewaterworkforce.org",
                 full_name="Jenny Ingrao",
                 roles=["platform_admin", "oww_partner"],
@@ -38,12 +42,13 @@ def main() -> None:
             user.set_password(password)
             db.add(user)
         else:
+            user.username = "jenny-oww"
             user.roles = ["platform_admin", "oww_partner"]
             if password and password != "ChangeMe-WW360!":
                 user.hashed_password = get_password_hash(password)
 
         db.commit()
-        print("Seeded jingrao-aman-OWW with platform_admin + oww_partner")
+        print("Seeded jenny-oww with platform_admin + oww_partner")
     finally:
         db.close()
 

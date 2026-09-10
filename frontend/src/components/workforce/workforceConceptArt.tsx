@@ -226,3 +226,107 @@ export function ConceptArtForEntity({
   const Art = ENTITY_ART[entityType];
   return <Art className={className} />;
 }
+
+export function BinderWelcomeArt({ className = 'h-32 w-44' }: ConceptArtProps) {
+  return (
+    <SvgFrame className={className}>
+      <rect x="8" y="8" width="124" height="84" rx="10" fill="#f0f9ff" stroke="#7dd3fc" />
+      <rect x="24" y="22" width="92" height="12" rx="4" fill="#0284c7" />
+      <rect x="24" y="40" width="72" height="8" rx="2" fill="#bae6fd" />
+      <rect x="24" y="52" width="88" height="8" rx="2" fill="#bae6fd" />
+      <rect x="24" y="64" width="56" height="8" rx="2" fill="#bae6fd" />
+      <rect x="88" y="72" width="28" height="10" rx="4" fill="#0ea5e9" />
+    </SvgFrame>
+  );
+}
+
+export function BinderProfileArt({ className = 'h-32 w-44' }: ConceptArtProps) {
+  return (
+    <SvgFrame className={className}>
+      <rect x="8" y="12" width="124" height="76" rx="8" fill="#eff6ff" stroke="#93c5fd" />
+      <circle cx="40" cy="38" r="14" fill="#2563eb" />
+      <rect x="62" y="28" width="58" height="8" rx="2" fill="#93c5fd" />
+      <rect x="62" y="42" width="48" height="8" rx="2" fill="#dbeafe" />
+      <rect x="20" y="62" width="100" height="18" rx="4" fill="#fff" stroke="#93c5fd" />
+    </SvgFrame>
+  );
+}
+
+export function BinderOperationsArt({ className = 'h-32 w-44' }: ConceptArtProps) {
+  return (
+    <SvgFrame className={className}>
+      <rect x="8" y="12" width="124" height="76" rx="8" fill="#f0fdf4" stroke="#86efac" />
+      <rect x="20" y="24" width="36" height="28" rx="4" fill="#fff" stroke="#4ade80" />
+      <rect x="62" y="24" width="36" height="28" rx="4" fill="#fff" stroke="#4ade80" />
+      <rect x="104" y="24" width="16" height="28" rx="4" fill="#bbf7d0" />
+      <path d="M38 52 L38 68 M70 52 L70 68" stroke="#22c55e" strokeWidth="2" />
+      <rect x="24" y="72" width="92" height="8" rx="2" fill="#dcfce7" />
+    </SvgFrame>
+  );
+}
+
+export function BinderCriticalRolesArt({ className = 'h-32 w-44' }: ConceptArtProps) {
+  return <CoverageArt className={className} />;
+}
+
+export function BinderRetirementArt({ className = 'h-32 w-44' }: ConceptArtProps) {
+  return <MilestonesArt className={className} />;
+}
+
+export function BinderBenchArt({ className = 'h-32 w-44' }: ConceptArtProps) {
+  return <SuccessionArt className={className} />;
+}
+
+export function BinderKnowledgeArt({ className = 'h-32 w-44' }: ConceptArtProps) {
+  return <KnowledgeArt className={className} />;
+}
+
+export function BinderReviewArt({ className = 'h-32 w-44' }: ConceptArtProps) {
+  return (
+    <SvgFrame className={className}>
+      <rect x="8" y="12" width="124" height="76" rx="8" fill="#eef2ff" stroke="#a5b4fc" />
+      <path
+        d="M32 48 L52 68 L108 32"
+        fill="none"
+        stroke="#4f46e5"
+        strokeWidth="4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <rect x="20" y="22" width="48" height="6" rx="2" fill="#c7d2fe" />
+      <rect x="20" y="76" width="80" height="6" rx="2" fill="#c7d2fe" />
+    </SvgFrame>
+  );
+}
+
+export type BinderIntakeArtId =
+  | 'welcome'
+  | 'utility_profile'
+  | 'operations_snapshot'
+  | 'critical_roles'
+  | 'retirement_risk'
+  | 'succession_bench'
+  | 'knowledge_transfer'
+  | 'review';
+
+const BINDER_INTAKE_ART: Record<BinderIntakeArtId, (props: ConceptArtProps) => ReactNode> = {
+  welcome: BinderWelcomeArt,
+  utility_profile: BinderProfileArt,
+  operations_snapshot: BinderOperationsArt,
+  critical_roles: BinderCriticalRolesArt,
+  retirement_risk: BinderRetirementArt,
+  succession_bench: BinderBenchArt,
+  knowledge_transfer: BinderKnowledgeArt,
+  review: BinderReviewArt,
+};
+
+export function ConceptArtForBinderStep({
+  stepId,
+  className,
+}: {
+  stepId: BinderIntakeArtId;
+  className?: string;
+}) {
+  const Art = BINDER_INTAKE_ART[stepId];
+  return <Art className={className} />;
+}

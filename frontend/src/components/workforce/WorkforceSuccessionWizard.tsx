@@ -324,11 +324,14 @@ export const WorkforceSuccessionWizard: React.FC<WorkforceSuccessionWizardProps>
               onClick={async () => {
                 setGeneratingPack(true);
                 try {
-                  const docs = await generateWorkforceDocumentationPack(districtCode);
-                  setGeneratedPackCount(docs.length);
+                  const result = await generateWorkforceDocumentationPack(districtCode, {
+                    pack_type: 'succession_binder',
+                    use_live_data: true,
+                  });
+                  setGeneratedPackCount(result.document_count);
                   toast({
-                    title: 'Documentation pack ready',
-                    description: `${docs.length} document(s) in Document Studio → Workforce Continuity`,
+                    title: 'Succession Binder ready',
+                    description: `${result.document_count} document(s) in Document Studio → Workforce & succession`,
                   });
                 } catch (e) {
                   toast({

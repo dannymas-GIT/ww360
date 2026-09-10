@@ -14,6 +14,15 @@ export interface OrgMembership {
   content_pack_key?: string | null;
 }
 
+export interface ImpersonationInfo {
+  active: boolean;
+  mode?: string | null;
+  persona_key?: string | null;
+  target_username?: string | null;
+  session_id?: string | null;
+  expires_at?: string | null;
+}
+
 export interface WW360User {
   id: number;
   username: string;
@@ -25,6 +34,7 @@ export interface WW360User {
   active_org_code?: string | null;
   is_national_admin?: boolean;
   orgs?: OrgMembership[];
+  impersonation?: ImpersonationInfo | null;
 }
 
 export function getStoredToken(): string | null {

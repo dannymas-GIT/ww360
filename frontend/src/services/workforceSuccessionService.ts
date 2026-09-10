@@ -113,6 +113,9 @@ export interface WorkforceContinuityResponse {
   cert_cliff: CertificationCliffEntry[];
   retirement_horizon: RetirementHorizonEntry[];
   upcoming_milestones: TransitionMilestoneSummary[];
+  data_mode?: 'live' | 'sample';
+  sample_notice?: string | null;
+  sample_reason?: string | null;
 }
 
 export interface ImportRowIssue {
@@ -1053,13 +1056,194 @@ export interface GeneratedDocStudioDocument {
   folder_id?: string | null;
 }
 
-export async function generateWorkforceDocumentationPack(
+export type WorkforceBinderProfile = 'small_system' | 'multi_plant' | 'district_trainees';
+export type WorkforceDocPackType = 'succession_binder' | 'ceu_tracker_pack';
+
+export interface GenerateWorkforceDocPackRequest {
+  pack_type?: WorkforceDocPackType;
+  profile?: WorkforceBinderProfile;
+  contact_name?: string;
+  contact_email?: string;
+  use_live_data?: boolean;
+}
+
+export interface WorkforceDocPackResponse {
+  pack_type: WorkforceDocPackType;
+  profile?: WorkforceBinderProfile | null;
+  folder_id: string;
+  cover_document_id?: string | null;
+  document_count: number;
+  documents: GeneratedDocStudioDocument[];
+}
+
+export async function fetchWorkforceBinder(
   districtCode: string
-): Promise<GeneratedDocStudioDocument[]> {
-  const { data } = await axios.post<GeneratedDocStudioDocument[]>(
-    `${base}/districts/${encodeURIComponent(districtCode)}/generate-documentation-pack`,
-    {},
+): Promise<WorkforceDocPackResponse | null> {
+  const { data } = await axios.get<WorkforceDocPackResponse | null>(
+    `${base}/districts/${encodeURIComponent(districtCode)}/workforce-binder`,
     { params: { district_code: districtCode }, headers: jsonHeaders() }
+  );
+  return data;
+}
+
+export async function generateWorkforceDocumentationPack(
+  districtCode: string,
+  body: GenerateWorkforceDocPackRequest = {}
+): Promise<WorkforceDocPackResponse> {
+  const { data } = await axios.post<WorkforceDocPackResponse>(
+    `${base}/districts/${encodeURIComponent(districtCode)}/generate-documentation-pack`,
+    body,
+    { params: { district_code: districtCode }, headers: jsonHeaders() }
+  );
+  return data;
+}
+
+export type BinderIntakeStepId =
+  | 'welcome'
+  | 'utility_profile'
+  | 'operations_snapshot'
+  | 'critical_roles'
+  | 'retirement_risk'
+  | 'succession_bench'
+  | 'knowledge_transfer'
+  | 'review';
+
+export interface BinderCriticalRoleRow {
+  role_name: string;
+  primary_name: string;
+  backup_name: string;
+  notes?: string;
+}
+
+export interface BinderRetirementRow {
+  employee_name: string;
+  position: string;
+  timeline: string;
+  notes?: string;
+}
+
+export interface BinderSuccessionRow {
+  candidate_name: string;
+  target_role: string;
+  readiness: string;
+  target_date: string;
+  notes?: string;
+}
+
+export interface BinderKnowledgeRow {
+  title: string;
+  item_type: string;
+  status: string;
+  notes?: string;
+}
+
+export interface BinderIntakeAnswers {
+  profile: WorkforceBinderProfile;
+  contact_name: string;
+  contact_email: string;
+  use_live_data: boolean;
+  plant_count: number;
+  largest_gaps: string[];
+  gap_notes: string;
+  critical_roles: BinderCriticalRoleRow[];
+  use_continuity_coverage: boolean;
+  retirement_notes: string;
+  use_continuity_retirement: boolean;
+  retirement_entries: BinderRetirementRow[];
+  succession_candidates: BinderSuccessionRow[];
+  use_continuity_bench: boolean;
+  knowledge_items: BinderKnowledgeRow[];
+}
+
+export interface WorkforceBinderIntakeSession {
+  id: number;
+  district_code: string;
+  created_by_user_id?: number | null;
+  current_step: BinderIntakeStepId;
+  completed_steps: string[];
+  status: 'draft' | 'completed' | 'abandoned';
+  answers: BinderIntakeAnswers;
+  binder_folder_id?: string | null;
+  last_saved_at: string;
+  completed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const DEFAULT_BINDER_INTAKE_ANSWERS: BinderIntakeAnswers = {
+  profile: 'small_system',
+  contact_name: '',
+  contact_email: '',
+  use_live_data: true,
+  plant_count: 1,
+  largest_gaps: [],
+  gap_notes: '',
+  critical_roles: [],
+  use_continuity_coverage: true,
+  retirement_notes: '',
+  use_continuity_retirement: true,
+  retirement_entries: [],
+  succession_candidates: [],
+  use_continuity_bench: true,
+  knowledge_items: [],
+};
+
+export async function fetchBinderIntake(
+  districtCode: string
+): Promise<WorkforceBinderIntakeSession | null> {
+  const { data } = await axios.get<WorkforceBinderIntakeSession | null>(
+    `${base}/binder-intake`,
+    { params: { district_code: districtCode }, headers: jsonHeaders() }
+  );
+  return data;
+}
+
+export async function ensureBinderIntake(districtCode: string): Promise<{
+  session: WorkforceBinderIntakeSession;
+  created: boolean;
+}> {
+  const { data } = await axios.post<{ session: WorkforceBinderIntakeSession; created: boolean }>(
+    `${base}/binder-intake`,
+    { district_code: districtCode },
+    { headers: jsonHeaders() }
+  );
+  return data;
+}
+
+export async function patchBinderIntake(
+  sessionId: number,
+  body: {
+    answers?: Partial<BinderIntakeAnswers>;
+    current_step?: BinderIntakeStepId;
+    completed_steps?: string[];
+  }
+): Promise<WorkforceBinderIntakeSession> {
+  const { data } = await axios.patch<WorkforceBinderIntakeSession>(
+    `${base}/binder-intake/${sessionId}`,
+    body,
+    { headers: jsonHeaders() }
+  );
+  return data;
+}
+
+export async function completeBinderIntake(sessionId: number): Promise<{
+  session: WorkforceBinderIntakeSession;
+  pack: WorkforceDocPackResponse;
+}> {
+  const { data } = await axios.post<{
+    session: WorkforceBinderIntakeSession;
+    pack: WorkforceDocPackResponse;
+  }>(`${base}/binder-intake/${sessionId}/complete`, {}, { headers: jsonHeaders() });
+  return data;
+}
+
+export async function abandonBinderIntake(
+  sessionId: number
+): Promise<WorkforceBinderIntakeSession> {
+  const { data } = await axios.post<WorkforceBinderIntakeSession>(
+    `${base}/binder-intake/${sessionId}/abandon`,
+    {},
+    { headers: jsonHeaders() }
   );
   return data;
 }

@@ -10,7 +10,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer, OAuth2Pas
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.db.database import get_db
+from app.db.database import SessionLocal, get_db
 from app.tenant_auth import TenantAuthService, TenantContext
 
 logger = logging.getLogger(__name__)
@@ -18,6 +18,13 @@ logger = logging.getLogger(__name__)
 reusable_oauth2 = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
 tenant_bearer = HTTPBearer()
 tenant_bearer_optional = HTTPBearer(auto_error=False)
+
+IMPERSONATION_WRITE_ALLOWLIST = {
+    ("POST", "/api/v1/impersonation/stop"),
+    ("POST", "/api/v1/auth/active-state"),
+    ("GET", "/api/v1/auth/me"),
+    ("GET", "/api/v1/impersonation/personas"),
+}
 
 _tenant_auth_service: Optional[TenantAuthService] = None
 
@@ -46,12 +53,57 @@ async def _resolve_context(
 
 
 async def get_current_tenant_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(tenant_bearer),
     x_ww360_state: str | None = Header(None, alias="X-WW360-State"),
     state: str | None = Query(None, description="Active primacy state override"),
 ) -> TenantContext:
     requested = (x_ww360_state or state or "").strip().upper()[:2] or None
-    return await _resolve_context(credentials.credentials, requested_state=requested)
+    context = await _resolve_context(credentials.credentials, requested_state=requested)
+    _enforce_impersonation_read_only(request, context)
+    return context
+
+
+def _enforce_impersonation_read_only(request: Request, context: TenantContext) -> None:
+    if not context.is_impersonating or context.impersonation_mode != "preview":
+        return
+    method = request.method.upper()
+    if method in ("GET", "HEAD", "OPTIONS"):
+        return
+    path = request.url.path.rstrip("/") or "/"
+    key = (method, path)
+    if key in IMPERSONATION_WRITE_ALLOWLIST:
+        return
+    # Allow stop with trailing slash variants
+    if method == "POST" and path.endswith("/impersonation/stop"):
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="IMPERSONATION_READ_ONLY",
+    )
+
+
+def log_impersonation_request(context: TenantContext, request: Request, status_code: int) -> None:
+    if not context.is_impersonating or not context.impersonation_session_id:
+        return
+    if context.impersonation_mode != "act":
+        return
+    try:
+        from app.services.impersonation_service import log_impersonation_event
+
+        db = SessionLocal()
+        try:
+            log_impersonation_event(
+                db,
+                session_id=context.impersonation_session_id,
+                method=request.method,
+                path=request.url.path,
+                status_code=status_code,
+            )
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.debug("impersonation event log failed: %s", exc)
 
 
 async def get_current_tenant_user_from_header_or_query(

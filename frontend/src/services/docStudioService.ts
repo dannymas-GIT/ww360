@@ -130,6 +130,11 @@ export interface DocStudioStats {
   drafts: number;
   published: number;
   words: number;
+  pending_approval?: number;
+  tutorials?: number;
+  succession_docs?: number;
+  succession_published?: number;
+  operations_docs?: number;
   recent: DocSummary[];
 }
 

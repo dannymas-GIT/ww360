@@ -721,28 +721,64 @@ class DocStudioService:
     # ── Stats ──────────────────────────────────────────────────────────────
 
     def stats(self, scope: str) -> DocStudioStats:
-        docs = self.db.query(DocDocument).filter(
+        from app.services.workforce_succession.binder_catalog import BINDER_TAG
+
+        docs_q = self.db.query(DocDocument).filter(
             DocDocument.scope == scope, DocDocument.status != "archived"
         )
-        total = docs.count()
-        drafts = docs.filter(DocDocument.status == "draft").count()
-        published = docs.filter(DocDocument.status == "published").count()
+        rows = docs_q.all()
+        total = len(rows)
+        drafts = sum(1 for d in rows if d.status == "draft")
+        published = sum(1 for d in rows if d.status == "published")
+        pending_approval = sum(1 for d in rows if (d.review_state or "none") == "submitted")
+        tutorials = sum(1 for d in rows if (d.doc_type or "") == "tutorial")
+
+        folder_rows = (
+            self.db.query(DocFolder.id, DocFolder.name).filter(DocFolder.scope == scope).all()
+        )
+        folders = len(folder_rows)
+        ops_ids = {fid for fid, name in folder_rows if (name or "").strip().lower() == "operations"}
+        succession_folder_ids = {
+            fid
+            for fid, name in folder_rows
+            if "succession" in (name or "").lower()
+        }
+
+        def _is_succession(d: DocDocument) -> bool:
+            tags = d.tags if isinstance(d.tags, list) else []
+            if any(isinstance(t, str) and (t == BINDER_TAG or t.startswith(f"{BINDER_TAG}:")) for t in tags):
+                return True
+            if d.folder_id and d.folder_id in succession_folder_ids:
+                return True
+            title = (d.title or "").lower()
+            return "succession binder" in title or "ceu tracker" in title
+
+        succession_docs = sum(1 for d in rows if _is_succession(d))
+        succession_published = sum(
+            1 for d in rows if _is_succession(d) and d.status == "published"
+        )
+        operations_docs = sum(1 for d in rows if d.folder_id in ops_ids)
+
         words = int(
             self.db.query(func.coalesce(func.sum(DocDocument.word_count), 0))
             .filter(DocDocument.scope == scope, DocDocument.status != "archived")
             .scalar()
             or 0
         )
-        folders = (
-            self.db.query(func.count(DocFolder.id)).filter(DocFolder.scope == scope).scalar() or 0
-        )
-        recent = docs.order_by(DocDocument.updated_at.desc()).limit(5).all()
+        recent = sorted(rows, key=lambda d: d.updated_at or d.created_at or datetime.min, reverse=True)[
+            :5
+        ]
         return DocStudioStats(
             folders=int(folders),
             documents=total,
             drafts=drafts,
             published=published,
             words=words,
+            pending_approval=pending_approval,
+            tutorials=tutorials,
+            succession_docs=succession_docs,
+            succession_published=succession_published,
+            operations_docs=operations_docs,
             recent=[DocDocumentRead.model_validate(r) for r in recent],
         )
 

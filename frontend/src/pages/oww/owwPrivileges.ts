@@ -1,7 +1,7 @@
 /**
  * Platform-partner privilege model for One Water Workforce executives.
  *
- * Roles behind it (both granted to jingrao-aman-OWW):
+ * Roles behind it (both granted to jenny-oww):
  *  - `platform_admin`  — existing global-scope role: every module, every district,
  *                        used for platform-level privileges (user mgmt, exports).
  *  - `oww_partner`     — marker role: routes the user to the OWW workspace,

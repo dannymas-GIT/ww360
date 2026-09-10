@@ -1,0 +1,6 @@
+# CODEOWNERS — developer / agent tooling
+# Requires review when changing agent rules (configure matching GitHub teams/users).
+# Path-based *read* restriction is not available in Git; this gates *writes* via PR review.
+
+.cursor/ @dannymas-GIT
+docs/dev/ @dannymas-GIT

@@ -31,6 +31,15 @@ class LoginBody(BaseModel):
     password: str
 
 
+class ImpersonationOut(BaseModel):
+    active: bool = False
+    mode: str | None = None
+    persona_key: str | None = None
+    target_username: str | None = None
+    session_id: str | None = None
+    expires_at: str | None = None
+
+
 class UserOut(BaseModel):
     id: int
     username: str
@@ -42,6 +51,7 @@ class UserOut(BaseModel):
     active_org_code: str | None = None
     is_national_admin: bool = False
     orgs: list[OrgMembershipOut] = []
+    impersonation: ImpersonationOut | None = None
 
 
 class ActiveStateBody(BaseModel):
@@ -136,7 +146,19 @@ def me(
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     payload = build_session_payload(db, user, requested_state=context.active_state_code)
-    return _user_out(user, payload)
+    imp = None
+    if context.is_impersonating:
+        imp = ImpersonationOut(
+            active=True,
+            mode=context.impersonation_mode,
+            persona_key=context.impersonation_persona_key,
+            target_username=user.username,
+            session_id=context.impersonation_session_id,
+        )
+    out = _user_out(user, payload)
+    if imp:
+        out.impersonation = imp
+    return out
 
 
 @router.post("/active-state")

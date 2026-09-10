@@ -11,10 +11,14 @@ param namePrefix string = 'aquasafe'
   'Standard_B1ms'
   'Standard_B2ms'
   'Standard_B4ms'
+  'Standard_B2pls_v2'
+  'Standard_B2ps_v2'
   'Standard_D2s_v3'
   'Standard_D4s_v3'
+  'Standard_D2s_v5'
+  'Standard_D2s_v7'
 ])
-param vmSize string = 'Standard_D2s_v3'
+param vmSize string = 'Standard_D2s_v5'
 
 @description('Admin username')
 param adminUsername string = 'azureuser'

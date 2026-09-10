@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import axios from 'axios';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle,
@@ -9,6 +10,7 @@ import {
   ExternalLink,
   FileWarning,
   Info,
+  MoreHorizontal,
   ShieldCheck,
   Sparkles,
   Upload,
@@ -16,9 +18,19 @@ import {
   CircleHelp,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { PageHeader } from '@/components/PageHeader';
+import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { WorkforceBenchBoard } from '@/components/workforce/WorkforceBenchBoard';
+import { ResponsiveTabsList } from '@/components/ui/responsive-tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { WorkforceCeuArea } from '@/components/workforce/WorkforceCeuArea';
 import {
@@ -29,7 +41,9 @@ import { WorkforceCeuRequirementsPanel } from '@/components/workforce/WorkforceC
 import { WorkforceScheduledTrainingArea } from '@/components/workforce/WorkforceScheduledTrainingArea';
 import { WorkforceMyTrainingSignupsArea } from '@/components/workforce/WorkforceMyTrainingSignupsArea';
 import { WorkforceTrainingArea } from '@/components/workforce/WorkforceTrainingArea';
-import { WorkforceDraftBanner } from '@/components/workforce/WorkforceDraftBanner';
+import { WorkforceBinderHub } from '@/components/workforce/WorkforceBinderHub';
+import { WorkforceBinderSetupDialog } from '@/components/workforce/WorkforceBinderSetupDialog';
+import { BinderIntakeWizard } from '@/components/workforce/binderIntake/BinderIntakeWizard';
 import { WorkforceLicenseHealthStrip } from '@/components/workforce/WorkforceLicenseHealthStrip';
 import { WorkforceEntityArea } from '@/components/workforce/WorkforceEntityArea';
 import { WorkforceFlowOverviewDialog } from '@/components/workforce/WorkforceFlowOverviewDialog';
@@ -76,13 +90,17 @@ import {
   resolveWorkforceDistrictCode,
 } from '@/components/dashboard/widgets/workforce/resolveWorkforceDistrictCode';
 import { useAuth } from '@/context/AuthContext';
+import { useImpersonation } from '@/context/ImpersonationContext';
 import { useDistricts } from '@/hooks/useDistricts';
 import {
   useCommitWorkforceImport,
   useCeuSummary,
   useDownloadCsvTemplate,
+  useGenerateWorkforceDocPack,
   usePreviewWorkforceImport,
   useTriggerWorkforceAlertScan,
+  useWorkforceBinder,
+  useBinderIntakeSession,
   useWorkforceContinuity,
   useWorkforceEntityList,
   useWorkforceImportBatches,
@@ -110,6 +128,7 @@ import {
   getWorkspaceForTab,
   parseTrainingSubTab,
   parseWorkforceTab,
+  WORKFORCE_CONTINUITY_TABS,
   WORKFORCE_TAB_META,
   WORKFORCE_WORKSPACE_META,
   WORKFORCE_WORKSPACE_PATHS,
@@ -188,23 +207,21 @@ function MetricCard({
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
     >
-      <CardContent className="p-3 sm:p-4 lg:p-6">
-        <div className="flex items-center justify-between gap-2">
+      <CardContent className="p-4 sm:p-5">
+        <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="flex items-center gap-1 text-xs font-medium text-gray-500 lg:text-sm">
-              <span className="truncate">{label}</span>
-              {tooltip ? <Info className="h-3.5 w-3.5 shrink-0 text-gray-400" aria-hidden /> : null}
+            <div className="flex items-center gap-1.5 text-[0.875rem] font-medium leading-snug text-slate-600">
+              <span className="whitespace-normal">{label}</span>
+              {tooltip ? <Info className="h-4 w-4 shrink-0 text-slate-400" aria-hidden /> : null}
             </div>
-            <div className="mt-1 text-lg font-semibold text-gray-900 sm:text-2xl lg:text-3xl">
+            <div className="mt-1.5 text-[1.5rem] font-semibold leading-tight text-slate-900 sm:text-[1.75rem]">
               {value}
             </div>
             {hint && (
-              <div className="mt-1 hidden truncate text-xs text-gray-400 sm:block">{hint}</div>
+              <div className="mt-1.5 text-[0.875rem] leading-snug text-slate-500">{hint}</div>
             )}
           </div>
-          <Icon
-            className={`hidden shrink-0 sm:block sm:h-7 sm:w-7 lg:h-10 lg:w-10 ${toneClasses[tone]}`}
-          />
+          <Icon className={`mt-0.5 h-7 w-7 shrink-0 ${toneClasses[tone]}`} aria-hidden />
         </div>
       </CardContent>
     </Card>
@@ -213,7 +230,7 @@ function MetricCard({
   return (
     <Tooltip>
       <TooltipTrigger asChild>{card}</TooltipTrigger>
-      <TooltipContent side="bottom" className="max-w-xs text-xs">
+      <TooltipContent side="bottom" className="max-w-xs text-[0.875rem] leading-relaxed">
         {tooltip}
       </TooltipContent>
     </Tooltip>
@@ -693,6 +710,7 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
   workspace: workspaceProp,
 }) => {
   const { toast } = useToast();
+  const { isPreviewMode } = useImpersonation();
   const {
     canManageWorkforce,
     isAdmin,
@@ -701,8 +719,15 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
     actingDistrictCode,
     isGlobalAdmin,
     isSystemAdmin,
+    user,
+    hasAnyRole,
+    isOwwPartner,
+    isPlatformAdmin,
   } = useAuth();
-  const canManageUsers = isAdmin || isCeuAdmin;
+  const canManageUsers = hasAnyRole('district_admin', 'ceu_admin');
+  const canAuthorWorkforceDocs = canManageWorkforce && !isPreviewMode;
+  const isWorkforceOversight =
+    !canManageWorkforce && !isWorkforceOperator && (isOwwPartner || isPlatformAdmin);
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -717,9 +742,23 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
 
   useEffect(() => {
     if (isWorkforceOperator && workspace === 'continuity') {
-      navigate('/dashboard/ceu-training?tab=certifications', { replace: true });
+      navigate('/continuity/ceu-training?tab=certifications', { replace: true });
     }
   }, [isWorkforceOperator, workspace, navigate]);
+
+  // Map legacy hash shortcuts (#ceu / #training) onto ?tab=
+  useEffect(() => {
+    const hash = (location.hash || '').replace(/^#/, '');
+    if (!hash) return;
+    if ((WORKFORCE_CONTINUITY_TABS as readonly string[]).includes(hash)) {
+      const tab = hash as WorkforceContinuityTab;
+      const targetWorkspace = getWorkspaceForTab(tab);
+      const params = buildWorkforceSearchParams(tab);
+      navigate(`${WORKFORCE_WORKSPACE_PATHS[targetWorkspace]}?${params.toString()}`, {
+        replace: true,
+      });
+    }
+  }, [location.hash, navigate]);
 
   const districtLocked = isWorkforceDistrictLocked(
     actingDistrictCode,
@@ -762,6 +801,13 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
   );
 
   const continuity = useWorkforceContinuity(districtCode);
+  const binderQuery = useWorkforceBinder(districtCode || undefined);
+  const binderIntakeQuery = useBinderIntakeSession(
+    canAuthorWorkforceDocs ? districtCode || undefined : undefined
+  );
+  const generateDocPackMutation = useGenerateWorkforceDocPack();
+  const [binderSetupOpen, setBinderSetupOpen] = useState(false);
+  const [binderIntakeOpen, setBinderIntakeOpen] = useState(false);
   const planningSessionQuery = useWorkforcePlanningSession(districtCode || undefined);
   const scorecardsQuery = useWorkforceScorecards();
   const alertScanMutation = useTriggerWorkforceAlertScan();
@@ -801,6 +847,8 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
   const certCliff = continuity.data?.cert_cliff ?? [];
   const retirementHorizon = continuity.data?.retirement_horizon ?? [];
   const milestones = continuity.data?.upcoming_milestones ?? [];
+  const continuityDataMode = continuity.data?.data_mode === 'sample' ? 'sample' : 'live';
+  const sampleNotice = continuity.data?.sample_notice ?? null;
 
   // Wizard state ----------------------------------------------------------
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -876,7 +924,7 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
   const navigateFlowNode = useCallback(
     (nodeId: WorkforceFlowNodeId) => {
       if (nodeId === 'alerts') {
-        navigate('/dashboard/alerts');
+        navigate('/admin/settings');
         return;
       }
       if (nodeId === 'readiness' || nodeId === 'doh352') {
@@ -1031,16 +1079,94 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
     return () => window.removeEventListener(WORKFORCE_WIZARD_EVENT, handler as EventListener);
   }, [goToTab]);
 
-  const wizardPrimaryLabel = 'Start guided setup';
+  const wizardPrimaryLabel = 'Advanced roster setup';
+  const districtLabel = useMemo(
+    () => visibleDistricts.find(d => d.district_code === districtCode)?.district_name ?? districtCode,
+    [visibleDistricts, districtCode]
+  );
+
+  const openStudioDoc = useCallback(
+    (docId: string | null | undefined, folderId?: string | null, scope?: string | null) => {
+      const next = new URLSearchParams();
+      if (scope) next.set('scope', scope);
+      if (docId) next.set('doc', docId);
+      if (folderId) next.set('folder', folderId);
+      navigate(`/studio?${next.toString()}`);
+    },
+    [navigate]
+  );
+
+  const handleCreateBinder = useCallback(
+    async (values: {
+      profile: 'small_system' | 'multi_plant' | 'district_trainees';
+      contact_name: string;
+      contact_email: string;
+      use_live_data: boolean;
+    }) => {
+      if (!districtCode || !canAuthorWorkforceDocs) return;
+      try {
+        const result = await generateDocPackMutation.mutateAsync({
+          districtCode,
+          body: {
+            pack_type: 'succession_binder',
+            profile: values.profile,
+            contact_name: values.contact_name || undefined,
+            contact_email: values.contact_email || undefined,
+            use_live_data: values.use_live_data,
+          },
+        });
+        toast({
+          title: 'Succession Binder created',
+          description: `${result.document_count} section(s) in Document Studio — edit, export, or transfer custody when ready.`,
+        });
+        openStudioDoc(result.cover_document_id, result.folder_id, districtCode);
+      } catch (err: unknown) {
+        const detail = axios.isAxiosError(err)
+          ? String(err.response?.data?.detail ?? err.message)
+          : err instanceof Error
+            ? err.message
+            : 'Could not create binder';
+        toast({
+          title: 'Binder not created',
+          description:
+            detail === 'IMPERSONATION_READ_ONLY'
+              ? 'Read-only preview cannot save binders. Exit preview and use Act as (audited), or ask the utility to sign in and create it.'
+              : detail,
+          variant: 'destructive',
+        });
+        throw err;
+      }
+    },
+    [districtCode, canAuthorWorkforceDocs, generateDocPackMutation, openStudioDoc, toast]
+  );
+
+  const handleRefreshCeuPack = useCallback(async () => {
+    if (!districtCode) return;
+    const result = await generateDocPackMutation.mutateAsync({
+      districtCode,
+      body: {
+        pack_type: 'ceu_tracker_pack',
+        use_live_data: true,
+        contact_name: user?.full_name ?? undefined,
+        contact_email: user?.email ?? undefined,
+      },
+    });
+    toast({
+      title: 'CEU Tracker pack refreshed',
+      description: `Dated snapshot with ${result.document_count} document(s) in Training & CE.`,
+    });
+    openStudioDoc(result.cover_document_id, result.folder_id, districtCode);
+  }, [districtCode, generateDocPackMutation, openStudioDoc, toast, user?.email, user?.full_name]);
   const draftSession = planningSessionQuery.data;
   const resumeWizardLabel = draftSession
     ? `Resume setup — ${draftSession.current_step.replace(/_/g, ' ')} (${draftSession.completed_steps.length} done)`
     : null;
 
   const showGettingStartedBanner = useMemo(() => {
-    if (!canManageWorkforce || !scorecard) return false;
+    if (!canAuthorWorkforceDocs || !scorecard) return false;
+    if (continuityDataMode === 'sample') return true;
     return scorecard.total_employees === 0 && scorecard.total_positions === 0;
-  }, [canManageWorkforce, scorecard]);
+  }, [canAuthorWorkforceDocs, continuityDataMode, scorecard]);
 
   const tourHeaderAction = (
     <Button
@@ -1056,6 +1182,7 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
 
   const readinessLabel = useMemo(() => {
     if (!scorecard) return '—';
+    if (continuityDataMode === 'sample') return 'Sample (illustrative)';
     const noData =
       scorecard.total_employees === 0 &&
       scorecard.total_critical_functions === 0 &&
@@ -1065,171 +1192,255 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
     if (scorecard.readiness_score >= 60) return 'Adequate';
     if (scorecard.readiness_score >= 40) return 'At risk';
     return 'Critical';
-  }, [scorecard]);
+  }, [scorecard, continuityDataMode]);
 
   return (
     <TooltipProvider>
-      <div className="space-y-6 p-4">
-        <PageHeader
+      <div className="ww360-app-shell mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6">
+        <Ww360PageHero
+          eyebrow={workspaceMeta.title}
           title={pageTitle}
           description={pageDescription}
-          icon={tabMeta.icon}
-          gradientFrom={workspaceMeta.gradientFrom}
-          gradientTo={workspaceMeta.gradientTo}
-          descriptionColor={workspaceMeta.descriptionColor}
+          dataMode={continuityDataMode}
           actions={isWorkforceOperator ? tourHeaderAction : undefined}
         />
 
+        {continuityDataMode === 'sample' && sampleNotice ? (
+          <div
+            role="status"
+            className="flex flex-wrap items-start gap-3 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-[1rem] leading-relaxed text-sky-950"
+          >
+            <Info className="mt-0.5 h-5 w-5 shrink-0 text-sky-700" aria-hidden />
+            <p className="min-w-0 flex-1 text-sky-950">{sampleNotice}</p>
+          </div>
+        ) : null}
+
+        {isPreviewMode && canManageWorkforce && workspace === 'continuity' ? (
+          <div
+            role="status"
+            className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[1rem] leading-relaxed text-amber-950"
+          >
+            <p className="font-semibold">Read-only role preview</p>
+            <p className="mt-0.5">
+              Explore Continuity and open binders here; creating or editing needs{' '}
+              <strong className="font-semibold">Act as (audited)</strong> or a direct utility sign-in.
+            </p>
+          </div>
+        ) : null}
+
+        {isWorkforceOversight && workspace === 'continuity' ? (
+          <div
+            role="status"
+            className="rounded-lg border border-sky-200 bg-sky-50/80 px-4 py-3 text-[1rem] leading-relaxed text-sky-950"
+          >
+            <p className="font-semibold">Section oversight</p>
+            <p className="mt-0.5">
+              Pick a member utility to review scorecards and open binders read-only. Utility
+              superintendents and managers author Succession Binders — use{' '}
+              <strong className="font-semibold">View as role</strong> to walk those perspectives.
+            </p>
+          </div>
+        ) : null}
+
         {!isWorkforceOperator ? (
         <Card ref={districtSelectorRef}>
-          <CardContent className="flex flex-wrap items-center gap-4 pt-6">
-            <div className="min-w-[16rem]">
-              <label className="text-sm font-medium text-gray-700">District</label>
-              <Select
-                value={districtCode}
-                onValueChange={setDistrictCode}
-                disabled={loadingDistricts || !visibleDistricts.length || districtLocked}
+          <CardContent className="flex flex-col gap-4 pt-6">
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="min-w-[16rem] flex-1">
+                <label className="text-[1rem] font-medium text-gray-700">District</label>
+                <Select
+                  value={districtCode}
+                  onValueChange={setDistrictCode}
+                  disabled={loadingDistricts || !visibleDistricts.length || districtLocked}
+                >
+                  <SelectTrigger className="mt-1 min-h-[44px] text-[1rem]">
+                    <SelectValue placeholder="Select a district" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {visibleDistricts.map(d => (
+                      <SelectItem key={d.district_code} value={d.district_code}>
+                        {d.district_name || d.district_code}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {districtLocked ? (
+                  <p className="mt-1 text-[0.875rem] text-gray-500">
+                    Scoped to your Working-in district. Change it from the header to view another.
+                  </p>
+                ) : null}
+              </div>
+              <Button
+                variant="outline"
+                className="min-h-[44px] text-[1rem]"
+                onClick={() => openTourForTab(activeTab)}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a district" />
-                </SelectTrigger>
-                <SelectContent>
-                  {visibleDistricts.map(d => (
-                    <SelectItem key={d.district_code} value={d.district_code}>
-                      {d.district_name || d.district_code}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {districtLocked ? (
-                <p className="mt-1 text-xs text-gray-500">
-                  Scoped to your Working-in district. Change it from the header to view another
-                  district.
-                </p>
-              ) : null}
-            </div>
-            <div className="flex flex-wrap items-end gap-2">
-              {canManageWorkforce && resumeWizardLabel ? (
-                <Button
-                  variant="secondary"
-                  onClick={() => openWizard({ stepId: draftSession?.current_step })}
-                  disabled={!districtCode}
-                >
-                  <Sparkles className="mr-1.5 h-4 w-4" />
-                  {resumeWizardLabel}
-                </Button>
-              ) : null}
-              {canManageWorkforce ? (
-                <Button variant="outline" onClick={() => openWizard()} disabled={!districtCode}>
-                  <Sparkles className="mr-1.5 h-4 w-4" />
-                  {wizardPrimaryLabel}
-                </Button>
-              ) : null}
-              {canManageWorkforce ? (
-                <Button
-                  variant="outline"
-                  onClick={() => openWizard({ stepId: 'express_setup' })}
-                  disabled={!districtCode}
-                >
-                  Express setup
-                </Button>
-              ) : null}
-              <Button variant="outline" onClick={() => openTourForTab(activeTab)}>
                 <CircleHelp className="mr-1.5 h-4 w-4" />
                 Tour
               </Button>
               {canManageUsers ? (
-                <Button variant="outline" onClick={() => navigate('/dashboard/workforce-users')}>
+                <Button
+                  variant="outline"
+                  className="min-h-[44px] text-[1rem]"
+                  onClick={() => navigate('/admin/users')}
+                >
                   <UserPlus className="mr-1.5 h-4 w-4" />
                   Add users
                 </Button>
               ) : null}
-              {canManageWorkforce ? (
-                <Button
-                  variant="outline"
-                  disabled={!districtCode || alertScanMutation.isPending}
-                  onClick={() => {
-                    if (!districtCode) return;
-                    void alertScanMutation.mutateAsync(districtCode).then(res => {
-                      toast({
-                        title: 'Alert scan complete',
-                        description: `${res.created} workforce alert(s) created. View them in Alerts.`,
-                      });
-                    });
-                  }}
-                >
-                  Run alert scan
-                </Button>
-              ) : null}
-              {alertSettings ? (
-                <span className="text-xs text-gray-500">
-                  Daily scan {alertSettings.scan_daily ? 'on' : 'off'}
-                  {isAdmin ? (
-                    <>
-                      {' · '}
-                      <Link
-                        to="/dashboard/district-admin/utilities?tab=alert-sched"
-                        className="text-blue-600 hover:underline"
+              {canAuthorWorkforceDocs ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="min-h-[44px] text-[1rem]">
+                      <MoreHorizontal className="mr-1.5 h-4 w-4" />
+                      More
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="min-w-[16rem]">
+                    <DropdownMenuLabel className="text-[1rem]">Roster &amp; scans</DropdownMenuLabel>
+                    <DropdownMenuItem
+                      className="min-h-[44px] text-[1rem]"
+                      onClick={() => openWizard()}
+                      disabled={!districtCode}
+                    >
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      {wizardPrimaryLabel}
+                    </DropdownMenuItem>
+                    {resumeWizardLabel ? (
+                      <DropdownMenuItem
+                        className="min-h-[44px] text-[1rem]"
+                        onClick={() => openWizard({ stepId: draftSession?.current_step })}
+                        disabled={!districtCode}
+                      >
+                        Resume roster setup
+                      </DropdownMenuItem>
+                    ) : null}
+                    <DropdownMenuItem
+                      className="min-h-[44px] text-[1rem]"
+                      disabled={!districtCode || alertScanMutation.isPending}
+                      onClick={() => {
+                        if (!districtCode) return;
+                        void alertScanMutation.mutateAsync(districtCode).then(res => {
+                          toast({
+                            title: 'Alert scan complete',
+                            description: `${res.created} workforce alert(s) created. View them in Alerts.`,
+                          });
+                        });
+                      }}
+                    >
+                      Run alert scan
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="min-h-[44px] text-[1rem]"
+                      disabled={!districtCode || seedLearningStreamMutation.isPending}
+                      onClick={() => {
+                        if (!districtCode) return;
+                        void seedLearningStreamMutation.mutateAsync(districtCode).then(res => {
+                          toast({
+                            title: 'Learning Stream courses imported',
+                            description: `${res.catalog_added} added, ${res.catalog_updated} updated, ${res.district_sessions_created} district session(s) created.`,
+                          });
+                        });
+                      }}
+                    >
+                      Import Learning Stream
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="text-[1rem]">Settings</DropdownMenuLabel>
+                    {isAdmin ? (
+                      <DropdownMenuItem
+                        className="min-h-[44px] text-[1rem]"
+                        onClick={() => navigate('/dashboard/district-admin/utilities?tab=alert-sched')}
                       >
                         Alert settings
-                      </Link>
-                    </>
-                  ) : null}
-                </span>
+                      </DropdownMenuItem>
+                    ) : null}
+                    <DropdownMenuItem
+                      className="min-h-[44px] text-[1rem]"
+                      onClick={() => navigate('/dashboard/district-admin/utilities?tab=alert-sched')}
+                    >
+                      Training settings
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="min-h-[44px] text-[1rem]"
+                      onClick={() => navigate('/dashboard/alerts')}
+                    >
+                      Alerts inbox
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               ) : null}
-              {canManageWorkforce ? (
-                <span className="text-xs text-gray-500">
-                  Operator sign-up{' '}
-                  {trainingSettings?.operator_self_enroll_enabled ? 'enabled' : 'disabled'}
-                  {' · '}
-                  <Link
-                    to="/dashboard/district-admin/utilities?tab=alert-sched"
-                    className="text-blue-600 hover:underline"
-                  >
-                    Training settings
-                  </Link>
-                </span>
-              ) : null}
-              {canManageWorkforce ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!districtCode || seedLearningStreamMutation.isPending}
-                  onClick={() => {
-                    if (!districtCode) return;
-                    void seedLearningStreamMutation.mutateAsync(districtCode).then(res => {
-                      toast({
-                        title: 'Learning Stream courses imported',
-                        description: `${res.catalog_added} added, ${res.catalog_updated} updated, ${res.district_sessions_created} district session(s) created.`,
-                      });
-                    });
-                  }}
-                >
-                  Import Learning Stream
-                </Button>
+              {scorecard ? (
+                <p className="ml-auto text-[0.875rem] text-gray-600">
+                  As of {new Date(normalizeUtcIso(scorecard.as_of)).toLocaleString()}
+                </p>
               ) : null}
             </div>
-            <div className="w-full text-xs text-gray-500 sm:w-auto">
-              Scans for expiring certs, coverage gaps, retirement horizon, CEU shortfalls, and
-              overdue milestones.{' '}
-              <Link
-                to="/dashboard/alerts"
-                className="inline-flex items-center text-blue-600 hover:underline"
-              >
-                Alerts inbox <ExternalLink className="ml-0.5 h-3 w-3" />
-              </Link>
-            </div>
-            {scorecard && (
-              <div className="ml-auto flex items-center gap-3 text-sm text-gray-600">
-                <span>As of {new Date(normalizeUtcIso(scorecard.as_of)).toLocaleString()}</span>
-              </div>
-            )}
           </CardContent>
         </Card>
         ) : null}
 
-        {districtCode ? (
-          <WorkforceDraftBanner show={showGettingStartedBanner} onOpenWizard={() => openWizard()} />
+        {canAuthorWorkforceDocs && districtCode ? (
+          <WorkforceBinderHub
+            districtCode={districtCode}
+            existingBinder={binderQuery.data}
+            binderLoading={binderQuery.isLoading}
+            mode="author"
+            emphasizeCreate={showGettingStartedBanner}
+            sampleMode={continuityDataMode === 'sample'}
+            intakeDraftStep={
+              binderIntakeQuery.data?.status === 'draft'
+                ? binderIntakeQuery.data.current_step
+                : null
+            }
+            onStartGuidedIntake={() => setBinderIntakeOpen(true)}
+            onResumeGuidedIntake={() => setBinderIntakeOpen(true)}
+            onQuickCreate={() => setBinderSetupOpen(true)}
+            onRefreshCeuPack={() => void handleRefreshCeuPack()}
+            ceuRefreshing={generateDocPackMutation.isPending}
+          />
+        ) : (isWorkforceOversight || (isPreviewMode && canManageWorkforce)) && districtCode ? (
+          <WorkforceBinderHub
+            districtCode={districtCode}
+            existingBinder={binderQuery.data}
+            binderLoading={binderQuery.isLoading}
+            mode="oversight"
+            previewReadOnly={isPreviewMode}
+            sampleMode={continuityDataMode === 'sample'}
+            onStartGuidedIntake={() => {}}
+            onQuickCreate={() => {}}
+            onRefreshCeuPack={() => {}}
+          />
+        ) : null}
+
+        {canAuthorWorkforceDocs && districtCode ? (
+          <BinderIntakeWizard
+            open={binderIntakeOpen}
+            onOpenChange={setBinderIntakeOpen}
+            districtCode={districtCode}
+            districtLabel={districtLabel}
+            defaultContactName={user?.full_name ?? ''}
+            defaultContactEmail={user?.email ?? ''}
+            continuity={continuity.data ?? null}
+            initialSession={
+              binderIntakeQuery.data?.status === 'draft' ? binderIntakeQuery.data : null
+            }
+            readOnly={isPreviewMode}
+            onComplete={({ coverId, folderId }) => {
+              openStudioDoc(coverId, folderId, districtCode);
+            }}
+          />
+        ) : null}
+
+        {canAuthorWorkforceDocs ? (
+          <WorkforceBinderSetupDialog
+            open={binderSetupOpen}
+            onOpenChange={setBinderSetupOpen}
+            districtLabel={districtLabel}
+            defaultContactName={user?.full_name ?? ''}
+            defaultContactEmail={user?.email ?? ''}
+            onSubmit={handleCreateBinder}
+          />
         ) : null}
 
         {!districtCode ? (
@@ -1253,32 +1464,36 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
             {workspace === 'continuity' ? (
               <>
                 <TabsContent value="dashboard" className="space-y-6">
-                  <div className="grid grid-flow-col auto-cols-fr gap-2 sm:gap-3 lg:gap-4">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                     <MetricCard
                       icon={ShieldCheck}
                       label="Readiness score"
                       tooltip="Average of critical-function coverage, certification health, retirement risk, and CEU completion (when operators are on file)."
                       onClick={() => goToTab('dashboard')}
                       value={
-                        scorecard.total_employees === 0 &&
-                        scorecard.total_critical_functions === 0 &&
-                        scorecard.total_positions === 0
-                          ? '—'
-                          : `${scorecard.readiness_score} / 100`
+                        continuityDataMode === 'sample'
+                          ? `${scorecard.readiness_score} / 100`
+                          : scorecard.total_employees === 0 &&
+                              scorecard.total_critical_functions === 0 &&
+                              scorecard.total_positions === 0
+                            ? '—'
+                            : `${scorecard.readiness_score} / 100`
                       }
                       hint={readinessLabel}
                       tone={
-                        scorecard.total_employees === 0 &&
-                        scorecard.total_critical_functions === 0 &&
-                        scorecard.total_positions === 0
+                        continuityDataMode === 'sample'
                           ? 'default'
-                          : scorecard.readiness_score >= 80
-                            ? 'good'
-                            : scorecard.readiness_score >= 60
-                              ? 'default'
-                              : scorecard.readiness_score >= 40
-                                ? 'warn'
-                                : 'danger'
+                          : scorecard.total_employees === 0 &&
+                              scorecard.total_critical_functions === 0 &&
+                              scorecard.total_positions === 0
+                            ? 'default'
+                            : scorecard.readiness_score >= 80
+                              ? 'good'
+                              : scorecard.readiness_score >= 60
+                                ? 'default'
+                                : scorecard.readiness_score >= 40
+                                  ? 'warn'
+                                  : 'danger'
                       }
                     />
                     <MetricCard
@@ -1289,11 +1504,13 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
                       value={`${scorecard.coverage_pct}%`}
                       hint={`${scorecard.functions_with_qualified_backup} / ${scorecard.total_critical_functions} have a qualified backup`}
                       tone={
-                        scorecard.coverage_pct >= 80
-                          ? 'good'
-                          : scorecard.coverage_pct >= 60
-                            ? 'warn'
-                            : 'danger'
+                        continuityDataMode === 'sample'
+                          ? 'default'
+                          : scorecard.coverage_pct >= 80
+                            ? 'good'
+                            : scorecard.coverage_pct >= 60
+                              ? 'warn'
+                              : 'danger'
                       }
                     />
                     <MetricCard
@@ -1303,7 +1520,13 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
                       onClick={() => goToTab('certifications', { certExpiring: 90 })}
                       value={scorecard.cert_cliff_90d}
                       hint={`${scorecard.cert_cliff_30d} within 30 days · ${scorecard.cert_cliff_365d} within 12 months`}
-                      tone={scorecard.cert_cliff_90d > 0 ? 'warn' : 'good'}
+                      tone={
+                        continuityDataMode === 'sample'
+                          ? 'default'
+                          : scorecard.cert_cliff_90d > 0
+                            ? 'warn'
+                            : 'good'
+                      }
                     />
                     <MetricCard
                       icon={CalendarClock}
@@ -1313,10 +1536,12 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
                       value={scorecard.employees_retirement_eligible_24mo}
                       hint={`${scorecard.vacant_positions} positions vacant · ${scorecard.overdue_milestones} overdue milestones`}
                       tone={
-                        scorecard.employees_retirement_eligible_24mo === 0 &&
-                        scorecard.overdue_milestones === 0
-                          ? 'good'
-                          : 'warn'
+                        continuityDataMode === 'sample'
+                          ? 'default'
+                          : scorecard.employees_retirement_eligible_24mo === 0 &&
+                              scorecard.overdue_milestones === 0
+                            ? 'good'
+                            : 'warn'
                       }
                     />
                     {scorecard.ceu_shortfall_count != null && (
@@ -1327,7 +1552,13 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
                         onClick={() => goToTab('ceu')}
                         value={scorecard.ceu_shortfall_count}
                         hint={`${scorecard.ceu_avg_completion_pct ?? 0}% avg completion · ${scorecard.doh352_ready_count ?? 0} DOH-352 ready`}
-                        tone={scorecard.ceu_shortfall_count > 0 ? 'warn' : 'good'}
+                        tone={
+                          continuityDataMode === 'sample'
+                            ? 'default'
+                            : scorecard.ceu_shortfall_count > 0
+                              ? 'warn'
+                              : 'good'
+                        }
                       />
                     )}
                   </div>
@@ -1346,6 +1577,41 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
                     </Card>
                   )}
 
+                  {continuityDataMode === 'sample' ? (
+                    <Card className="border-dashed border-slate-300 bg-slate-50/80">
+                      <CardContent className="space-y-2 pt-6 text-[1rem] leading-relaxed text-slate-700">
+                        <p className="font-semibold text-[1.125rem] text-slate-900">
+                          Detail tables stay hidden for sample data
+                        </p>
+                        <p>
+                          Coverage, certification cliff, retirement, and milestone lists appear here
+                          once a live roster is imported or entered. Use the Succession Binder card
+                          above for documents while you build the roster.
+                        </p>
+                        {canAuthorWorkforceDocs ? (
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            <Button
+                              type="button"
+                              className="min-h-[44px] text-[1rem]"
+                              onClick={() => setBinderIntakeOpen(true)}
+                            >
+                              <Sparkles className="mr-2 h-4 w-4" aria-hidden />
+                              Guided binder walkthrough
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="min-h-[44px] text-[1rem]"
+                              onClick={() => openWizard()}
+                            >
+                              Start roster setup
+                            </Button>
+                          </div>
+                        ) : null}
+                      </CardContent>
+                    </Card>
+                  ) : (
+                  <>
                   <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                     <Card ref={coverageCardRef}>
                       <CardHeader>
@@ -1441,14 +1707,14 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
                     <Card>
                       <CardContent className="flex items-start gap-3 pt-6">
                         <AlertTriangle className="h-6 w-6 text-yellow-600" />
-                        <div className="flex-1 text-sm text-gray-700">
-                          <p className="font-medium">No workforce data yet for this district.</p>
+                        <div className="flex-1 text-[1rem] leading-relaxed text-slate-700">
+                          <p className="font-medium text-slate-900">No workforce data yet for this district.</p>
                           <p>
                             Use the import panel or entity tabs to add positions, employees,
                             certifications, critical functions, and role coverage.
                           </p>
                           <div className="mt-3">
-                            <Button onClick={() => openWizard()}>
+                            <Button className="min-h-[44px] text-[1rem]" onClick={() => openWizard()}>
                               <Sparkles className="mr-1.5 h-4 w-4" />
                               {wizardPrimaryLabel}
                             </Button>
@@ -1456,6 +1722,8 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
                         </div>
                       </CardContent>
                     </Card>
+                  )}
+                  </>
                   )}
                 </TabsContent>
 
@@ -1505,12 +1773,19 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
                       </Button>
                     </div>
                   ) : null}
-                  <WorkforceEntityArea
-                    {...entityAreaCallbacks}
+                  <WorkforceBenchBoard
                     districtCode={districtCode}
-                    entityType="succession_candidates"
-                    showSampleTemplates={showSampleTemplates}
+                    canManage={canAuthorWorkforceDocs}
+                    onAssign={() => goToTab('coverage')}
                   />
+                  <div className="mt-6">
+                    <WorkforceEntityArea
+                      {...entityAreaCallbacks}
+                      districtCode={districtCode}
+                      entityType="succession_candidates"
+                      showSampleTemplates={showSampleTemplates}
+                    />
+                  </div>
                 </TabsContent>
                 <TabsContent value="knowledge">
                   <WorkforceEntityArea
@@ -1620,17 +1895,22 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
                     value={trainingSubTab}
                     onValueChange={v => goToTab('training', { sub: parseTrainingSubTab(v) })}
                   >
-                    <TabsList className="mb-4">
-                      <TabsTrigger value="catalog">All courses</TabsTrigger>
-                      <TabsTrigger value="sessions">District sessions</TabsTrigger>
-                      {isWorkforceOperator ? (
-                        <TabsTrigger value="my-signups">My sign-ups</TabsTrigger>
-                      ) : null}
-                    </TabsList>
+                    <ResponsiveTabsList
+                      items={[
+                        { value: 'catalog', label: 'All courses' },
+                        { value: 'sessions', label: 'District sessions' },
+                        ...(isWorkforceOperator
+                          ? [{ value: 'my-signups', label: 'My sign-ups' }]
+                          : []),
+                      ]}
+                      value={trainingSubTab}
+                      onValueChange={v => goToTab('training', { sub: parseTrainingSubTab(v) })}
+                      selectLabel="Training section"
+                    />
                     <TabsContent value="catalog">
                       <WorkforceTrainingArea
                         districtCode={districtCode}
-                        canManage={canManageWorkforce}
+                        canManage={canAuthorWorkforceDocs}
                         onCreatedFromCatalog={() => goToTab('training', { sub: 'sessions' })}
                         {...(trainingFilters ? { initialFilters: trainingFilters } : {})}
                       />
@@ -1638,11 +1918,11 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
                     <TabsContent value="sessions">
                       <WorkforceScheduledTrainingArea
                         districtCode={districtCode}
-                        canManage={canManageWorkforce}
+                        canManage={canAuthorWorkforceDocs}
                         operatorSelfEnrollEnabled={
                           trainingSettings?.operator_self_enroll_enabled ?? false
                         }
-                        onRecordCeu={canManageWorkforce ? recordCeuFromTraining : undefined}
+                        onRecordCeu={canAuthorWorkforceDocs ? recordCeuFromTraining : undefined}
                       />
                     </TabsContent>
                     {isWorkforceOperator ? (
@@ -1673,7 +1953,7 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
             districtCode={districtCode}
             entityType={dashboardDetail.entityType}
             record={dashboardDetail.record}
-            canManage={canManageWorkforce}
+            canManage={canAuthorWorkforceDocs}
             onOpenCeuDialog={openCeuDialogForEmployee}
           />
         ) : null}
@@ -1684,12 +1964,12 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
             onOpenChange={setPageCeuOpen}
             districtCode={districtCode}
             operator={pageCeuOperator}
-            canManage={canManageWorkforce}
+            canManage={canAuthorWorkforceDocs}
             initialMode={pageCeuMode}
           />
         ) : null}
 
-        {wizardOpen && districtCode && canManageWorkforce ? (
+        {wizardOpen && districtCode && canAuthorWorkforceDocs ? (
           <WorkforceSuccessionWizard
             open={wizardOpen}
             onOpenChange={onWizardOpenChange}

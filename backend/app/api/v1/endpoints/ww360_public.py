@@ -170,6 +170,20 @@ def build_access_request_email(payload: AccessRequestBody) -> tuple[str, str, st
     return subject, html_body, text_body
 
 
+from app.services.jurisdiction_service import JurisdictionPack, load_pack, pack_summary
+
+
+@router.get("/jurisdictions/{state_code}/pack", response_model=JurisdictionPack)
+def public_jurisdiction_pack(state_code: str) -> JurisdictionPack:
+    """Public marketing copy pack for a state (landing page)."""
+    return load_pack(state_code)
+
+
+@router.get("/jurisdictions/{state_code}/summary")
+def public_jurisdiction_summary(state_code: str) -> dict:
+    return pack_summary(state_code)
+
+
 @router.post("/access-request")
 def submit_access_request(body: AccessRequestBody, request: Request) -> Any:
     """Accept a public district access request and email the partnership inbox."""

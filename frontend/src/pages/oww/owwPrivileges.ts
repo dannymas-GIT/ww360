@@ -1,7 +1,7 @@
 /**
  * Platform-partner privilege model for One Water Workforce executives.
  *
- * Roles behind it (both granted to jingrao-aman-OWW):
+ * Roles behind it (both granted to jenny-oww):
  *  - `platform_admin`  — existing global-scope role: every module, every district,
  *                        used for platform-level privileges (user mgmt, exports).
  *  - `oww_partner`     — marker role: routes the user to the OWW workspace,
@@ -149,6 +149,13 @@ export const OWW_PRIVILEGE_GROUPS: OwwPrivilegeGroup[] = [
         capability: 'Approve utility access requests and enrollments',
         scope: 'Water Workforce 360 join requests',
         status: 'granted',
+      },
+      {
+        id: 'doc-studio',
+        capability: 'Author and publish program content in Document Studio',
+        scope: 'One Water Workforce program library · PDF / Word export',
+        status: 'granted',
+        note: 'Utility libraries are separate; utilities author their own.',
       },
       {
         id: 'aquasafe-core',

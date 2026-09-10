@@ -454,8 +454,14 @@ def build_doh352_field_map(
             employee.home_city, employee.home_state, employee.home_zip
         ),
         "employer_name": (district.district_name if district else district_code) or "",
-        "employer_address_line1": (district.mailing_address_line1 if district else "") or "",
-        "employer_address_line2": (district.mailing_address_line2 if district else "") or "",
+        "employer_address_line1": (
+            getattr(district, "mailing_address_line1", None) if district else None
+        )
+        or "",
+        "employer_address_line2": (
+            getattr(district, "mailing_address_line2", None) if district else None
+        )
+        or "",
         "work_phone": employee.work_phone or "",
         "work_email": employee.work_email or "",
         "county_of_employment": employee.county_of_employment or "",

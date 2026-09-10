@@ -1,8 +1,12 @@
 import { MODULE_CORE, MODULE_WORKFORCE } from '@/services/authService';
 
 /** Hostnames that activate Workforce Continuity branding (login chrome, logos, nav). */
-const WORKFORCE_HOSTS = ['workforce-continuity.org', 'waterworkforce360.org'] as const;
-const WATERWORKFORCE360_HOSTS = ['waterworkforce360.org'] as const;
+const WORKFORCE_HOSTS = [
+  'workforce-continuity.org',
+  'waterworkforce360.org',
+  'ww360.aquasafe-solutions.us',
+] as const;
+const WATERWORKFORCE360_HOSTS = ['waterworkforce360.org', 'ww360.aquasafe-solutions.us'] as const;
 const DEV_OVERRIDE_KEY = 'dev_workforce_host';
 
 const WORKFORCE_360_FAVICON = '/workforce-360-favicon.png';
@@ -15,14 +19,16 @@ const AQUASAFE_FAVICON = '/aquasafe-favicon.svg';
  * Floors are intentional; do not “tighten” for denser nav without an explicit brand review.
  */
 export const WW360_LOGO_SIZE = {
-  /** Sticky / app chrome — absolute floor (wordmark + tagline still readable) */
-  navMinPx: 80,
-  /** Preferred sticky-nav / landing-nav height */
-  navPx: 100,
+  /** Sticky / app chrome — absolute floor (wordmark + AquaSafe tagline still readable) */
+  navMinPx: 120,
+  /** Preferred sticky-nav / expanded sidebar height */
+  navPx: 148,
   /** Marketing hero / stage lockup — hero-level signal, not a caption mark */
-  heroPx: 196,
-  /** Login split-panel column */
-  loginPx: 260,
+  heroPx: 260,
+  /** Login card / split-panel column */
+  loginPx: 320,
+  /** Separate "Powered by AquaSafe" caption (px) — do not shrink below this */
+  poweredByMinPx: 18,
 } as const;
 
 export type BrandLogoSurface = 'light' | 'dark';
@@ -105,7 +111,7 @@ export function getBrandTitle(): string {
   if (!isWorkforceBrand()) {
     return 'Aquasafe Solutions';
   }
-  return isWaterWorkforce360Host() ? 'Workforce 360' : 'Workforce Continuity';
+  return isWaterWorkforce360Host() ? 'Water Workforce 360' : 'Workforce Continuity';
 }
 
 export function getBrandSubtitle(): string {
@@ -121,7 +127,7 @@ export function getDocumentTitle(): string {
   if (!isWorkforceBrand()) {
     return 'AquaSafe';
   }
-  return isWaterWorkforce360Host() ? 'Workforce 360' : 'Workforce Continuity';
+  return isWaterWorkforce360Host() ? 'Water Workforce 360' : 'Workforce Continuity';
 }
 
 /**
@@ -143,7 +149,11 @@ export function getBrandLogoPath(forDarkSurface = false): string {
     : '/workforce-continuity-logo.png';
 }
 
-/** Prefer this at WW360 call sites: surface = background behind the logo. */
+/** Prefer this at WW360 call sites: surface = background behind the logo.
+ *  Designed transparent lockups (real alpha — do not knockout/recolor):
+ *  - light → `/workforce-360-logo.png` for cream/white UI
+ *  - dark  → `/workforce-360-logo-on-dark.png` for navy chrome / photo heroes
+ */
 export function getWw360LogoPath(surface: BrandLogoSurface): string {
   return surface === 'dark'
     ? '/workforce-360-logo-on-dark.png'

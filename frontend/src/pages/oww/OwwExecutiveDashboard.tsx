@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import {
   Area,
   AreaChart,
@@ -16,20 +17,17 @@ import {
 } from 'recharts';
 import {
   ArrowRight,
-  BadgeCheck,
   BookOpen,
-  Building2,
   CircleHelp,
   Clock3,
   Download,
   ExternalLink,
+  Globe,
   GraduationCap,
   Lock,
   RefreshCw,
   ShieldCheck,
   Sparkles,
-  TrendingDown,
-  TrendingUp,
   UserCheck,
   Users,
 } from 'lucide-react';
@@ -38,6 +36,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/context/AuthContext';
+import { useJurisdiction } from '@/context/JurisdictionContext';
 import { OwwTourOverlay, requestOpenOwwTour } from './OwwTourOverlay';
 import {
   OWW_PRIVILEGE_GROUPS,
@@ -52,14 +51,12 @@ import {
   LS_SUMMARY,
   LS_UPCOMING_COURSES,
   OWW_INSIGHTS,
-  OWW_SOURCES,
   PIPELINE_STAGES,
   WEB_AUDIENCE,
   WEB_MONTHLY_SIGNUPS,
   WEB_REFERRALS,
   WEB_SUMMARY,
   WEB_TOP_PAGES,
-  WW360_GRADE_DEMAND,
   WW360_REGION_DEMAND,
   WW360_SUMMARY,
   WW360_TRAINING_NEEDS,
@@ -69,8 +66,20 @@ import {
   formatUsd,
   regionGap,
   regionRisk,
-  type OwwSourceStatus,
 } from './owwMockData';
+import { fetchWorkforceInsights, type SDWISWorkforceInsights } from '@/services/sdwisService';
+import { fetchDigitalTeaser, downloadEpaQuarterlyPackagePdf, type DigitalTeaser } from '@/services/digitalAnalyticsService';
+import { fetchStateWorkforce } from '@/services/nationalService';
+import { OpCertProgramPanel } from '@/components/regulator/OpCertProgramPanel';
+import { Ww360KpiTile } from '@/components/ww360/Ww360KpiTile';
+import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
+import { Ww360Section } from '@/components/ww360/Ww360Section';
+import { Ww360SourceChip } from '@/components/ww360/Ww360SourceChip';
+import { ww360ChartTooltipStyle } from '@/components/ww360/ww360ChartTooltip';
+import { ww360PersonalizedTitle } from '@/components/ww360/ww360Greeting';
+import type { Ww360SourceId } from '@/components/ww360/ww360SourceTokens';
+import type { Ww360DataMode } from '@/components/ww360/Ww360DataModeBadge';
+import { AlertTriangle, Droplets } from 'lucide-react';
 
 /* ------------------------------------------------------------------ */
 /* Palette (WW360 chrome: deep navy, electric blue, sky accent)         */
@@ -86,231 +95,275 @@ const C = {
   navy: '#07111f',
 };
 
-const SOURCE_LABEL: Record<OwwSourceStatus['id'], string> = {
-  'learning-stream': 'Learning Stream',
-  'oww-web': 'onewaterworkforce.org',
-  ww360: 'Water Workforce 360',
-};
-
-const SOURCE_TONE: Record<OwwSourceStatus['id'], string> = {
-  'learning-stream': 'bg-sky-50 text-sky-800 border-sky-200',
-  'oww-web': 'bg-teal-50 text-teal-800 border-teal-200',
-  ww360: 'bg-blue-50 text-blue-800 border-blue-200',
-};
-
-function SourceChip({ id }: { id: OwwSourceStatus['id'] }) {
-  return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${SOURCE_TONE[id]}`}
-    >
-      {SOURCE_LABEL[id]}
-    </span>
-  );
-}
-
-function greeting(): string {
-  const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
-}
-
-/* ------------------------------------------------------------------ */
-/* KPI cards                                                           */
-/* ------------------------------------------------------------------ */
-
-interface Kpi {
-  id: string;
-  label: string;
-  value: string;
-  sub: string;
-  delta: number; // fraction, positive good unless invert
-  invert?: boolean;
-  icon: React.ReactNode;
-  sources: Array<OwwSourceStatus['id']>;
-  target?: string;
-}
-
-function KpiCard({ kpi }: { kpi: Kpi }) {
-  const good = kpi.invert ? kpi.delta <= 0 : kpi.delta >= 0;
-  const Icon = kpi.delta >= 0 ? TrendingUp : TrendingDown;
-  return (
-    <Card
-      className="group relative overflow-hidden border-slate-200 bg-white shadow-sm"
-      title={`Source: ${kpi.sources.map(s => SOURCE_LABEL[s]).join(' + ')}`}
-    >
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-2">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{kpi.label}</p>
-          <span className="rounded-md bg-slate-100 p-1.5 text-slate-600">{kpi.icon}</span>
-        </div>
-        <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">{kpi.value}</p>
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-          <span
-            className={`inline-flex items-center gap-1 font-medium ${good ? 'text-emerald-700' : 'text-red-600'}`}
-          >
-            <Icon className="h-3.5 w-3.5" aria-hidden />
-            {kpi.delta >= 0 ? '+' : ''}
-            {formatPct(kpi.delta)}
-          </span>
-          <span className="text-slate-500">{kpi.sub}</span>
-        </div>
-        {kpi.target ? (
-          <p className="mt-2 text-[11px] text-slate-500">
-            <span className="font-medium text-slate-600">EPA target:</span> {kpi.target}
-          </p>
-        ) : null}
-        <div className="mt-2 flex flex-wrap gap-1 opacity-70 transition-opacity group-hover:opacity-100">
-          {kpi.sources.map(s => (
-            <SourceChip key={s} id={s} />
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Section wrapper                                                     */
-/* ------------------------------------------------------------------ */
-
-function Section({
-  tourId,
-  title,
-  eyebrow,
-  sources,
-  action,
-  children,
-  className = '',
-}: {
-  tourId: string;
-  title: string;
-  eyebrow?: string;
-  sources?: Array<OwwSourceStatus['id']>;
-  action?: React.ReactNode;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <Card
-      id={tourId}
-      data-tour={tourId}
-      className={`scroll-mt-20 border-slate-200 bg-white shadow-sm ${className}`}
-    >
-      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2 space-y-0 border-b border-slate-100 px-5 py-4">
-        <div className="min-w-0">
-          {eyebrow ? (
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-600">
-              {eyebrow}
-            </p>
-          ) : null}
-          <CardTitle className="text-base font-semibold text-slate-900">{title}</CardTitle>
-          {sources?.length ? (
-            <div className="mt-1.5 flex flex-wrap gap-1">
-              {sources.map(s => (
-                <SourceChip key={s} id={s} />
-              ))}
-            </div>
-          ) : null}
-        </div>
-        {action}
-      </CardHeader>
-      <CardContent className="px-5 py-4">{children}</CardContent>
-    </Card>
-  );
-}
-
-const tooltipStyle = {
-  contentStyle: {
-    borderRadius: 8,
-    border: '1px solid #e2e8f0',
-    fontSize: 12,
-    boxShadow: '0 4px 12px rgba(7,17,31,0.08)',
-  },
-  labelStyle: { fontWeight: 600, color: '#0f172a' },
-};
-
 /* ------------------------------------------------------------------ */
 /* Page                                                                */
 /* ------------------------------------------------------------------ */
 
-type Range = '30d' | 'qtr' | '12mo';
+interface ExecKpi {
+  id: string;
+  label: string;
+  value: string;
+  sub: string;
+  delta?: number;
+  invert?: boolean;
+  icon: React.ReactNode;
+  sources: Ww360SourceId[];
+  target?: string;
+  dataMode: Ww360DataMode;
+}
+
+interface SourceStatusCard {
+  id: string;
+  label: string;
+  detail: string;
+  health: 'ok' | 'degraded' | 'stale';
+  statusLabel: string;
+  recordsLabel: string;
+}
+
+const tooltipStyle = ww360ChartTooltipStyle;
 
 export default function OwwExecutiveDashboard() {
-  const { userRoles } = useAuth();
-  const [range, setRange] = useState<Range>('12mo');
+  const { userRoles, user } = useAuth();
+  const location = useLocation();
+  const { activeState, pack } = useJurisdiction();
   const [regionSort, setRegionSort] = useState<'gap' | 'retirements' | 'utilities'>('gap');
+  const [sdwisInsights, setSdwisInsights] = useState<SDWISWorkforceInsights | null>(null);
+  const [sdwisLoading, setSdwisLoading] = useState(true);
+  const [digitalTeaser, setDigitalTeaser] = useState<DigitalTeaser | null>(null);
+  const [epaExportNote, setEpaExportNote] = useState<string | null>(null);
+  const [epaExportBusy, setEpaExportBusy] = useState(false);
+  const [stateWorkforce, setStateWorkforce] = useState<Record<string, unknown> | null>(null);
 
-  const kpis: Kpi[] = useMemo(
-    () => [
+  useEffect(() => {
+    if (!epaExportNote) return;
+    const t = window.setTimeout(() => setEpaExportNote(null), 6_000);
+    return () => window.clearTimeout(t);
+  }, [epaExportNote]);
+
+  useEffect(() => {
+    const id = (location.hash || '').replace(/^#/, '');
+    if (!id) return;
+    const t = window.setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+    return () => window.clearTimeout(t);
+  }, [location.hash, sdwisLoading]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setSdwisLoading(true);
+    void fetchWorkforceInsights(activeState)
+      .then(data => {
+        if (!cancelled) setSdwisInsights(data);
+      })
+      .catch(() => {
+        if (!cancelled) setSdwisInsights(null);
+      })
+      .finally(() => {
+        if (!cancelled) setSdwisLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeState]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchStateWorkforce(activeState)
+      .then(data => {
+        if (!cancelled) setStateWorkforce(data);
+      })
+      .catch(() => {
+        if (!cancelled) setStateWorkforce(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeState]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchDigitalTeaser()
+      .then(data => {
+        if (!cancelled) setDigitalTeaser(data);
+      })
+      .catch(() => {
+        if (!cancelled) setDigitalTeaser(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const sourceCards: SourceStatusCard[] = useMemo(() => {
+    const sdwisOk = Boolean(sdwisInsights) && !sdwisLoading;
+    const memberUtils = Number(sdwisInsights?.coverage?.member_utilities ?? 0);
+    return [
+      {
+        id: 'sdwis',
+        label: 'EPA SDWIS / ECHO',
+        detail: 'NY community water systems · compliance landscape (federal open data)',
+        health: sdwisOk ? 'ok' : sdwisLoading ? 'degraded' : 'stale',
+        statusLabel: sdwisOk
+          ? `Synced ${sdwisInsights?.last_refreshed ? new Date(sdwisInsights.last_refreshed).toLocaleString() : 'recently'}`
+          : sdwisLoading
+            ? 'Refreshing…'
+            : 'Unavailable — run Admin → SDWIS refresh',
+        recordsLabel: sdwisOk
+          ? `${sdwisInsights!.active_cws_count.toLocaleString()} systems · ${memberUtils} linked members`
+          : '—',
+      },
+      {
+        id: 'learning-stream',
+        label: 'Learning Stream',
+        detail: 'LMS system of record — not connected yet (XML API pending)',
+        health: 'stale',
+        statusLabel: 'Not connected · showing sample',
+        recordsLabel: 'Sample figures only',
+      },
+      {
+        id: 'oww-web',
+        label: 'onewaterworkforce.org',
+        detail: 'Member sign-ups · pipeline · job board — not connected yet',
+        health: 'stale',
+        statusLabel: 'Not connected · showing sample',
+        recordsLabel: 'Sample figures only',
+      },
+      {
+        id: 'ww360',
+        label: 'Water Workforce 360 utilities',
+        detail: 'Employer staffing / vacancies / retirements from Continuity workspace',
+        health: 'stale',
+        statusLabel: 'Live tables empty / API pending · showing sample',
+        recordsLabel: 'Sample employer demand',
+      },
+    ];
+  }, [sdwisInsights, sdwisLoading]);
+
+  const kpis: ExecKpi[] = useMemo(() => {
+    const live: ExecKpi[] = sdwisInsights
+      ? [
+          {
+            id: 'cws',
+            label: 'NY active CWS',
+            value: sdwisInsights.active_cws_count.toLocaleString(),
+            sub: 'Community water systems in SDWIS landscape',
+            icon: <Droplets className="h-4 w-4" />,
+            sources: ['sdwis'],
+            dataMode: 'live',
+          },
+          {
+            id: 'pop',
+            label: 'Population served',
+            value: formatCompact(sdwisInsights.total_population_served),
+            sub: 'Sum of EPA population_served_count',
+            icon: <Users className="h-4 w-4" />,
+            sources: ['sdwis'],
+            dataMode: 'live',
+          },
+          {
+            id: 'health-vio',
+            label: 'Health-based violations',
+            value: sdwisInsights.health_violation_systems.toLocaleString(),
+            sub: 'Systems with open health-based flags',
+            icon: <AlertTriangle className="h-4 w-4" />,
+            sources: ['sdwis'],
+            dataMode: 'live',
+            invert: true,
+          },
+          {
+            id: 'snc',
+            label: 'Serious / SNC',
+            value: sdwisInsights.snc_count.toLocaleString(),
+            sub: 'Serious violators / significant non-compliers',
+            icon: <ShieldCheck className="h-4 w-4" />,
+            sources: ['sdwis'],
+            dataMode: 'live',
+            invert: true,
+          },
+        ]
+      : [];
+
+    const sample: ExecKpi[] = [
       {
         id: 'members',
         label: 'OWW members',
         value: WEB_SUMMARY.members.toLocaleString(),
-        sub: `+${WEB_SUMMARY.newMembers30d} in 30 days`,
+        sub: `+${WEB_SUMMARY.newMembers30d} in 30 days (sample)`,
         delta: 0.089,
         icon: <Users className="h-4 w-4" />,
         sources: ['oww-web'],
         target: '300 enrolled in pathway · 212 so far',
-      },
-      {
-        id: 'utilities',
-        label: 'Utilities in WW360',
-        value: `${WW360_SUMMARY.utilitiesEnrolled}`,
-        sub: `${WW360_SUMMARY.smallSystems} small systems · ${WW360_SUMMARY.staffCovered.toLocaleString()} staff`,
-        delta: 0.125,
-        icon: <Building2 className="h-4 w-4" />,
-        sources: ['ww360'],
-        target: `${WW360_SUMMARY.utilitiesTarget} reporting`,
+        dataMode: 'sample',
       },
       {
         id: 'ce-hours',
         label: 'Contact hours (YTD)',
         value: formatCompact(LS_SUMMARY.ceHoursYtd),
-        sub: `${LS_SUMMARY.attendedYtd.toLocaleString()} attendances · ${formatPct(LS_SUMMARY.attendanceRate)} show rate`,
+        sub: `${LS_SUMMARY.attendedYtd.toLocaleString()} attendances (sample)`,
         delta: 0.174,
         icon: <GraduationCap className="h-4 w-4" />,
         sources: ['learning-stream'],
         target: '2,500 grant-attributed hrs · 1,930 so far',
-      },
-      {
-        id: 'exam-ready',
-        label: 'Exam-ready candidates',
-        value: '118',
-        sub: '212 in training',
-        delta: 0.212,
-        icon: <BadgeCheck className="h-4 w-4" />,
-        sources: ['oww-web', 'learning-stream'],
+        dataMode: 'sample',
       },
       {
         id: 'retirements',
         label: 'Retirements · 24 mo',
         value: `${WW360_SUMMARY.retirements24mo}`,
-        sub: `${WW360_SUMMARY.criticalNoSuccessor} critical roles, no successor`,
+        sub: `${WW360_SUMMARY.criticalNoSuccessor} critical · no successor (sample)`,
         delta: 0.061,
         invert: true,
         icon: <Clock3 className="h-4 w-4" />,
         sources: ['ww360'],
+        dataMode: 'sample',
       },
       {
         id: 'placements',
         label: 'Employment connections',
         value: '31',
-        sub: `${WW360_SUMMARY.vacancies} open positions statewide`,
+        sub: `${WW360_SUMMARY.vacancies} open positions (sample)`,
         delta: 0.35,
         icon: <UserCheck className="h-4 w-4" />,
         sources: ['ww360', 'oww-web'],
         target: '60 placements · 52% reached',
+        dataMode: 'sample',
       },
-    ],
-    []
-  );
+    ];
 
-  const lsSeries = useMemo(() => {
-    if (range === '30d') return LS_MONTHLY.slice(-1);
-    if (range === 'qtr') return LS_MONTHLY.slice(-3);
-    return LS_MONTHLY;
-  }, [range]);
+    return [...live, ...sample].slice(0, 8);
+  }, [sdwisInsights]);
+
+  const sdwisGradeSeries = useMemo(() => {
+    const grades = sdwisInsights?.grade_demand_estimate || {};
+    return Object.entries(grades)
+      .map(([grade, systems]) => ({ grade, systems: Number(systems) || 0 }))
+      .sort((a, b) => b.systems - a.systems);
+  }, [sdwisInsights]);
+
+  const sdwisSizeSeries = useMemo(() => {
+    const tiers = sdwisInsights?.size_tiers || {};
+    const order = ['very_small', 'small', 'medium', 'large', 'very_large'];
+    const labels: Record<string, string> = {
+      very_small: 'Very small',
+      small: 'Small',
+      medium: 'Medium',
+      large: 'Large',
+      very_large: 'Very large',
+    };
+    return order
+      .filter(k => k in tiers)
+      .map(k => ({ tier: labels[k] || k, systems: Number(tiers[k]) || 0 }));
+  }, [sdwisInsights]);
+
+  const countyPressure = useMemo(() => {
+    const rows = [...(sdwisInsights?.compliance_pressure_by_county || [])];
+    rows.sort((a, b) => Number(b.pressure_score || 0) - Number(a.pressure_score || 0));
+    return rows.slice(0, 12);
+  }, [sdwisInsights]);
+
+  const lsSeries = LS_MONTHLY;
 
   const supplyDemand = useMemo(
     () =>
@@ -322,7 +375,29 @@ export default function OwwExecutiveDashboard() {
     []
   );
 
+  const liveDistrictRows = (
+    (stateWorkforce?.continuity_rollup as { districts?: Array<Record<string, unknown>> })?.districts ||
+    []
+  );
+
   const regionRows = useMemo(() => {
+    if (liveDistrictRows.length) {
+      const mapped = liveDistrictRows.map(d => ({
+        region: String(d.district_code || 'District'),
+        utilities: 1,
+        staff: 0,
+        vacancies: 0,
+        retirements24mo: Number(d.employees_retirement_eligible_24mo || 0),
+        criticalNoSuccessor: Number(d.cert_cliff_90d || 0),
+        candidates: Math.round(Number(d.coverage_pct || 0)),
+      }));
+      mapped.sort((a, b) => {
+        if (regionSort === 'retirements') return b.retirements24mo - a.retirements24mo;
+        if (regionSort === 'utilities') return b.utilities - a.utilities;
+        return regionGap(b) - regionGap(a);
+      });
+      return mapped;
+    }
     const rows = [...WW360_REGION_DEMAND];
     rows.sort((a, b) => {
       if (regionSort === 'gap') return regionGap(b) - regionGap(a);
@@ -330,89 +405,89 @@ export default function OwwExecutiveDashboard() {
       return b.utilities - a.utilities;
     });
     return rows;
-  }, [regionSort]);
+  }, [liveDistrictRows, regionSort]);
+
+  const showOpCertPanel =
+    user?.username === 'ny-doh-opcert-manager' ||
+    user?.orgs?.some(o => o.org_code === 'NY_DOH_BWSP');
 
   const maxPipeline = PIPELINE_STAGES[0]?.count ?? 1;
-  const rangeLabel =
-    range === '30d' ? 'Last 30 days' : range === 'qtr' ? 'Last quarter' : 'Trailing 12 months';
   const isPlatform = userRoles.includes('platform_admin') || userRoles.includes('global_admin');
+  const heroMode: Ww360DataMode = sdwisInsights ? 'mixed' : 'sample';
+
+  const downloadEpaQuarterlyPackage = async () => {
+    document.getElementById('epa')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setEpaExportBusy(true);
+    setEpaExportNote(null);
+    try {
+      await downloadEpaQuarterlyPackagePdf();
+      setEpaExportNote(`Downloaded EPA quarterly package PDF (${EPA_REPORTING.period}).`);
+    } catch {
+      setEpaExportNote('Could not download EPA package PDF. Try again or check partner access.');
+    } finally {
+      setEpaExportBusy(false);
+    }
+  };
 
   return (
     <div className="ww360-app-shell mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6">
       {/* Header */}
-      <header className="relative overflow-hidden rounded-2xl bg-[#07111f] px-6 py-6 text-white shadow-md md:px-8 md:py-8">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-60"
-          style={{
-            background:
-              'radial-gradient(60% 80% at 85% 20%, rgba(56,189,248,0.35), transparent 60%), radial-gradient(50% 70% at 10% 90%, rgba(37,99,235,0.35), transparent 60%)',
-          }}
-        />
-        <div className="relative flex flex-wrap items-start justify-between gap-6">
-          <div className="min-w-0 max-w-3xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-300">
-              One Water Workforce · New York Section AWWA
-            </p>
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight md:text-3xl">
-              {greeting()}, Jenny — here is the statewide water workforce picture.
-            </h1>
-            <p className="mt-3 text-sm leading-relaxed text-slate-300 md:text-[15px]">
-              Learning Stream, onewaterworkforce.org and 27 participating utilities, reconciled into
-              one executive view: who is entering the pipeline, who is being trained, where
-              utilities expect openings, and how the EPA Area 3 measures are tracking.
-            </p>
-            <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
-              <Badge className="border-transparent bg-sky-400/20 text-sky-100 hover:bg-sky-400/20">
-                Sample data · shaped to live API contracts
-              </Badge>
-              {isPlatform ? (
-                <Badge className="border-transparent bg-white/10 text-white hover:bg-white/10">
-                  <ShieldCheck className="mr-1 h-3 w-3" aria-hidden /> Platform partner access
-                </Badge>
-              ) : null}
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex rounded-lg border border-white/15 bg-white/5 p-0.5 text-xs">
-              {(
-                [
-                  ['30d', '30d'],
-                  ['qtr', 'Quarter'],
-                  ['12mo', '12 mo'],
-                ] as Array<[Range, string]>
-              ).map(([id, label]) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setRange(id)}
-                  className={`rounded-md px-3 py-1.5 font-medium transition ${
-                    range === id ? 'bg-white text-slate-900' : 'text-slate-200 hover:bg-white/10'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+      <Ww360PageHero
+        eyebrow={pack?.section_eyebrow ?? 'One Water Workforce · New York Section AWWA'}
+        title={ww360PersonalizedTitle(
+          user,
+          'here is your 360 view of the statewide water workforce.'
+        )}
+        description={
+          pack?.exec_description ??
+          'Live EPA SDWIS compliance for New York, plus sample program metrics for Learning Stream, onewaterworkforce.org, and utility Continuity reporting until those feeds are connected.'
+        }
+        dataMode={heroMode}
+        lastSynced={sdwisInsights?.last_refreshed}
+        badges={
+          isPlatform ? (
+            <Badge className="border-transparent bg-white/10 text-white hover:bg-white/10">
+              <ShieldCheck className="mr-1 h-3 w-3" aria-hidden /> Platform partner access
+            </Badge>
+          ) : null
+        }
+        actions={
+          <>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="border-white/20 bg-white/5 text-white hover:bg-white/15 hover:text-white"
+              className="border-white/20 bg-white/5 text-white hover:bg-white/15 hover:text-white min-h-[44px] md:min-h-9"
               onClick={() => requestOpenOwwTour(0)}
             >
               <CircleHelp className="mr-1.5 h-4 w-4" aria-hidden /> Tour
             </Button>
-            <Button type="button" size="sm" className="bg-sky-400 text-slate-900 hover:bg-sky-300">
-              <Download className="mr-1.5 h-4 w-4" aria-hidden /> EPA quarterly package
+            <Button
+              type="button"
+              size="sm"
+              className="bg-sky-400 text-slate-900 hover:bg-sky-300 min-h-[44px] md:min-h-9"
+              onClick={() => void downloadEpaQuarterlyPackage()}
+              disabled={epaExportBusy}
+            >
+              <Download className="mr-1.5 h-4 w-4" aria-hidden />{' '}
+              {epaExportBusy ? 'Preparing PDF…' : 'EPA quarterly package'}
             </Button>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
+
+      {epaExportNote ? (
+        <p
+          className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800"
+          role="status"
+        >
+          {epaExportNote}
+        </p>
+      ) : null}
 
       {/* Sources */}
-      <div data-tour="sources" className="grid gap-3 md:grid-cols-3">
-        {OWW_SOURCES.map(s => (
+      <div data-tour="sources" className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {sourceCards.map(s => (
           <div
             key={s.id}
             className="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm"
@@ -425,7 +500,7 @@ export default function OwwExecutiveDashboard() {
                       ? 'bg-emerald-500'
                       : s.health === 'degraded'
                         ? 'bg-amber-500'
-                        : 'bg-red-500'
+                        : 'bg-slate-400'
                   }`}
                   aria-hidden
                 />
@@ -433,30 +508,168 @@ export default function OwwExecutiveDashboard() {
               </div>
               <p className="mt-0.5 text-xs leading-snug text-slate-500">{s.detail}</p>
             </div>
-            <div className="shrink-0 text-right text-xs text-slate-500">
-              <p className="inline-flex items-center gap-1">
-                <RefreshCw className="h-3 w-3" aria-hidden /> {s.lastSyncMinutesAgo} min ago
+            <div className="shrink-0 text-right text-xs text-slate-500 max-w-[45%]">
+              <p className="inline-flex items-center gap-1 justify-end">
+                <RefreshCw className="h-3 w-3 shrink-0" aria-hidden /> {s.statusLabel}
               </p>
-              <p className="mt-0.5 font-medium text-slate-700">{s.recordsToday} records today</p>
+              <p className="mt-0.5 font-medium text-slate-700">{s.recordsLabel}</p>
             </div>
           </div>
         ))}
       </div>
 
+      {/* Digital reach teaser */}
+      <div
+        data-tour="digital-teaser"
+        className="flex flex-col gap-4 rounded-xl border border-sky-100 bg-gradient-to-r from-sky-50/80 to-white px-5 py-4 shadow-sm md:flex-row md:items-center md:justify-between"
+      >
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-700">
+            Digital reach · GA4 + SEO
+          </p>
+          <p className="mt-1 text-sm text-slate-600">
+            Google Analytics for each program site — Water Workforce 360, onewaterworkforce.org, and
+            Learning Stream — so you can see which pages people visit, how long they stay, where they
+            come from, and how the program shows up in search. Last 30 days (sample for OWW &amp; LS
+            until connected).
+          </p>
+          {digitalTeaser ? (
+            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs tabular-nums text-slate-700">
+              <span>
+                <strong className="text-slate-900">{formatCompact(digitalTeaser.ww360Sessions30d)}</strong>{' '}
+                WW360 sessions
+              </span>
+              <span>
+                <strong className="text-slate-900">{formatCompact(digitalTeaser.owwOrganicClicks30d)}</strong>{' '}
+                OWW organic clicks
+              </span>
+              <span>
+                <strong className="text-slate-900">{formatCompact(digitalTeaser.lsCatalogSessions30d)}</strong>{' '}
+                LS catalog sessions
+              </span>
+              <span>
+                <strong className="text-slate-900">{formatCompact(digitalTeaser.blendedSeoImpressions30d)}</strong>{' '}
+                SEO impressions
+              </span>
+            </div>
+          ) : null}
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          className="shrink-0 bg-sky-600 hover:bg-sky-700 min-h-[44px] md:min-h-9"
+          asChild
+        >
+          <Link to="/analytics">
+            <Globe className="mr-1.5 h-4 w-4" aria-hidden /> Open Digital reach
+          </Link>
+        </Button>
+      </div>
+
       {/* KPIs */}
-      <div data-tour="kpis" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div data-tour="kpis" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {kpis.map(k => (
-          <KpiCard key={k.id} kpi={k} />
+          <Ww360KpiTile
+            key={k.id}
+            label={k.label}
+            value={k.value}
+            sub={k.sub}
+            delta={k.delta}
+            invert={k.invert}
+            icon={k.icon}
+            sources={k.sources}
+            target={k.target}
+            dataMode={k.dataMode}
+          />
         ))}
       </div>
 
+      {/* Water System Landscape (EPA SDWIS — live data) */}
+      <Ww360Section
+        tourId="sdwis-landscape"
+        eyebrow="EPA SDWIS · ECHO"
+        title="Water system landscape"
+        sources={['sdwis']}
+        dataMode={sdwisInsights ? 'live' : 'sample'}
+        lastSynced={sdwisInsights?.last_refreshed}
+      >
+        {sdwisLoading ? (
+          <p className="text-sm text-slate-500">Loading state compliance landscape…</p>
+        ) : sdwisInsights ? (
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                { label: 'Active CWS', value: sdwisInsights.active_cws_count.toLocaleString() },
+                {
+                  label: 'Population served',
+                  value: formatCompact(sdwisInsights.total_population_served),
+                },
+                {
+                  label: 'Health-based violations',
+                  value: sdwisInsights.health_violation_systems.toLocaleString(),
+                },
+                { label: 'Serious / SNC', value: sdwisInsights.snc_count.toLocaleString() },
+              ].map(tile => (
+                <div
+                  key={tile.label}
+                  className="rounded-xl border border-sky-100 bg-sky-50/50 px-4 py-3"
+                >
+                  <p className="text-xs font-medium text-sky-800">{tile.label}</p>
+                  <p className="text-2xl font-semibold tabular-nums text-[#07111f]">{tile.value}</p>
+                </div>
+              ))}
+            </div>
+            {sdwisInsights.member_watchlist.length > 0 && (
+              <div>
+                <p className="mb-2 text-sm font-medium text-slate-800 flex items-center gap-2">
+                  <Droplets className="h-4 w-4 text-sky-600" /> Member utility watchlist
+                </p>
+                <div className="overflow-x-auto rounded-lg border">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Utility</th>
+                        <th className="px-3 py-2">PWSID</th>
+                        <th className="px-3 py-2">Open violations</th>
+                        <th className="px-3 py-2">Suggested training</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sdwisInsights.member_watchlist.slice(0, 8).map(row => (
+                        <tr key={String(row.pwsid)} className="border-t">
+                          <td className="px-3 py-2 font-medium">{String(row.pws_name || row.district_code)}</td>
+                          <td className="px-3 py-2 font-mono text-xs">{String(row.pwsid)}</td>
+                          <td className="px-3 py-2">{String(row.open_violations)}</td>
+                          <td className="px-3 py-2 text-slate-600">
+                            {((row.suggested_training_topics as string[]) || []).join(' · ') || '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+            <p className="text-xs text-slate-500">
+              Member coverage: {String(sdwisInsights.coverage.member_utilities)} utilities ·{' '}
+              {String(sdwisInsights.coverage.coverage_pct_population)}% of state population in landscape.
+            </p>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-500">
+            SDWIS landscape unavailable — run state refresh from Administration or wait for nightly sync.
+          </p>
+        )}
+      </Ww360Section>
+
       {/* Pipeline + Supply/Demand */}
       <div className="grid gap-6 lg:grid-cols-5">
-        <Section
+        <Ww360Section
           tourId="pipeline"
           eyebrow="Candidate journey"
           title="Pipeline: awareness → employment"
           sources={['oww-web', 'learning-stream', 'ww360']}
+          dataMode="sample"
           className="lg:col-span-2"
         >
           <ol className="space-y-2.5">
@@ -496,13 +709,14 @@ export default function OwwExecutiveDashboard() {
             typically lifts this step; Exam-ready → Employed (26%) is the matching problem addressed
             below.
           </div>
-        </Section>
+        </Ww360Section>
 
-        <Section
+        <Ww360Section
           tourId="supply-demand"
           eyebrow="Employer demand vs. candidate supply"
           title="Openings expected in 24 months vs. candidates in training, by region"
           sources={['ww360', 'oww-web']}
+          dataMode="sample"
           className="lg:col-span-3"
         >
           <div className="h-[320px] w-full">
@@ -551,15 +765,16 @@ export default function OwwExecutiveDashboard() {
               </p>
             </div>
           </div>
-        </Section>
+        </Ww360Section>
       </div>
 
       {/* Learning Stream */}
-      <Section
+      <Ww360Section
         tourId="learning-stream"
         eyebrow="Learning Stream · system of record"
-        title={`Training delivery — ${rangeLabel}`}
+        title="Training delivery"
         sources={['learning-stream']}
+        dataMode="sample"
         action={
           <a
             className="inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:underline"
@@ -729,15 +944,16 @@ export default function OwwExecutiveDashboard() {
             </ul>
           </div>
         </div>
-      </Section>
+      </Ww360Section>
 
       {/* Website + grade demand */}
       <div className="grid gap-6 lg:grid-cols-3">
-        <Section
+        <Ww360Section
           tourId="web"
           eyebrow="onewaterworkforce.org"
           title="Member growth & job board"
           sources={['oww-web']}
+          dataMode="sample"
         >
           <div className="h-[180px] w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -792,49 +1008,67 @@ export default function OwwExecutiveDashboard() {
               </li>
             ))}
           </ul>
-        </Section>
+        </Ww360Section>
 
-        <Section
+        <Ww360Section
           tourId="grades"
-          eyebrow="Certification demand"
-          title="Openings by NYS grade vs. pipeline"
-          sources={['ww360', 'learning-stream']}
+          eyebrow="EPA SDWIS · system inventory"
+          title="NY systems by size & estimated grade"
+          sources={['sdwis']}
+          dataMode={sdwisInsights ? 'live' : 'sample'}
+          lastSynced={sdwisInsights?.last_refreshed}
         >
-          <div className="h-[220px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={WW360_GRADE_DEMAND}
-                layout="vertical"
-                margin={{ top: 4, right: 12, left: 8, bottom: 0 }}
-                barGap={2}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 10, fill: '#475569' }} />
-                <YAxis
-                  type="category"
-                  dataKey="grade"
-                  width={62}
-                  tick={{ fontSize: 11, fill: '#475569' }}
-                />
-                <Tooltip {...tooltipStyle} cursor={{ fill: 'rgba(37,99,235,0.06)' }} />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Bar
-                  dataKey="openings24mo"
-                  name="Openings (24 mo)"
-                  fill={C.navy}
-                  radius={[0, 3, 3, 0]}
-                />
-                <Bar dataKey="pipeline" name="Pipeline" fill={C.sky} radius={[0, 3, 3, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-2 rounded-lg border border-slate-100 bg-slate-50 p-3 text-xs text-slate-600">
-            <span className="font-semibold text-slate-800">Grade A</span> is the only grade where
-            demand exceeds pipeline (14 vs 11). These are senior treatment roles — advancement prep
-            for current Grade B operators closes it faster than new entrants can.
-          </div>
+          {sdwisGradeSeries.length > 0 ? (
+            <>
+              <div className="h-[180px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={sdwisGradeSeries}
+                    layout="vertical"
+                    margin={{ top: 4, right: 12, left: 8, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
+                    <XAxis type="number" tick={{ fontSize: 10, fill: '#475569' }} />
+                    <YAxis
+                      type="category"
+                      dataKey="grade"
+                      width={36}
+                      tick={{ fontSize: 11, fill: '#475569' }}
+                    />
+                    <Tooltip {...tooltipStyle} cursor={{ fill: 'rgba(37,99,235,0.06)' }} />
+                    <Bar
+                      dataKey="systems"
+                      name="Systems (grade proxy from size)"
+                      fill={C.navy}
+                      radius={[0, 3, 3, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              {sdwisSizeSeries.length > 0 ? (
+                <div className="mt-3 h-[120px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={sdwisSizeSeries} margin={{ top: 4, right: 4, left: -12, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                      <XAxis dataKey="tier" tick={{ fontSize: 10, fill: '#475569' }} />
+                      <YAxis tick={{ fontSize: 10, fill: '#475569' }} />
+                      <Tooltip {...tooltipStyle} />
+                      <Bar dataKey="systems" name="Systems" fill={C.sky} radius={[3, 3, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : null}
+              <div className="mt-2 rounded-lg border border-slate-100 bg-slate-50 p-3 text-xs text-slate-600">
+                Grade bands are a <span className="font-semibold text-slate-800">size-based proxy</span>{' '}
+                from SDWIS population tiers (not license inventory). Link PWSIDs under Admin → PWSID
+                links to build a true member watchlist.
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-slate-500">Load SDWIS landscape to see grade and size charts.</p>
+          )}
           <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Training needs reported by utilities
+            Training needs reported by utilities <span className="font-normal text-amber-700">(sample)</span>
           </p>
           <ul className="mt-1.5 space-y-1 text-sm">
             {WW360_TRAINING_NEEDS.slice(0, 5).map(t => (
@@ -847,13 +1081,14 @@ export default function OwwExecutiveDashboard() {
               </li>
             ))}
           </ul>
-        </Section>
+        </Ww360Section>
 
-        <Section
+        <Ww360Section
           tourId="epa"
           eyebrow="EPA Area 3 · cooperative agreement"
           title="Program measures"
           sources={['ww360', 'learning-stream', 'oww-web']}
+          dataMode="sample"
         >
           <ul className="space-y-3">
             {EPA_MEASURES.map(m => {
@@ -900,15 +1135,83 @@ export default function OwwExecutiveDashboard() {
               ))}
             </ul>
           </div>
-        </Section>
+        </Ww360Section>
       </div>
 
-      {/* Regions */}
-      <Section
+      {/* Live county compliance pressure */}
+      <Ww360Section
+        tourId="county-pressure"
+        eyebrow="EPA SDWIS · ECHO"
+        title="County compliance pressure (NY)"
+        sources={['sdwis']}
+        dataMode={sdwisInsights ? 'live' : 'sample'}
+        lastSynced={sdwisInsights?.last_refreshed}
+      >
+        {countyPressure.length === 0 ? (
+          <p className="text-sm text-slate-500">
+            {sdwisLoading ? 'Loading county pressure…' : 'No county pressure rows yet — refresh SDWIS.'}
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+                  <th className="py-2 pr-3 font-semibold">County</th>
+                  <th className="py-2 pr-3 text-right font-semibold">Systems</th>
+                  <th className="py-2 pr-3 text-right font-semibold">Population</th>
+                  <th className="py-2 pr-3 text-right font-semibold">Health flags</th>
+                  <th className="py-2 pr-3 text-right font-semibold">SNC</th>
+                  <th className="py-2 pr-3 text-right font-semibold">Serious</th>
+                  <th className="py-2 text-right font-semibold">Pressure</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {countyPressure.map(row => (
+                  <tr key={String(row.county)}>
+                    <td className="py-2 pr-3 font-medium text-slate-900">{String(row.county)}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-slate-700">
+                      {Number(row.linked_systems_count || 0).toLocaleString()}
+                    </td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-slate-700">
+                      {formatCompact(Number(row.population_served_total || 0))}
+                    </td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-slate-700">
+                      {Number(row.health_flag_count || 0).toLocaleString()}
+                    </td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-slate-700">
+                      {Number(row.snc_count || 0).toLocaleString()}
+                    </td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-slate-700">
+                      {Number(row.serious_violator_count || 0).toLocaleString()}
+                    </td>
+                    <td className="py-2 text-right">
+                      <span
+                        className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold tabular-nums ${
+                          Number(row.pressure_score || 0) >= 80
+                            ? 'border-red-200 bg-red-50 text-red-700'
+                            : Number(row.pressure_score || 0) >= 50
+                              ? 'border-amber-200 bg-amber-50 text-amber-800'
+                              : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                        }`}
+                      >
+                        {Number(row.pressure_score || 0).toFixed(0)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Ww360Section>
+
+      {/* Regions — live continuity roll-up when districts enrolled; else sample */}
+      <Ww360Section
         tourId="regions"
         eyebrow="Water Workforce 360 · employer reporting"
         title="Regional workforce risk"
         sources={['ww360', 'oww-web']}
+        dataMode={liveDistrictRows.length ? 'mixed' : 'sample'}
         action={
           <div className="inline-flex rounded-lg border border-slate-200 p-0.5 text-xs">
             {(
@@ -1014,14 +1317,15 @@ export default function OwwExecutiveDashboard() {
           exam-ready in the same region. Utility-level drill-down is available for the{' '}
           {WW360_SUMMARY.utilitiesConsentedToShare} utilities that consented to partner visibility.
         </p>
-      </Section>
+      </Ww360Section>
 
       {/* Insights + access */}
       <div className="grid gap-6 lg:grid-cols-5">
-        <Section
+        <Ww360Section
           tourId="insights"
           eyebrow="Cross-source analysis"
           title="Recommended actions this month"
+          dataMode="sample"
           className="lg:col-span-3"
         >
           <ul className="grid gap-3 md:grid-cols-2">
@@ -1053,7 +1357,7 @@ export default function OwwExecutiveDashboard() {
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                   <div className="flex flex-wrap gap-1">
                     {i.sources.map(s => (
-                      <SourceChip key={s} id={s} />
+                      <Ww360SourceChip key={s} id={s} />
                     ))}
                   </div>
                   <Button type="button" size="sm" variant="outline" className="h-8 text-xs">
@@ -1063,12 +1367,13 @@ export default function OwwExecutiveDashboard() {
               </li>
             ))}
           </ul>
-        </Section>
+        </Ww360Section>
 
-        <Section
+        <Ww360Section
           tourId="access"
           eyebrow="Your platform access"
-          title="What jingrao-aman-OWW can see and do"
+          title="What jenny-oww can see and do"
+          dataMode="live"
           className="lg:col-span-2"
         >
           <p className="text-sm leading-relaxed text-slate-600">
@@ -1127,15 +1432,16 @@ export default function OwwExecutiveDashboard() {
               </div>
             ))}
           </div>
-        </Section>
+        </Ww360Section>
       </div>
 
       {/* Content engagement footer */}
-      <Section
+      <Ww360Section
         tourId="content"
         eyebrow="Content that converts"
         title="onewaterworkforce.org — top pages, last 30 days"
         sources={['oww-web']}
+        dataMode="sample"
       >
         <div className="grid gap-2 md:grid-cols-5">
           {WEB_TOP_PAGES.map(p => (
@@ -1153,7 +1459,9 @@ export default function OwwExecutiveDashboard() {
             </div>
           ))}
         </div>
-      </Section>
+      </Ww360Section>
+
+      {showOpCertPanel && <OpCertProgramPanel stateCode={activeState} />}
 
       <OwwTourOverlay autoOpen />
     </div>

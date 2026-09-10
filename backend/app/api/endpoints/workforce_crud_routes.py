@@ -82,11 +82,14 @@ from app.services.workforce_succession.doh352_service import (
 from app.services.workforce_succession.importer import _resolve_employee_id
 from app.services.workforce_succession.operator_scope import (
     get_linked_employee,
+    is_operator_self_scoped,
+    operator_missing_workforce_profile,
     resolve_operator_employee_code,
 )
 from app.services.workforce_succession.workforce_alert_settings import (
     load_workforce_alert_settings,
 )
+from app.services.documentation_task_service import maybe_create_task_from_coverage
 from app.services.district_security_service import DistrictSecurityService
 from app.tenant_auth import TenantContext
 
@@ -380,7 +383,11 @@ async def create_role_coverage(
 ):
     _require_district_auth(db, context, body.district_code)
     try:
-        return create_entity(db, entity_type="role_coverage", data=body.model_dump())
+        created = create_entity(db, entity_type="role_coverage", data=body.model_dump())
+        maybe_create_task_from_coverage(
+            db, coverage=created, assigned_by=context.user_id
+        )
+        return created
     except WorkforceCrudError as exc:
         raise _crud_error(exc)
 
@@ -669,8 +676,10 @@ async def list_ceu_records(
     context: TenantContext = Depends(require_workforce_viewer),
 ):
     code = _require_district_auth(db, context, district_code)
+    if operator_missing_workforce_profile(db, context, code):
+        return []
     own = resolve_operator_employee_code(
-        db, context, code, requested_employee_code=employee_code
+        db, context, code, requested_employee_code=employee_code, missing_ok=True
     )
     query = db.query(WorkforceCeuRecord).filter(
         WorkforceCeuRecord.district_code == code,
@@ -772,7 +781,21 @@ async def ceu_summary(
     context: TenantContext = Depends(require_workforce_viewer),
 ):
     code = _require_district_auth(db, context, district_code)
-    own = resolve_operator_employee_code(db, context, code)
+    if operator_missing_workforce_profile(db, context, code):
+        return WorkforceCeuSummaryResponse(
+            district_code=code,
+            operators=[],
+            total_shortfall=0,
+            total_operators=0,
+        )
+    own = resolve_operator_employee_code(db, context, code, missing_ok=True)
+    if is_operator_self_scoped(context) and own is None:
+        return WorkforceCeuSummaryResponse(
+            district_code=code,
+            operators=[],
+            total_shortfall=0,
+            total_operators=0,
+        )
     settings = load_workforce_alert_settings(db, code)
     operators = compute_district_ceu_summaries(
         db,
@@ -1096,7 +1119,11 @@ async def scrape_training_courses(
     db: Session = Depends(deps.get_db),
     context: TenantContext = Depends(require_workforce_manager),
 ):
+    """Refresh catalog from NYSDOH; fall back to Learning Stream mock seed if live scrape fails."""
     del context
+    from datetime import datetime, timezone
+
+    from app.services.workforce_succession.learning_stream_seed import seed_learning_stream_catalog
     from app.services.workforce_succession.training_scraper import (
         TrainingScrapeError,
         sync_training_courses,
@@ -1104,9 +1131,28 @@ async def scrape_training_courses(
 
     try:
         result = sync_training_courses(db)
-    except TrainingScrapeError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
-    return WorkforceTrainingScrapeResult(**result)
+        return WorkforceTrainingScrapeResult(**result)
+    except TrainingScrapeError as live_exc:
+        logger.warning("Live DOH scrape failed (%s); seeding Learning Stream catalog", live_exc)
+    except Exception as live_exc:
+        logger.warning("Live DOH scrape error (%s); seeding Learning Stream catalog", live_exc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
+
+    added, updated = seed_learning_stream_catalog(db)
+    now = datetime.now(timezone.utc).isoformat()
+    return WorkforceTrainingScrapeResult(
+        source_url="learning-stream://seed",
+        page_content_hash="learning-stream-seed",
+        courses_parsed=added + updated,
+        courses_added=added,
+        courses_updated=updated,
+        courses_deactivated=0,
+        skipped_unchanged=False,
+        last_synced_at=now,
+    )
 
 
 @router.post("/training-courses/seed-learning-stream", response_model=LearningStreamSeedResult)

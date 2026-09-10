@@ -1,0 +1,168 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Test rule - removed */
+/*
+body {
+  background-color: lightblue !important;
+  border: 5px solid red !important; 
+  }
+*/
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 0% 3.9%;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.5rem;
+  }
+  .dark {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    /* WW360 accessible baseline: prefer 18px body when content inherits from body */
+    font-size: 1.125rem;
+    line-height: 1.55;
+  }
+}
+
+/*
+ * Dashboard content (below the dark nav) uses a light gray shell. If <html class="dark"> is set,
+ * body still uses dark-mode semantic colors while this region stays physically light — causing
+ * unreadable light-on-light text and dark form fields. Re-bind shadcn tokens here to :root light values.
+ */
+.dashboard-main-surface {
+  color-scheme: light;
+  --background: 0 0% 100%;
+  --foreground: 0 0% 3.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 3.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 3.9%;
+  --primary: 0 0% 9%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 0 0% 96.1%;
+  --secondary-foreground: 0 0% 9%;
+  --muted: 0 0% 96.1%;
+  --muted-foreground: 0 0% 45.1%;
+  --accent: 0 0% 96.1%;
+  --accent-foreground: 0 0% 9%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 0 0% 89.8%;
+  --input: 0 0% 89.8%;
+  --ring: 0 0% 3.9%;
+  --chart-1: 12 76% 61%;
+  --chart-2: 173 58% 39%;
+  --chart-3: 197 37% 24%;
+  --chart-4: 43 74% 66%;
+  --chart-5: 27 87% 67%;
+  color: hsl(var(--foreground));
+}
+
+/*
+ * Page content should fill the available space on wide monitors instead of
+ * leaving large empty gutters. Scoped to the routed content surface so portaled
+ * dialogs/popovers keep their own (intentionally narrower) max-widths.
+ * Guarantees at least 80% of the viewport on large screens while preserving a
+ * comfortable width on small ones.
+ */
+.dashboard-main-surface .max-w-5xl,
+.dashboard-main-surface .max-w-6xl,
+.dashboard-main-surface .max-w-7xl,
+.dashboard-main-surface > .container,
+.dashboard-main-surface .container {
+  max-width: max(64rem, 80vw);
+  width: 100%;
+}
+
+/* Paper Map Overlay Styles */
+.paper-map-overlay {
+  z-index: 100 !important;
+  pointer-events: none !important;
+}
+
+.leaflet-image-layer.paper-map-overlay {
+  z-index: 100 !important;
+  pointer-events: none !important;
+}
+
+/* Ensure paper map overlay is visible */
+.leaflet-overlay-pane .paper-map-overlay {
+  z-index: 100 !important;
+}
+
+/* Hide chrome when printing (treatment chain and other flows). */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* Workforce 360 host — post-login chrome inherits landing tokens/fonts */
+body.ww360-app,
+body.ww360-app .ww360-app-shell {
+  --ww360-deep: #07111f;
+  --ww360-blue: #2563eb;
+  --ww360-accent: #38bdf8;
+  --ww360-cream: #eef3f9;
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+}
+
+body.ww360-app h1,
+body.ww360-app h2,
+body.ww360-app h3 {
+  font-family: 'Sora', system-ui, sans-serif;
+}

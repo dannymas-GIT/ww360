@@ -59,10 +59,14 @@ def resolve_operator_employee_code(
     district_code: str,
     *,
     requested_employee_code: Optional[str] = None,
+    missing_ok: bool = False,
 ) -> Optional[str]:
     """
     For self-scoped operators, return their employee_code (forced).
     For managers/admins, return requested_employee_code unchanged (may be None).
+
+    When ``missing_ok`` is True and the operator has no linked profile, return
+    None instead of raising — callers may fall back to sample / empty data.
     """
     if not is_operator_self_scoped(context):
         return requested_employee_code
@@ -71,6 +75,8 @@ def resolve_operator_employee_code(
         db, user_id=context.user_id, district_code=district_code
     )
     if emp is None:
+        if missing_ok:
+            return None
         raise HTTPException(
             status_code=403,
             detail="No workforce profile is linked to this login",
@@ -86,6 +92,22 @@ def resolve_operator_employee_code(
             detail="Not authorized for another operator's records",
         )
     return own
+
+
+def operator_missing_workforce_profile(
+    db: Session,
+    context: TenantContext,
+    district_code: str,
+) -> bool:
+    """True when a self-scoped operator has no linked workforce_employees row."""
+    if not is_operator_self_scoped(context):
+        return False
+    return (
+        get_linked_employee(
+            db, user_id=context.user_id, district_code=district_code
+        )
+        is None
+    )
 
 
 def deny_operator_district_wide(context: TenantContext, resource: str = "this data") -> None:

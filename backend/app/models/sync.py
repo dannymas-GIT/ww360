@@ -40,18 +40,6 @@ class ExtDistrict(Base):
     synced_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
-class WaterDistrict(Base):
-    """Compatibility alias: workforce models FK to water_districts.district_code."""
-
-    __tablename__ = "water_districts"
-
-    id = Column(Integer, primary_key=True)
-    district_code = Column(String(50), nullable=False, unique=True, index=True)
-    district_name = Column(String(255), nullable=False)
-    state_code = Column(String(2), nullable=True)
-    is_active = Column(Boolean, default=True, nullable=False)
-
-
 class ExtDistrictMembership(Base):
     __tablename__ = "ext_district_memberships"
     __table_args__ = (

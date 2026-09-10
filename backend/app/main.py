@@ -3,6 +3,7 @@
 import logging
 from contextlib import asynccontextmanager
 
+from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -10,22 +11,95 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from app.api.api import api_router
 from app.core.config import settings
 from app.db import base
-from app.db.database import init_db
+from app.db.database import SessionLocal, init_db
+from app.services.sdwis_state_refresh_service import refresh_configured_states
+from app.services.national.sdwis_bulk_ingest import refresh_all_states
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 base.import_models()
 
+_scheduler: BackgroundScheduler | None = None
+
+
+def _run_sdwis_refresh() -> None:
+    if not settings.SDWIS_SYNC_ENABLED:
+        return
+    db = SessionLocal()
+    try:
+        if settings.WW360_SDWIS_STATES.strip().upper() in ("ALL", ""):
+            results = refresh_all_states(db)
+        else:
+            results = refresh_configured_states(db)
+        logger.info("SDWIS state refresh completed: %s", results)
+    except Exception as exc:
+        logger.warning("SDWIS state refresh failed: %s", exc)
+    finally:
+        db.close()
+
+
+def _run_national_metrics_refresh() -> None:
+    db = SessionLocal()
+    try:
+        from app.services.national.labor_market_adapter import refresh_labor_market
+        from app.services.national.funding_regulatory_adapter import refresh_funding_regulatory
+        from app.services.national.ny_roster_adapter import refresh_ny_roster
+        from app.services.national.kpi_service import compute_kpi_snapshots
+
+        refresh_labor_market(db)
+        refresh_funding_regulatory(db)
+        refresh_ny_roster(db)
+        compute_kpi_snapshots(db)
+        logger.info("National metrics refresh completed")
+    except Exception as exc:
+        logger.warning("National metrics refresh failed: %s", exc)
+    finally:
+        db.close()
+
+
+def _run_documentation_notifier() -> None:
+    db = SessionLocal()
+    try:
+        from app.services.documentation_task_notifier import run_documentation_task_notifier
+        from app.services.documentation_task_service import mark_overdue_tasks
+        from app.services.workforce_succession.alert_scanner import scan_all_districts
+
+        mark_overdue_tasks(db)
+        run_documentation_task_notifier(db)
+        scan_all_districts(db)
+    except Exception as exc:
+        logger.warning("Documentation / alert job failed: %s", exc)
+    finally:
+        db.close()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global _scheduler
     logger.info("WW360 backend starting")
     try:
         init_db()
     except Exception as exc:
         logger.warning("DB init skipped or failed: %s", exc)
+
+    if settings.SDWIS_SYNC_ENABLED:
+        _scheduler = BackgroundScheduler()
+        _scheduler.add_job(_run_sdwis_refresh, "cron", hour=3, minute=0, id="sdwis_state_refresh")
+        _scheduler.add_job(
+            _run_national_metrics_refresh, "cron", hour=4, minute=0, id="national_metrics_refresh"
+        )
+        _scheduler.add_job(
+            _run_documentation_notifier, "cron", hour=8, minute=0, id="documentation_task_notifier"
+        )
+        _scheduler.start()
+        logger.info("SDWIS nightly refresh scheduled (03:00 UTC)")
+        logger.info("Documentation task notifier scheduled (08:00 UTC)")
+
     yield
+
+    if _scheduler:
+        _scheduler.shutdown(wait=False)
     logger.info("WW360 backend stopped")
 
 

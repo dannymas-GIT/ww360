@@ -28,6 +28,7 @@ class WorkforceAlertSettings:
     notification_channels: List[str] = field(default_factory=lambda: ["in_app"])
     recipient_emails: List[str] = field(default_factory=list)
     scan_daily: bool = True
+    documentation_task_default_days: int = 14
 
 
 def _coerce_int_list(raw: Any, default: List[int]) -> List[int]:
@@ -66,10 +67,12 @@ def parse_workforce_alert_settings(raw: Optional[Dict[str, Any]]) -> WorkforceAl
         notification_channels=list(raw.get("notification_channels") or ["in_app"]),
         recipient_emails=list(raw.get("recipient_emails") or []),
         scan_daily=bool(raw.get("scan_daily", True)),
+        documentation_task_default_days=int(raw.get("documentation_task_default_days", 14)),
     )
 
 
 def load_workforce_alert_settings(db: Session, district_code: str) -> WorkforceAlertSettings:
+    """Load district alert config; missing table/row returns defaults without poisoning the session."""
     try:
         row = db.execute(
             text(
@@ -78,6 +81,12 @@ def load_workforce_alert_settings(db: Session, district_code: str) -> WorkforceA
             {"dc": district_code},
         ).fetchone()
     except Exception:
+        # Table may not exist on WW360 yet — must rollback or later queries get
+        # InFailedSqlTransaction (continuity / CEU 500s).
+        try:
+            db.rollback()
+        except Exception:
+            pass
         return WorkforceAlertSettings()
     if not row or not row.config_data:
         return WorkforceAlertSettings()
@@ -99,4 +108,5 @@ def workforce_alerts_to_dict(settings: WorkforceAlertSettings) -> Dict[str, Any]
         "notification_channels": settings.notification_channels,
         "recipient_emails": settings.recipient_emails,
         "scan_daily": settings.scan_daily,
+        "documentation_task_default_days": settings.documentation_task_default_days,
     }

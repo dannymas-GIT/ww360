@@ -2,12 +2,8 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/aquasafe-favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0f172a" />
-    <link rel="manifest" href="/manifest.webmanifest" />
-    <title>Aquasafe Solutions</title>
-    <script src="/offline-sw-bootstrap.js"></script>
+    <link rel="icon" type="image/png" href="/workforce-360-favicon.png" />
+    <title>Water Workforce 360</title>
   </head>
   <body>
     <div id="root">
@@ -36,9 +32,9 @@
         var host = (location.hostname || '').toLowerCase();
         var msg = document.getElementById('boot-splash-msg');
         var icon = document.querySelector('link[rel="icon"]');
-        if (host === 'waterworkforce360.org' || host.endsWith('.waterworkforce360.org')) {
+        if (host === 'waterworkforce360.org' || host.endsWith('.waterworkforce360.org') || host === 'ww360.aquasafe-solutions.us') {
           if (msg) msg.textContent = 'Loading Workforce360…';
-          document.title = 'Workforce 360';
+          document.title = 'Water Workforce 360';
           if (icon) icon.href = '/workforce-360-favicon.png';
         } else if (host === 'workforce-continuity.org' || host.endsWith('.workforce-continuity.org')) {
           if (msg) msg.textContent = 'Loading Workforce Continuity…';

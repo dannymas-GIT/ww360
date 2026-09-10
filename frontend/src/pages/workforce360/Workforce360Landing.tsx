@@ -1,6 +1,8 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { applyBrandDocumentHead, getWw360LogoPath, WW360_LOGO_SIZE } from '@/utils/brandHost';
+import { useJurisdictionOptional } from '@/context/JurisdictionContext';
+import { initGa4, trackPageView } from '@/lib/ga4';
 import {
   WW360_SLIDE_INTERVAL_MS,
   WW360_SLIDES,
@@ -13,238 +15,52 @@ import './Workforce360Landing.css';
 const FONT_HREF =
   'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Sora:wght@600;700&display=swap';
 
-type PartnersLinkGeom = {
-  origin: { x: number; y: number };
-  aqua: { x: number; y: number };
-  oww: { x: number; y: number };
-  width: number;
-  height: number;
-};
-
-/** Intrinsic center of the "0" in workforce-360-logo-on-dark.png (745×494). */
-const PARTNERS_ORIGIN_FRAC_X = 0.926;
-const PARTNERS_ORIGIN_FRAC_Y = 0.532;
-
-/** Rendered bitmap rect for object-fit: contain + object-position (default left center). */
-function getObjectFitContentRect(img: HTMLImageElement): DOMRect | null {
-  const { naturalWidth, naturalHeight } = img;
-  if (!naturalWidth || !naturalHeight) return null;
-
-  const box = img.getBoundingClientRect();
-  const scale = Math.min(box.width / naturalWidth, box.height / naturalHeight);
-  const contentW = naturalWidth * scale;
-  const contentH = naturalHeight * scale;
-
-  const style = getComputedStyle(img);
-  const pos = style.objectPosition.trim().split(/\s+/);
-  const posX = pos[0] ?? '50%';
-  const posY = pos[1] ?? pos[0] ?? '50%';
-
-  const resolveAxis = (token: string, axisSize: number, contentSize: number) => {
-    if (token.endsWith('%')) {
-      const pct = parseFloat(token) / 100;
-      return (axisSize - contentSize) * pct;
-    }
-    if (token === 'left' || token === 'top') return 0;
-    if (token === 'right' || token === 'bottom') return axisSize - contentSize;
-    if (token === 'center') return (axisSize - contentSize) / 2;
-    const px = parseFloat(token);
-    return Number.isFinite(px) ? px : (axisSize - contentSize) / 2;
-  };
-
-  const offsetX = resolveAxis(posX, box.width, contentW);
-  const offsetY = resolveAxis(posY, box.height, contentH);
-
-  return new DOMRect(box.left + offsetX, box.top + offsetY, contentW, contentH);
-}
-
-/** Text-only partner names on the right. Hub keeps the official WW360 logo asset. */
-function AquaSafePartnerMark() {
+function PartnerOrb({
+  id,
+  name,
+  lines,
+  role,
+}: {
+  id: string;
+  name?: string;
+  lines?: [string, string];
+  role: string;
+}) {
   return (
-    <div className="ww360-aquasafe-mark" aria-hidden="true">
-      <div className="ww360-partner-block" data-partner="aquasafe">
-        <span className="ww360-aquasafe-mark__name" data-partner-text="aquasafe">
-          AquaSafe
-        </span>
-      </div>
+    <div className={`ww360-stage__orb ww360-stage__orb--${id}`}>
+      <p className="ww360-stage__orb-role">{role}</p>
+      {name ? <p className="ww360-stage__orb-name">{name}</p> : null}
+      {lines ? (
+        <p className="ww360-stage__orb-name ww360-stage__orb-name--stack">
+          <span>{lines[0]}</span>
+          <span>{lines[1]}</span>
+        </p>
+      ) : null}
     </div>
   );
 }
 
-function OwwPartnerMark() {
-  return (
-    <div className="ww360-oww-mark" aria-hidden="true">
-      <div className="ww360-partner-block" data-partner="oww">
-        <span className="ww360-oww-mark__line" data-partner-line="oww-1">
-          ONE WATER
-        </span>
-        <span className="ww360-oww-mark__line" data-partner-line="oww-2">
-          WORKFORCE
-        </span>
-      </div>
-    </div>
-  );
-}
-
+/** EPA Area 3 partnership: WW360 at the hub, section / platform / pipeline around it. */
 function PartnersDiagram() {
-  const frameRef = useRef<HTMLElement | null>(null);
-  const logoImgRef = useRef<HTMLImageElement | null>(null);
-  const [geom, setGeom] = useState<PartnersLinkGeom | null>(null);
-
-  useEffect(() => {
-    const frame = frameRef.current;
-    if (!frame) return;
-
-    const measure = () => {
-      const logoImg = logoImgRef.current;
-      const aquaText = frame.querySelector<HTMLElement>('[data-partner-text="aquasafe"]');
-      const oww1 = frame.querySelector<HTMLElement>('[data-partner-line="oww-1"]');
-      const oww2 = frame.querySelector<HTMLElement>('[data-partner-line="oww-2"]');
-      if (!logoImg || !aquaText || !oww1 || !oww2) return;
-
-      const frameBox = frame.getBoundingClientRect();
-      const aquaBox = aquaText.getBoundingClientRect();
-      const l1 = oww1.getBoundingClientRect();
-      const l2 = oww2.getBoundingClientRect();
-
-      // OWW: vertical mid of BOTH lines (never first-line-only)
-      const owwLeft = Math.min(l1.left, l2.left);
-      const anchorPad = Math.max(12, Math.min(22, frameBox.width * 0.014));
-      // Sit in the gap between the two OWW lines (visually between, not on line 1)
-      const owwGapMidY = (l1.bottom + l2.top) / 2 - frameBox.top;
-
-      const stacked = frameBox.width < 700;
-      const logoWrap = frame.querySelector('.ww360-stage__partners-logo-wrap');
-      const logoBox = logoWrap?.getBoundingClientRect();
-      const contentRect = getObjectFitContentRect(logoImg);
-
-      let origin: { x: number; y: number };
-      // Mobile stack: fork from bottom of logo down to partners
-      if (stacked && logoBox) {
-        origin = {
-          x: logoBox.left - frameBox.left + logoBox.width / 2,
-          y: logoBox.bottom - frameBox.top - 2,
-        };
-      } else if (contentRect) {
-        origin = {
-          x:
-            contentRect.left +
-            contentRect.width * PARTNERS_ORIGIN_FRAC_X -
-            frameBox.left,
-          y:
-            contentRect.top +
-            contentRect.height * PARTNERS_ORIGIN_FRAC_Y -
-            frameBox.top,
-        };
-      } else {
-        return;
-      }
-
-      setGeom({
-        width: Math.max(1, frameBox.width),
-        height: Math.max(1, frameBox.height),
-        origin,
-        aqua: {
-          x: aquaBox.left - frameBox.left - anchorPad,
-          y: aquaBox.top - frameBox.top + aquaBox.height / 2,
-        },
-        oww: {
-          x: owwLeft - frameBox.left - anchorPad,
-          y: owwGapMidY,
-        },
-      });
-    };
-
-    const run = () => {
-      measure();
-      requestAnimationFrame(() => measure());
-    };
-
-    run();
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(run) : null;
-    ro?.observe(frame);
-    window.addEventListener('resize', run);
-    if (typeof document !== 'undefined' && document.fonts?.ready) {
-      void document.fonts.ready.then(run);
-    }
-    const t1 = window.setTimeout(run, 50);
-    const t2 = window.setTimeout(run, 300);
-    return () => {
-      ro?.disconnect();
-      window.removeEventListener('resize', run);
-      window.clearTimeout(t1);
-      window.clearTimeout(t2);
-    };
-  }, []);
-
-  const curve = (from: { x: number; y: number }, to: { x: number; y: number }) => {
-    const dx = Math.max(40, (to.x - from.x) * 0.5);
-    return `M${from.x},${from.y} C${from.x + dx},${from.y} ${to.x - dx},${to.y} ${to.x},${to.y}`;
-  };
-
-  const node = (p: { x: number; y: number }, r = 8) => (
-    <>
-      <circle cx={p.x} cy={p.y} r={r} fill="#07111f" stroke="#38bdf8" strokeWidth="3.25" />
-      <circle cx={p.x} cy={p.y} r={r * 0.42} fill="#38bdf8" />
-    </>
-  );
-
   return (
     <figure
-      ref={frameRef}
       className="ww360-stage__partners"
       role="img"
-      aria-label="Workforce 360 connects AquaSafe and One Water Workforce"
+      aria-label="Water Workforce 360 at the center of the partnership with NYSAWWA, AquaSafe, and One Water Workforce"
     >
-      {geom ? (
-        <svg
-          className="ww360-stage__partners-links"
-          viewBox={`0 0 ${geom.width} ${geom.height}`}
-          width={geom.width}
-          height={geom.height}
-          aria-hidden="true"
-        >
-          <path
-            d={curve(geom.origin, geom.aqua)}
-            fill="none"
-            stroke="#38bdf8"
-            strokeWidth="2.75"
-            strokeOpacity="0.95"
-            strokeLinecap="round"
-          />
-          <path
-            d={curve(geom.origin, geom.oww)}
-            fill="none"
-            stroke="#38bdf8"
-            strokeWidth="2.75"
-            strokeOpacity="0.95"
-            strokeLinecap="round"
-          />
-          {node(geom.origin, 9)}
-          {node(geom.aqua, 8)}
-          {node(geom.oww, 8)}
-        </svg>
-      ) : null}
-
+      <PartnerOrb id="nysawwa" name="NYSAWWA" role="New York Section AWWA" />
+      <PartnerOrb id="aquasafe" name="AquaSafe" role="Platform" />
       <div className="ww360-stage__partners-hub">
         <div className="ww360-stage__partners-logo-wrap">
           <img
-            ref={logoImgRef}
-            className="ww360-stage__partners-logo ww360-stage__partners-logo--ww360"
+            className="ww360-stage__partners-logo"
             src={getWw360LogoPath('dark')}
             alt=""
-            onLoad={() => window.dispatchEvent(new Event('resize'))}
           />
         </div>
+        <p className="ww360-stage__partners-hub-role">Employer intelligence</p>
       </div>
-      <div className="ww360-stage__partners-nodes">
-        <div className="ww360-stage__partners-node ww360-stage__partners-node--aquasafe">
-          <AquaSafePartnerMark />
-        </div>
-        <div className="ww360-stage__partners-node ww360-stage__partners-node--oww">
-          <OwwPartnerMark />
-        </div>
-      </div>
+      <PartnerOrb id="oww" lines={['ONE WATER', 'WORKFORCE']} role="Candidate pipeline" />
     </figure>
   );
 }
@@ -264,6 +80,21 @@ function ensureWw360Fonts(): void {
  * Main stage = full-bleed hero rotator; capability copy is editable later.
  */
 const Workforce360Landing: React.FC = () => {
+  const jurisdiction = useJurisdictionOptional();
+  const pack = jurisdiction?.pack;
+  const stageSlides = useMemo(() => {
+    if (!pack) return WW360_STAGE_SLIDES;
+    return WW360_STAGE_SLIDES.map(slide =>
+      slide.id === 'brand'
+        ? {
+            ...slide,
+            headlineAccent: pack.landing_headline_accent || slide.headlineAccent,
+            body: slide.body.replace('One Water Workforce', pack.partner_name),
+          }
+        : slide
+    );
+  }, [pack]);
+
   const [active, setActive] = useState(0);
   const [outgoing, setOutgoing] = useState<number | null>(null);
   const [dir, setDir] = useState<'next' | 'prev'>('next');
@@ -274,12 +105,14 @@ const Workforce360Landing: React.FC = () => {
   const timerRef = useRef<number | null>(null);
   const transitionTimerRef = useRef<number | null>(null);
 
-  const stage = WW360_STAGE_SLIDES[active] ?? WW360_STAGE_SLIDES[0];
-  const slideCount = WW360_STAGE_SLIDES.length;
+  const stage = stageSlides[active] ?? stageSlides[0];
+  const slideCount = stageSlides.length;
 
   useEffect(() => {
     ensureWw360Fonts();
     applyBrandDocumentHead();
+    initGa4();
+    trackPageView('/');
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
     const sync = () => setReducedMotion(mq.matches);
     sync();
@@ -295,7 +128,7 @@ const Workforce360Landing: React.FC = () => {
       params.get('slide') ||
       (window.location.pathname.includes('/preview/partners') ? 'partners' : null);
     if (!raw) return;
-    const idx = WW360_STAGE_SLIDES.findIndex(s => s.id === raw.trim().toLowerCase());
+    const idx = stageSlides.findIndex(s => s.id === raw.trim().toLowerCase());
     if (idx < 0) return;
     setActive(idx);
     setAutoplay(false);
@@ -480,7 +313,7 @@ const Workforce360Landing: React.FC = () => {
         aria-roledescription="carousel"
         aria-label="Workforce 360 highlights"
       >
-        {WW360_STAGE_SLIDES.map((slide, i) => {
+        {stageSlides.map((slide, i) => {
           if (slide.partnersFocus) return null;
           const isActive = i === active;
           const isOutgoing = i === outgoing;
@@ -539,7 +372,7 @@ const Workforce360Landing: React.FC = () => {
                 </Link>
               </div>
               <p className="ww360-hero__trust">
-                Built with One Water Workforce · for New York water districts
+                {pack?.landing_tagline ?? 'Built with One Water Workforce · for New York water districts'}
               </p>
             </div>
           </div>
@@ -558,7 +391,7 @@ const Workforce360Landing: React.FC = () => {
           </button>
 
           <div className="ww360-stage__dots" role="tablist" aria-label="Stage slides">
-            {WW360_STAGE_SLIDES.map((slide, i) => (
+            {stageSlides.map((slide, i) => (
               <button
                 key={slide.id}
                 type="button"
@@ -724,7 +557,8 @@ const Workforce360Landing: React.FC = () => {
                 succession planning, and training needs
               </li>
               <li>
-                <strong>Together</strong> — workforce supply meets workforce demand across New York
+                <strong>Together</strong> — workforce supply meets workforce demand{' '}
+                {pack?.geography_phrase ? pack.geography_phrase : 'across New York'}
               </li>
             </ul>
           </div>
@@ -742,18 +576,20 @@ const Workforce360Landing: React.FC = () => {
 
       <footer className="ww360-footer">
         <div className="ww360-footer__inner">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.35rem' }}>
             <img
               className="ww360-footer__logo"
               src={getWw360LogoPath('dark')}
               alt="Workforce 360"
               style={{ height: WW360_LOGO_SIZE.navMinPx, minHeight: WW360_LOGO_SIZE.navMinPx }}
             />
-            <span>waterworkforce360.org</span>
+            <span style={{ fontSize: '0.95rem', color: 'var(--ww360-on-dark-muted)' }}>
+              waterworkforce360.org
+            </span>
           </div>
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
             <Link to="/login">Log in</Link>
-            <span>Powered by AquaSafe · Partnered with One Water Workforce</span>
+            <span style={{ fontSize: '1rem' }}>Partnered with One Water Workforce</span>
           </div>
         </div>
       </footer>

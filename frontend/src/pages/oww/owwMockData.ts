@@ -1,17 +1,16 @@
 /**
- * One Water Workforce (OWW) executive dashboard — sample data.
+ * One Water Workforce (OWW) executive dashboard — sample / illustrative figures.
  *
- * Three sources are blended here, shaped the way the live integrations will
- * deliver them so the UI does not change when real feeds are wired in:
+ * Used only where live feeds are not connected yet. The dashboard marks these
+ * sections with a "Sample data" badge. Live today: EPA SDWIS / ECHO via
+ * `/api/v1/sdwis/workforce-insights`.
  *
- *  1. Learning Stream (LMS system of record for OWW training) — Event Details,
- *     Registration Data and CE issuance pulled through its form-POST XML APIs.
- *  2. onewaterworkforce.org — member sign-ups, career-pipeline stages, referral
- *     sources and content engagement captured from the public site + job board.
- *  3. Water Workforce 360 — employer-side demand reported by participating New
- *     York utilities (staffing, vacancies, retirements, training needs).
+ * Pending live adapters:
+ *  1. Learning Stream — Event Details, Registration Data, CE issuance (XML API)
+ *  2. onewaterworkforce.org — member sign-ups, pipeline, job board
+ *  3. Water Workforce 360 Continuity — employer staffing / vacancies / retirements
  *
- * Every figure below is illustrative. Replace with API adapters, keep shapes.
+ * Keep shapes stable so adapters can replace these constants without UI rewrites.
  */
 
 export type OwwRegion =
@@ -605,24 +604,9 @@ export function regionRisk(row: RegionDemandRow): 'critical' | 'elevated' | 'wat
   return 'healthy';
 }
 
-export function formatCompact(n: number): string {
-  if (Math.abs(n) >= 1000) return `${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}k`;
-  return String(n);
-}
-
-export function formatPct(v: number, digits = 0): string {
-  return `${(v * 100).toFixed(digits)}%`;
-}
-
-export function formatUsd(n: number): string {
-  return n.toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  });
-}
-
-export function formatShortDate(iso: string): string {
-  const d = new Date(`${iso}T12:00:00`);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
+export {
+  formatCompact,
+  formatPct,
+  formatUsd,
+  formatShortDate,
+} from '@/lib/format';

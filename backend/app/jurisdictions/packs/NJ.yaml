@@ -1,0 +1,51 @@
+state_code: NJ
+partner_name: New Jersey Water Workforce Coalition
+section_eyebrow: NJ Water Workforce Coalition · New Jersey Section AWWA
+geography_phrase: across New Jersey
+landing_tagline: Built for New Jersey water and wastewater utilities
+landing_headline_accent: for New Jersey utilities.
+exec_description: >-
+  Live EPA SDWIS compliance for New Jersey, plus sample program metrics for training
+  partners and utility Continuity reporting until those feeds are connected.
+landscape_description: >-
+  State view for New Jersey — active community water systems, compliance pressure,
+  and grade demand estimates.
+sdwis_default_state: NJ
+economic_regions:
+  - id: north-jersey
+    label: North Jersey
+  - id: central-jersey
+    label: Central Jersey
+  - id: shore
+    label: Jersey Shore
+  - id: south-jersey
+    label: South Jersey
+  - id: pinelands
+    label: Pinelands
+exec_tour:
+  intro: >-
+    This is the executive view of the New Jersey water workforce pipeline — from
+    career discovery through training to utility hiring — plus the statewide EPA
+    compliance landscape.
+  sources: >-
+    EPA SDWIS / ECHO is the live federal inventory of New Jersey community water
+    systems. Training partners and workforce programs feed the middle of the pipeline.
+    Water Workforce 360 adds employer-side staffing and succession planning.
+  sdwis: >-
+    SDWIS shows New Jersey community water systems: active systems, population
+    served, violations, and serious non-compliance — the compliance backdrop for
+    workforce planning.
+analytics_geo_hints:
+  - New Jersey
+  - NJ water operator certification
+opcert:
+  roster_url: null
+  roster_published: false
+  renewal_cycle_years: 3
+  grades:
+    - code: T1
+      label: NJ Treatment System Operator T1
+    - code: T2
+      label: NJ Treatment System Operator T2
+    - code: W1
+      label: NJ Water Distribution System Operator W1

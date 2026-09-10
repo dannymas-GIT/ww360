@@ -27,3 +27,15 @@ export async function patchAdminUser(
   });
   return data;
 }
+
+export async function resetAdminUserPassword(
+  userId: number,
+  password: string
+): Promise<{ id: number; username: string; ok: boolean }> {
+  const { data } = await axios.post<{ id: number; username: string; ok: boolean }>(
+    `${API_BASE_URL}/admin/users/${userId}/reset-password`,
+    { password },
+    { headers: getAuthHeader() }
+  );
+  return data;
+}

@@ -459,6 +459,7 @@ export const ENTITY_FORM_COLUMNS: Record<string, string[]> = {
   ],
   certifications: [
     'employee_id',
+    'cert_program',
     'certification_type',
     'certification_grade',
     'issuing_authority',
@@ -533,8 +534,25 @@ export const ENTITY_REQUIRED_FIELDS: Record<string, string[]> = {
   transition_milestones: ['position_id', 'milestone_type', 'title'],
 };
 
-/** NYS operator grades used for CEU hour requirements (Subpart 5-4.8). */
+/** NYS drinking-water operator grades (Subpart 5-4.8). */
 export const CEU_CERTIFICATION_GRADES = ['A', 'B', 'C', 'D', 'IIIA', 'IIIB', 'IIIC'] as const;
+
+/** NYS DEC wastewater treatment and collection grades (Part 650). */
+export const WASTEWATER_CERTIFICATION_GRADES = [
+  '1',
+  '2',
+  '3',
+  '4',
+  '1A',
+  '2A',
+  '3A',
+  '4A',
+] as const;
+
+export const CERT_PROGRAM_OPTIONS = [
+  { value: 'drinking_water', label: 'Drinking water (DW)' },
+  { value: 'wastewater', label: 'Wastewater (WW)' },
+] as const;
 
 /** Brief plain-language labels for the employee operator-grade picker. */
 export const OPERATOR_GRADE_DESCRIPTIONS: Record<
@@ -557,6 +575,41 @@ export function operatorGradeOptions(): RefOption[] {
   }));
 }
 
+const WASTEWATER_GRADE_DESCRIPTIONS: Record<
+  (typeof WASTEWATER_CERTIFICATION_GRADES)[number],
+  string
+> = {
+  '1': 'Treatment plant operator, Grade 1',
+  '2': 'Treatment plant operator, Grade 2',
+  '3': 'Treatment plant operator, Grade 3',
+  '4': 'Treatment plant operator, Grade 4',
+  '1A': 'Collection system operator, Grade 1A',
+  '2A': 'Collection system operator, Grade 2A',
+  '3A': 'Collection system operator, Grade 3A',
+  '4A': 'Collection system operator, Grade 4A',
+};
+
+export function wastewaterGradeOptions(): RefOption[] {
+  return WASTEWATER_CERTIFICATION_GRADES.map(grade => ({
+    value: grade,
+    label: `${grade} — ${WASTEWATER_GRADE_DESCRIPTIONS[grade]}`,
+  }));
+}
+
+export function certificationGradeOptions(certProgram?: string): RefOption[] {
+  if ((certProgram || 'drinking_water').trim().toLowerCase() === 'wastewater') {
+    return wastewaterGradeOptions();
+  }
+  return operatorGradeOptions();
+}
+
+export function certProgramLabel(program: string | null | undefined): string {
+  if ((program || '').trim().toLowerCase() === 'wastewater') {
+    return 'WW';
+  }
+  return 'DW';
+}
+
 /**
  * Enum-constrained fields — mirrors the backend model value tuples. Supplying a
  * value outside this set fails validation, so the UI renders these as dropdowns.
@@ -564,6 +617,9 @@ export function operatorGradeOptions(): RefOption[] {
 export const ENTITY_FIELD_ENUMS: Record<string, Record<string, string[]>> = {
   employees: {
     operator_grade: [...CEU_CERTIFICATION_GRADES],
+  },
+  certifications: {
+    cert_program: CERT_PROGRAM_OPTIONS.map(o => o.value),
   },
   role_coverage: {
     coverage_role: ['primary', 'backup', 'trainee', 'interim'],
@@ -691,6 +747,7 @@ export const FIELD_LABELS: Record<string, string> = {
   linked_program: 'Program',
   required_certification_type: 'Required cert type',
   required_certification_grade: 'Required cert grade',
+  cert_program: 'Program',
   certification_type: 'Certification type',
   certification_grade: 'Grade',
   issuing_authority: 'Issuing authority',
@@ -758,7 +815,24 @@ export function formatEntityCellValue(
   }
   const v = row[field];
   if (v == null || v === '') return '—';
+  if (field === 'cert_program' && typeof v === 'string') {
+    const chip = certProgramLabel(v);
+    const full =
+      CERT_PROGRAM_OPTIONS.find(o => o.value === v)?.label ??
+      (v === 'wastewater' ? 'Wastewater' : 'Drinking water');
+    return `${chip} — ${full}`;
+  }
   if (field === 'operator_grade' && typeof v === 'string') {
+    const desc = OPERATOR_GRADE_DESCRIPTIONS[v as keyof typeof OPERATOR_GRADE_DESCRIPTIONS];
+    return desc ? `${v} — ${desc}` : String(v);
+  }
+  if (field === 'certification_grade' && typeof v === 'string') {
+    const program = String(row.cert_program ?? 'drinking_water');
+    if (program === 'wastewater') {
+      const desc =
+        WASTEWATER_GRADE_DESCRIPTIONS[v as keyof typeof WASTEWATER_GRADE_DESCRIPTIONS];
+      return desc ? `${v} — ${desc}` : String(v);
+    }
     const desc = OPERATOR_GRADE_DESCRIPTIONS[v as keyof typeof OPERATOR_GRADE_DESCRIPTIONS];
     return desc ? `${v} — ${desc}` : String(v);
   }
@@ -894,9 +968,19 @@ export function enumOptionsFor(entityKey: string, field: string): string[] | und
 }
 
 /** Enum fields with human-readable option labels (falls back to plain enum values). */
-export function labeledEnumOptionsFor(entityKey: string, field: string): RefOption[] | undefined {
+export function labeledEnumOptionsFor(
+  entityKey: string,
+  field: string,
+  formContext?: Record<string, string>
+): RefOption[] | undefined {
   if (entityKey === 'employees' && field === 'operator_grade') {
     return operatorGradeOptions();
+  }
+  if (entityKey === 'certifications' && field === 'certification_grade') {
+    return certificationGradeOptions(formContext?.cert_program);
+  }
+  if (entityKey === 'certifications' && field === 'cert_program') {
+    return CERT_PROGRAM_OPTIONS.map(o => ({ value: o.value, label: o.label }));
   }
   const opts = enumOptionsFor(entityKey, field);
   if (!opts) return undefined;

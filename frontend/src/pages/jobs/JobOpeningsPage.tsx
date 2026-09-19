@@ -26,7 +26,7 @@ const SOURCES: Array<{
     id: 'usajobs',
     label: 'USAJOBS (federal)',
     status: 'live',
-    blurb: 'Federal water and wastewater operator announcements from USAJOBS.gov.',
+    blurb: 'Federal water and wastewater operator announcements (BLS 51-8031) from USAJOBS.gov.',
   },
   {
     id: 'oww',
@@ -54,7 +54,7 @@ export default function JobOpeningsPage() {
       <Ww360PageHero
         eyebrow="Careers"
         title="Job openings"
-        description="Operator and plant roles from federal, section, and utility sources — each listing tagged with its source so you always know where it came from."
+        description="Drinking-water and wastewater operator roles (BLS SOC 51-8031) from federal, section, and utility sources — each listing tagged with its source so you always know where it came from."
         dataMode="mixed"
       />
 

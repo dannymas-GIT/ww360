@@ -1,4 +1,4 @@
-"""US state and territory codes for SDWIS national refresh."""
+"""US state and territory codes for SDWIS / NPDES national refresh."""
 
 ALL_SDWIS_STATE_CODES = [
     "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL",
@@ -11,4 +11,9 @@ ALL_SDWIS_STATE_CODES = [
 
 ECHO_SDWA_BULK_URL = (
     "https://echo.epa.gov/files/echodownloads/SDWA_latest_downloads.zip"
+)
+
+# ICIS-NPDES facility + permit bulk download (ECHO)
+ECHO_NPDES_BULK_URL = (
+    "https://echo.epa.gov/files/echodownloads/npdes_downloads.zip"
 )

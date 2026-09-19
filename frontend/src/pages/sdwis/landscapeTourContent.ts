@@ -58,6 +58,12 @@ export function buildLandscapeTourSlides(stateName = 'New York'): Ww360TourSlide
       highlight: '[data-tour="landscape-region-filter"]',
       tip: 'Pick an economic region (e.g. Finger Lakes) to limit the table to its counties, then drill into one county.',
     },
+    {
+      id: 'wastewater',
+      title: 'Wastewater & POTW landscape',
+      body: 'Drinking-water CWS inventory is only half the story. Switch to Wastewater on Facilities landscape for live EPA NPDES POTW counts — major/minor status, design flow, and SNC flags — to plan NYSDEC operator recruitment where collection and treatment plants need coverage.',
+      tip: 'NYSDEC grades use five-year renewal cycles; cyber-security CE hours apply from 2027.',
+    },
   ];
 }
 

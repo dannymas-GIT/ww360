@@ -297,6 +297,7 @@ def list_entities(
     function_code: Optional[str] = None,
     expiring_within_days: Optional[int] = None,
     upcoming_only: Optional[bool] = None,
+    cert_program: Optional[str] = None,
 ) -> List[Any]:
     model = _get_model(entity_type)
     query = db.query(model).filter(model.district_code == district_code)
@@ -317,6 +318,8 @@ def list_entities(
         query = query.filter(model.employee_code == employee_code)
     if function_code and hasattr(model, "function_code"):
         query = query.filter(model.function_code == function_code)
+    if cert_program and hasattr(model, "cert_program"):
+        query = query.filter(model.cert_program == cert_program.strip())
 
     if expiring_within_days is not None and hasattr(model, "expiration_date"):
         cutoff = date.today().toordinal() + expiring_within_days

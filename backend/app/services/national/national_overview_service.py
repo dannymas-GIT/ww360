@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.models.national_metrics import ExternalMetricSnapshot, StateOperatorCertAggregate
 from app.models.sdwis_state_system import SDWISStateSystem
+from app.models.npdes_state_facility import NpdesStateFacility
 from app.models.water_district import WaterDistrict
 from app.models.workforce_organization import WorkforceOrganization
 from app.services.national.constants import ALL_SDWIS_STATE_CODES
@@ -47,6 +48,14 @@ def _state_compliance_stats(db: Session, state_code: str) -> dict[str, Any]:
         "population_served": int(pop or 0),
     }
 
+
+
+
+def _state_potw_stats(db: Session, state_code: str) -> dict[str, Any]:
+    q = db.query(NpdesStateFacility).filter(NpdesStateFacility.state_code == state_code.upper()[:2])
+    total = q.count()
+    majors = q.filter(NpdesStateFacility.major_minor == "MAJOR").count()
+    return {"active_potws": total, "major_potws": majors}
 
 def build_national_overview(db: Session) -> dict[str, Any]:
     states_with_data = (

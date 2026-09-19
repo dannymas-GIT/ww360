@@ -376,6 +376,7 @@ def _list_entity(db, model, district_code, limit, **filters):
             function_code=filters.get("function_code"),
             expiring_within_days=filters.get("expiring_within_days"),
             upcoming_only=filters.get("upcoming_only"),
+            cert_program=filters.get("cert_program"),
         )
     return (
         db.query(model)
@@ -434,6 +435,7 @@ async def list_certifications(
     record_status: Optional[str] = Query(None),
     q: Optional[str] = Query(None),
     employee_code: Optional[str] = Query(None),
+    cert_program: Optional[str] = Query(None),
     limit: int = Query(500, ge=1, le=2000),
     db: Session = Depends(deps.get_db),
     context: TenantContext = Depends(require_workforce_viewer),
@@ -448,6 +450,7 @@ async def list_certifications(
         db, WorkforceCertification, code, limit,
         record_status=record_status, q=q, employee_code=own,
         expiring_within_days=expiring_within_days,
+        cert_program=cert_program,
     )
 
 

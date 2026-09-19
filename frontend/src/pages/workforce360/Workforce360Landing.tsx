@@ -372,7 +372,8 @@ const Workforce360Landing: React.FC = () => {
                 </Link>
               </div>
               <p className="ww360-hero__trust">
-                {pack?.landing_tagline ?? 'Built with One Water Workforce · for New York water districts'}
+                {pack?.landing_tagline ??
+                  'Built with One Water Workforce · for New York drinking-water and wastewater utilities'}
               </p>
             </div>
           </div>
@@ -436,13 +437,18 @@ const Workforce360Landing: React.FC = () => {
           <p className="ww360-section__intro">
             One Water Workforce builds the candidate pipeline. Water Workforce 360 is the utility-side
             system that documents workforce demand — staffing, vacancies, retirements, succession
-            risks, and training needs — so outreach and candidate development can start before
-            positions go critical.
+            risks, and training needs — for NYSDOH drinking-water and NYSDEC wastewater operator
+            programs — so outreach and candidate development can start before positions go critical.
           </p>
           <ul className="ww360-capability-list">
             {WW360_SLIDES.map(slide => (
               <li key={slide.id}>
-                <strong>{slide.label}</strong>
+                <strong>
+                  {slide.label}
+                  {slide.badge ? (
+                    <span className="ww360-capability-badge"> {slide.badge}</span>
+                  ) : null}
+                </strong>
                 <span>{slide.body}</span>
               </li>
             ))}

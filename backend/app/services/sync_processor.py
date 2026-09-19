@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.models.sync import (
     ExtDistrict,
     ExtDistrictMembership,
+    ExtFacility,
     ExtModuleFlag,
     ExtUser,
     SyncCursor,
@@ -100,11 +101,54 @@ def _upsert_module_flag(db: Session, payload: dict[str, Any], version: int) -> N
     row.version = version
 
 
+
+def _upsert_facility(db: Session, payload: dict[str, Any], version: int) -> None:
+    publisher = (payload.get("publisher") or payload.get("source") or "aquasafe").strip()
+    facility_id = str(payload.get("facility_id") or "").strip()
+    if not facility_id:
+        raise ValueError("facility payload missing facility_id")
+    row = (
+        db.query(ExtFacility)
+        .filter(
+            ExtFacility.publisher == publisher,
+            ExtFacility.facility_id == facility_id,
+        )
+        .one_or_none()
+    )
+    if row is None:
+        row = ExtFacility(
+            publisher=publisher,
+            facility_id=facility_id,
+            district_code=str(payload.get("district_code") or ""),
+            facility_type=str(payload.get("facility_type") or "pws"),
+            name=str(payload.get("name") or facility_id),
+        )
+        db.add(row)
+    if row.version and row.version >= version:
+        return
+    row.district_code = payload.get("district_code") or row.district_code or ""
+    row.facility_type = payload.get("facility_type") or row.facility_type or "pws"
+    row.name = payload.get("name") or row.name or facility_id
+    row.state_code = payload.get("state_code")
+    row.pwsid = payload.get("pwsid") or payload.get("pws_id")
+    row.npdes_id = payload.get("npdes_id") or payload.get("npdes_permit_id")
+    row.spdes_id = payload.get("spdes_id")
+    row.plant_class = payload.get("plant_class") or payload.get("plant_classification")
+    flow = payload.get("design_flow_mgd")
+    row.design_flow_mgd = float(flow) if flow is not None and flow != "" else None
+    lat = payload.get("latitude")
+    lon = payload.get("longitude")
+    row.latitude = float(lat) if lat is not None and lat != "" else None
+    row.longitude = float(lon) if lon is not None and lon != "" else None
+    row.is_active = bool(payload.get("is_active", True))
+    row.version = version
+
 _HANDLERS = {
     "user": _upsert_user,
     "district": _upsert_district,
     "district_membership": _upsert_membership,
     "module_flag": _upsert_module_flag,
+    "facility": _upsert_facility,
 }
 
 

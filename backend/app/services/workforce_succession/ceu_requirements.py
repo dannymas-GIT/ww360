@@ -8,7 +8,13 @@ API endpoints, and the workforce continuity UI.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Dict, List, Optional
+
+from app.services.workforce_succession.ceu_requirements_wastewater import (
+    get_wastewater_requirements_taxonomy,
+    required_hours_for_grade_ww,
+)
 
 RENEWAL_CYCLE_YEARS = 3
 
@@ -361,8 +367,21 @@ def normalize_grade(grade: Optional[str]) -> Optional[str]:
 
 
 def required_hours_for_grade(
-    grade: Optional[str], overrides: Optional[Dict[str, float]] = None
+    grade: Optional[str],
+    overrides: Optional[Dict[str, float]] = None,
+    *,
+    cert_program: str = "drinking_water",
+    expiration_date: Optional[date] = None,
 ) -> float:
+    program = (cert_program or "drinking_water").strip().lower()
+    if program == "wastewater":
+        # Wastewater module returns contact hours; convert to CEU for shared callers.
+        contact = required_hours_for_grade_ww(
+            grade,
+            overrides=overrides,
+            expiration_date=expiration_date,
+        )
+        return contact / 10.0
     table = {**GRADE_TO_REQUIRED_CEU, **(overrides or {})}
     norm = normalize_grade(grade)
     if norm and norm in table:
@@ -379,8 +398,8 @@ def mandatory_category_rules(grade: Optional[str]) -> List[MandatoryCategoryRule
     return []
 
 
-def get_requirements_taxonomy() -> Dict:
-    """Serialize the full role/grade taxonomy for API and UI consumption."""
+def get_drinking_water_requirements_taxonomy() -> Dict:
+    """Serialize drinking-water role/grade taxonomy for API and UI consumption."""
     roles_out = []
     for role in OPERATOR_ROLES:
         grades_out = []
@@ -425,4 +444,17 @@ def get_requirements_taxonomy() -> Dict:
         "scope_notes": list(REQUIREMENTS_SCOPE_NOTES),
         "default_ceu_by_grade": dict(DEFAULT_CEU_REQUIREMENTS_BY_GRADE),
         "roles": roles_out,
+    }
+
+
+def get_requirements_taxonomy() -> Dict:
+    """Serialize both drinking-water and wastewater taxonomies keyed by cert_program."""
+    drinking_water = get_drinking_water_requirements_taxonomy()
+    wastewater = get_wastewater_requirements_taxonomy()
+    return {
+        **drinking_water,
+        "programs": {
+            "drinking_water": drinking_water,
+            "wastewater": wastewater,
+        },
     }

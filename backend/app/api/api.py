@@ -2,7 +2,16 @@
 
 from fastapi import APIRouter
 
-from app.api.endpoints import documentation_tasks, notifications, sdwis, workforce_crud_routes, workforce_succession
+from app.api.endpoints import (
+    coverage,
+    documentation_tasks,
+    facilities,
+    notifications,
+    npdes,
+    sdwis,
+    workforce_crud_routes,
+    workforce_succession,
+)
 from app.api.v1.endpoints import (
     admin_users,
     auth,
@@ -67,6 +76,21 @@ api_router.include_router(
     sdwis.router,
     prefix="/sdwis",
     tags=["sdwis"],
+)
+api_router.include_router(
+    npdes.router,
+    prefix="/npdes",
+    tags=["npdes"],
+)
+api_router.include_router(
+    facilities.router,
+    prefix="/facilities",
+    tags=["facilities"],
+)
+api_router.include_router(
+    coverage.router,
+    prefix="/coverage",
+    tags=["coverage"],
 )
 api_router.include_router(
     digital_analytics.router,

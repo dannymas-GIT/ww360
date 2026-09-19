@@ -13,7 +13,13 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 USAJOBS_SEARCH_URL = "https://data.usajobs.gov/api/Search"
-DEFAULT_KEYWORD = "water treatment operator"
+# BLS SOC 51-8031 — water and wastewater treatment plant and system operators
+DEFAULT_KEYWORDS = (
+    "water treatment operator",
+    "wastewater operator",
+    "wastewater treatment plant operator",
+)
+DEFAULT_KEYWORD = DEFAULT_KEYWORDS[0]
 _CACHE: dict[str, Any] = {"fetched_at": None, "payload": None}
 _CACHE_TTL = timedelta(hours=1)
 
@@ -103,19 +109,43 @@ def search_federal_operator_jobs(
             "jobs": [],
         }
 
-    params: dict[str, str | int] = {
-        "Keyword": DEFAULT_KEYWORD,
-        "ResultsPerPage": min(max(limit, 1), 50),
-        "Page": 1,
-    }
-    if st:
-        params["LocationName"] = st
+    per_query = min(max(limit, 1), 25)
+    merged: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    total_reported = 0
+    keywords_used: list[str] = []
 
     try:
         with httpx.Client(timeout=30.0) as client:
-            resp = client.get(USAJOBS_SEARCH_URL, headers=hdrs, params=params)
-            resp.raise_for_status()
-            body = resp.json()
+            for keyword in DEFAULT_KEYWORDS:
+                params: dict[str, str | int] = {
+                    "Keyword": keyword,
+                    "ResultsPerPage": per_query,
+                    "Page": 1,
+                }
+                if st:
+                    params["LocationName"] = st
+                resp = client.get(USAJOBS_SEARCH_URL, headers=hdrs, params=params)
+                resp.raise_for_status()
+                body = resp.json()
+                search_result = body.get("SearchResult") or {}
+                items = search_result.get("SearchResultItems") or []
+                total_reported += int(search_result.get("SearchResultCountAll") or len(items))
+                keywords_used.append(keyword)
+                for it in items:
+                    if not isinstance(it, dict):
+                        continue
+                    job = _normalize_job(it)
+                    jid = job.get("id") or job.get("url") or ""
+                    if jid and jid in seen_ids:
+                        continue
+                    if jid:
+                        seen_ids.add(jid)
+                    merged.append(job)
+                    if len(merged) >= limit:
+                        break
+                if len(merged) >= limit:
+                    break
     except Exception as exc:
         logger.warning("USAJOBS search failed: %s", exc)
         return {
@@ -130,10 +160,7 @@ def search_federal_operator_jobs(
             "jobs": [],
         }
 
-    search_result = body.get("SearchResult") or {}
-    items = search_result.get("SearchResultItems") or []
-    total = int(search_result.get("SearchResultCountAll") or len(items))
-    jobs = [_normalize_job(it) for it in items if isinstance(it, dict)][:limit]
+    jobs = merged[:limit]
 
     payload = {
         "configured": True,
@@ -142,9 +169,11 @@ def search_federal_operator_jobs(
         "source_label": "USAJOBS (federal)",
         "provenance_url": "https://www.usajobs.gov/",
         "search_keyword": DEFAULT_KEYWORD,
+        "search_keywords": keywords_used,
+        "bls_soc": "51-8031",
         "state_filter": st or None,
         "as_of": now.isoformat(),
-        "total": total,
+        "total": max(total_reported, len(jobs)),
         "jobs": jobs,
     }
     _CACHE["fetched_at"] = now

@@ -44,6 +44,8 @@ import { WorkforceTrainingArea } from '@/components/workforce/WorkforceTrainingA
 import { WorkforceBinderHub } from '@/components/workforce/WorkforceBinderHub';
 import { WorkforceBinderSetupDialog } from '@/components/workforce/WorkforceBinderSetupDialog';
 import { BinderIntakeWizard } from '@/components/workforce/binderIntake/BinderIntakeWizard';
+import { CertProgramBreakdownChips } from '@/components/workforce/CertProgramBreakdownChips';
+import { splitCountByProgram } from '@/components/workforce/certProgramMetrics';
 import { WorkforceLicenseHealthStrip } from '@/components/workforce/WorkforceLicenseHealthStrip';
 import { WorkforceEntityArea } from '@/components/workforce/WorkforceEntityArea';
 import { WorkforceFlowOverviewDialog } from '@/components/workforce/WorkforceFlowOverviewDialog';
@@ -845,6 +847,20 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
   const scorecard = continuity.data?.scorecard;
   const coverage = continuity.data?.coverage ?? [];
   const certCliff = continuity.data?.cert_cliff ?? [];
+  const certCliff90ByProgram = useMemo(
+    () =>
+      splitCountByProgram(
+        certCliff.filter(c => (c.days_until_expiration ?? 999) <= 90)
+      ),
+    [certCliff]
+  );
+  const ceuShortfallByProgram = useMemo(
+    () =>
+      splitCountByProgram(
+        (ceuSummaryQuery.data?.operators ?? []).filter(o => o.is_shortfall)
+      ),
+    [ceuSummaryQuery.data?.operators]
+  );
   const retirementHorizon = continuity.data?.retirement_horizon ?? [];
   const milestones = continuity.data?.upcoming_milestones ?? [];
   const continuityDataMode = continuity.data?.data_mode === 'sample' ? 'sample' : 'live';
@@ -873,6 +889,7 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
     return Number.isFinite(n) && n > 0 ? n : undefined;
   }, [searchParams]);
 
+  const [certProgramFilter, setCertProgramFilter] = useState<string>('all');
   const [trainingFilters, setTrainingFilters] = useState<TrainingCourseFilters | undefined>();
   const [ceuPrefill, setCeuPrefill] = useState<Record<string, string> | null>(null);
   const [ceuOpenCreate, setCeuOpenCreate] = useState(false);
@@ -1548,7 +1565,7 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
                       <MetricCard
                         icon={FileWarning}
                         label="CEU shortfall"
-                        tooltip="Operators behind on NYS renewal CEU hours for the current cycle."
+                        tooltip="Operators behind on NYS renewal CEU/RTC hours for the current cycle (3-year DW, 5-year WW)."
                         onClick={() => goToTab('ceu')}
                         value={scorecard.ceu_shortfall_count}
                         hint={`${scorecard.ceu_avg_completion_pct ?? 0}% avg completion · ${scorecard.doh352_ready_count ?? 0} DOH-352 ready`}
@@ -1561,6 +1578,16 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
                         }
                       />
                     )}
+                  </div>
+                  <div className="space-y-2">
+                    <CertProgramBreakdownChips
+                      metricLabel="Certs expiring in 90 days"
+                      counts={certCliff90ByProgram}
+                    />
+                    <CertProgramBreakdownChips
+                      metricLabel="CEU shortfall"
+                      counts={ceuShortfallByProgram}
+                    />
                   </div>
 
                   {!districtLocked && scorecardsQuery.data && scorecardsQuery.data.length > 1 && (
@@ -1844,34 +1871,54 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
                     {...entityAreaCallbacks}
                     districtCode={districtCode}
                     entityType="certifications"
-                    {...(certExpiringDays != null
-                      ? { listFilterOverrides: { expiring_within_days: certExpiringDays } }
-                      : {})}
+                    listFilterOverrides={{
+                      ...(certExpiringDays != null
+                        ? { expiring_within_days: certExpiringDays }
+                        : {}),
+                      ...(certProgramFilter !== 'all'
+                        ? { cert_program: certProgramFilter }
+                        : {}),
+                    }}
                     extraFilters={
-                      certExpiringDays != null ? (
-                        <div className="flex items-end gap-2 pb-0.5">
-                          <span className="text-xs text-amber-800">
-                            Showing certs expiring within {certExpiringDays} days
-                          </span>
+                      <>
+                        <div className="w-44">
+                          <label className="text-xs font-medium text-gray-600">Program</label>
+                          <Select value={certProgramFilter} onValueChange={setCertProgramFilter}>
+                            <SelectTrigger className="h-9">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All programs</SelectItem>
+                              <SelectItem value="drinking_water">Drinking water</SelectItem>
+                              <SelectItem value="wastewater">Wastewater</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {certExpiringDays != null ? (
+                          <div className="flex items-end gap-2 pb-0.5">
+                            <span className="text-xs text-amber-800">
+                              Showing certs expiring within {certExpiringDays} days
+                            </span>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-xs"
+                              onClick={() => goToTab('certifications', { clearCertExpiring: true })}
+                            >
+                              Show all
+                            </Button>
+                          </div>
+                        ) : (
                           <Button
                             size="sm"
-                            variant="ghost"
-                            className="h-7 text-xs"
-                            onClick={() => goToTab('certifications', { clearCertExpiring: true })}
+                            variant="outline"
+                            className="h-9"
+                            onClick={() => goToTab('certifications', { certExpiring: 90 })}
                           >
-                            Show all
+                            Expiring in 90 days
                           </Button>
-                        </div>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-9"
-                          onClick={() => goToTab('certifications', { certExpiring: 90 })}
-                        >
-                          Expiring in 90 days
-                        </Button>
-                      )
+                        )}
+                      </>
                     }
                   />
                 </TabsContent>

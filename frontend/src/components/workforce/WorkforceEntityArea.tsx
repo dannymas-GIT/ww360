@@ -6,6 +6,7 @@ import {
 } from '@/components/workforce/workforceContinuityTabs';
 import axios from 'axios';
 import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -31,6 +32,7 @@ import {
   ENTITY_INTEGER_FIELDS,
   buildFieldValueOptions,
   buildRefOptions,
+  certProgramLabel,
   displayColumnsForEntity,
   enumOptionsFor,
   formatEntityCellValue,
@@ -300,6 +302,9 @@ export function WorkforceEntityArea({
   const openCreate = () => {
     const empty: Record<string, string> = {};
     for (const c of columns) empty[c] = '';
+    if (entityType === 'certifications') {
+      empty.cert_program = 'drinking_water';
+    }
     setForm(empty);
     setEditing(null);
     setDrawerOpen(true);
@@ -552,6 +557,23 @@ export function WorkforceEntityArea({
                   >
                     {displayColumns.map(c => {
                       const display = formatEntityCellValue(entityType, c, row, refRowsBySource);
+                      if (entityType === 'certifications' && c === 'cert_program') {
+                        const chip = certProgramLabel(String(row.cert_program ?? 'drinking_water'));
+                        const isWw = chip === 'WW';
+                        return (
+                          <TableCell key={c}>
+                            <Badge
+                              className={
+                                isWw
+                                  ? 'bg-teal-700 text-white hover:bg-teal-700'
+                                  : 'bg-blue-700 text-white hover:bg-blue-700'
+                              }
+                            >
+                              {chip}
+                            </Badge>
+                          </TableCell>
+                        );
+                      }
                       return (
                         <TableCell key={c} className="max-w-[10rem] truncate" title={display}>
                           {display}
@@ -627,7 +649,7 @@ export function WorkforceEntityArea({
           {columns.map(c => {
             const required = isRequiredField(entityType, c);
             const ref = referenceFor(entityType, c);
-            const labeledEnum = labeledEnumOptionsFor(entityType, c);
+            const labeledEnum = labeledEnumOptionsFor(entityType, c, form);
             const enumOrBool =
               labeledEnum ??
               enumOptionsFor(entityType, c)?.map(opt => ({ value: opt, label: opt })) ??
@@ -697,7 +719,19 @@ export function WorkforceEntityArea({
                           : '—'
                     }
                     allowEmpty={!required || isNullableBooleanField(entityType, c)}
-                    onChange={next => setForm(prev => ({ ...prev, [c]: next }))}
+                    onChange={next =>
+                      setForm(prev => {
+                        const updated = { ...prev, [c]: next };
+                        if (
+                          entityType === 'certifications' &&
+                          c === 'cert_program' &&
+                          prev.cert_program !== next
+                        ) {
+                          updated.certification_grade = '';
+                        }
+                        return updated;
+                      })
+                    }
                     options={enumOrBool}
                   />
                 </div>

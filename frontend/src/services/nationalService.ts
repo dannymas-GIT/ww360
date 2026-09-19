@@ -11,6 +11,8 @@ export interface NationalOverview {
     health_violations: number;
     snc_count: number;
     population_served: number;
+    active_potws?: number | null;
+    major_potws?: number | null;
     dwsrf_allotment_usd?: number | null;
     operator_annual_openings?: number | null;
     certified_operators?: number | null;

@@ -112,3 +112,26 @@ test('hamburger nav and readable stage fit phone and tablet', async ({ page }) =
     await expect(diagram).toBeVisible();
   }
 });
+
+
+test('landing includes wastewater operator track slide', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/');
+  const tabs = page.locator('.ww360-stage__dot, [role="tab"]');
+  const count = await tabs.count();
+  let found = false;
+  for (let i = 0; i < count; i++) {
+    await tabs.nth(i).click();
+    const body = await page.locator('.ww360-hero, .ww360-stage').innerText();
+    if (/wastewater|nysdec|potw/i.test(body)) {
+      found = true;
+      break;
+    }
+  }
+  // Also accept capabilities list mention
+  if (!found) {
+    const pageText = await page.locator('body').innerText();
+    found = /wastewater operator|nysdec/i.test(pageText);
+  }
+  expect(found, 'expected wastewater offering on landing').toBeTruthy();
+});

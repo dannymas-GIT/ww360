@@ -986,6 +986,19 @@
   font-size: 1.25rem;
 }
 
+.ww360-capability-badge {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--ww360-deep, #0b2847);
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
 .ww360-capability-list span {
   color: var(--ww360-slate);
   font-size: var(--text-body);

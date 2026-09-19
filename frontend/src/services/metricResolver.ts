@@ -44,7 +44,7 @@ function mapLiveNationalKpis(overview: NationalOverview | null): DemoKpi[] | nul
   if (gap?.annual_openings != null) {
     kpis.push({
       id: 'live-workforce-gap',
-      label: 'Projected annual openings (BLS)',
+      label: 'Projected annual openings (BLS 51-8031)',
       value: String(gap.annual_openings),
       sublabel: `BLS employment ${gap.employment_2024 ?? '—'} → ${gap.employment_2034 ?? '—'} (projections, not live postings)`,
       dataMode: 'live',

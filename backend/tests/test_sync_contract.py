@@ -3,14 +3,16 @@
 import hashlib
 import hmac
 import json
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
+from app.db.database import get_db
 from app.main import app
 
-client = TestClient(app)
+client = TestClient(app, base_url="http://localhost")
 
 
 @pytest.fixture(autouse=True)
@@ -30,6 +32,22 @@ def test_sync_rejects_missing_signature():
 
 
 def test_sync_accepts_district_event():
+    """HMAC + inbox accept/idempotency without live Postgres."""
+    mock_db = MagicMock()
+    inbox: dict = {}
+
+    def _get(model, key):
+        return inbox.get(key)
+
+    def _add(obj):
+        eid = getattr(obj, "event_id", None)
+        if eid is not None:
+            inbox[eid] = obj
+
+    mock_db.get.side_effect = _get
+    mock_db.add.side_effect = _add
+    app.dependency_overrides[get_db] = lambda: mock_db
+
     body = {
         "events": [
             {
@@ -49,19 +67,23 @@ def test_sync_accepts_district_event():
         ]
     }
     sig = _sign(body)
-    resp = client.post(
-        "/api/v1/sync/aquasafe/events",
-        json=body,
-        headers={"X-WW360-Signature": sig},
-    )
-    assert resp.status_code == 200
-    assert resp.json()["accepted"] == 1
+    try:
+        with patch("app.api.v1.endpoints.sync.process_inbox_event", return_value=True):
+            resp = client.post(
+                "/api/v1/sync/aquasafe/events",
+                json=body,
+                headers={"X-WW360-Signature": sig},
+            )
+            assert resp.status_code == 200
+            assert resp.json()["accepted"] == 1
 
-    # Idempotent replay
-    resp2 = client.post(
-        "/api/v1/sync/aquasafe/events",
-        json=body,
-        headers={"X-WW360-Signature": sig},
-    )
-    assert resp2.status_code == 200
-    assert resp2.json()["accepted"] == 0
+            # Idempotent replay (inbox already has event_id)
+            resp2 = client.post(
+                "/api/v1/sync/aquasafe/events",
+                json=body,
+                headers={"X-WW360-Signature": sig},
+            )
+            assert resp2.status_code == 200
+            assert resp2.json()["accepted"] == 0
+    finally:
+        app.dependency_overrides.pop(get_db, None)

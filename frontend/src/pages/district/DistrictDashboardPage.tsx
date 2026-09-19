@@ -33,6 +33,8 @@ import {
   type DocumentationTask,
   type DocumentationTaskSummary,
 } from '@/services/documentationTaskService';
+import { CertProgramBreakdownChips } from '@/components/workforce/CertProgramBreakdownChips';
+import { splitCountByProgram } from '@/components/workforce/certProgramMetrics';
 import { UsajobsJobListingsPanel } from '@/pages/workspaces/UsajobsJobListingsPanel';
 
 type ChecklistStatus = 'done' | 'attention' | 'todo';
@@ -95,6 +97,7 @@ export default function DistrictDashboardPage() {
 
   const reviewQueue = tasks.filter(t => t.status === 'submitted');
   const shortfallOps = operators.filter(o => o.is_shortfall);
+  const ceuShortfallByProgram = splitCountByProgram(shortfallOps);
   const uncovered = scorecard?.functions_without_backup ?? 0;
   const retirement = scorecard?.employees_retirement_eligible_24mo ?? 0;
   const certCliff = (scorecard?.cert_cliff_90d ?? 0) + (scorecard?.cert_cliff_30d ?? 0);
@@ -231,32 +234,43 @@ export default function DistrictDashboardPage() {
         <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{loadError}</p>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Ww360KpiTile
-          label="Continuity readiness"
-          value={readiness != null ? `${readiness}` : '—'}
-          sub="Score / 100 for this district"
-          icon={<Workflow className="h-5 w-5" />}
-        />
-        <Ww360KpiTile
-          label="Uncovered functions"
-          value={String(uncovered)}
-          sub="Need primary/backup"
-          icon={<Users className="h-5 w-5" />}
-          invert
-        />
-        <Ww360KpiTile
-          label="CEU shortfalls"
-          value={String(shortfallOps.length)}
-          sub="Operators below hours"
-          icon={<GraduationCap className="h-5 w-5" />}
-          invert
-        />
-        <Ww360KpiTile
-          label="Docs needing action"
-          value={String(summary.open + summary.review_queue)}
-          sub={`${summary.review_queue} in review queue`}
-          icon={<ClipboardList className="h-5 w-5" />}
+      <div className="space-y-2">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <Ww360KpiTile
+            label="Continuity readiness"
+            value={readiness != null ? `${readiness}` : '—'}
+            sub="Score / 100 for this district"
+            icon={<Workflow className="h-5 w-5" />}
+          />
+          <Ww360KpiTile
+            label="Uncovered functions"
+            value={String(uncovered)}
+            sub="Need primary/backup"
+            icon={<Users className="h-5 w-5" />}
+            invert
+          />
+          <Ww360KpiTile
+            label="CEU shortfalls"
+            value={String(shortfallOps.length)}
+            sub={
+              ceuShortfallByProgram.hasBoth
+                ? 'Below hours · DW and WW tracked'
+                : 'Operators below renewal hours'
+            }
+            icon={<GraduationCap className="h-5 w-5" />}
+            invert
+          />
+          <Ww360KpiTile
+            label="Docs needing action"
+            value={String(summary.open + summary.review_queue)}
+            sub={`${summary.review_queue} in review queue`}
+            icon={<ClipboardList className="h-5 w-5" />}
+          />
+        </div>
+        <CertProgramBreakdownChips
+          metricLabel="CEU shortfall"
+          counts={ceuShortfallByProgram}
+          className="px-1"
         />
       </div>
 
@@ -290,11 +304,19 @@ export default function DistrictDashboardPage() {
           ) : (
             <ul className="space-y-2 px-5 pb-5">
               {operators.slice(0, 6).map(op => (
-                <li key={op.employee_code} className="flex items-center justify-between gap-2 text-sm border-b last:border-0 py-2">
+                <li
+                  key={`${op.employee_code}-${op.cert_program ?? 'dw'}`}
+                  className="flex items-center justify-between gap-2 text-base border-b last:border-0 py-2"
+                >
                   <span>
                     {op.employee_name}
                     {op.certification_grade ? (
                       <span className="text-slate-500"> · Grade {op.certification_grade}</span>
+                    ) : null}
+                    {op.cert_program === 'wastewater' ? (
+                      <span className="text-slate-500"> · WW (5-yr)</span>
+                    ) : op.cert_program ? (
+                      <span className="text-slate-500"> · DW (3-yr)</span>
                     ) : null}
                   </span>
                   <Badge variant={op.is_shortfall ? 'destructive' : 'secondary'}>

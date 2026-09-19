@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
 import { Ww360Section } from '@/components/ww360/Ww360Section';
-import { Ww360KpiTile } from '@/components/ww360/Ww360KpiTile';
+import { Ww360KpiTile, Ww360StatTile } from '@/components/ww360/Ww360KpiTile';
 import { fetchStateScorecard, fetchStateWorkforce } from '@/services/nationalService';
 import { formatCompact, formatUsd } from '@/pages/oww/owwMockData';
 
@@ -27,6 +27,8 @@ export default function StateScorecardPage() {
   const compliance = (scorecard?.compliance || {}) as Record<string, number>;
   const roster = (workforce?.roster || {}) as Record<string, unknown>;
   const continuity = (workforce?.continuity_rollup || {}) as Record<string, unknown>;
+  const activePotws = scorecard?.active_potws as number | null | undefined;
+  const majorPotws = scorecard?.major_potws as number | null | undefined;
 
   return (
     <div className="mx-auto w-full max-w-[1200px] space-y-6 p-4 md:p-6">
@@ -42,7 +44,7 @@ export default function StateScorecardPage() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <Ww360KpiTile
           label="Workforce readiness index"
           value={String(scorecard?.workforce_readiness_index ?? '—')}
@@ -53,6 +55,16 @@ export default function StateScorecardPage() {
           label="Active CWS"
           value={formatCompact(compliance.active_cws || 0)}
           source="epa_echo_sdwis"
+        />
+        <Ww360StatTile
+          label="Active POTWs"
+          value={activePotws != null ? formatCompact(activePotws) : '—'}
+          dataMode="live"
+        />
+        <Ww360StatTile
+          label="Major POTWs"
+          value={majorPotws != null ? formatCompact(majorPotws) : '—'}
+          dataMode="live"
         />
         <Ww360KpiTile
           label="Certified operators"

@@ -513,6 +513,7 @@ class CertificationCliffEntry(BaseModel):
     employee_name: Optional[str]
     certification_type: str
     certification_grade: Optional[str]
+    cert_program: str = "drinking_water"
     expiration_date: Optional[date]
     days_until_expiration: Optional[int]
     is_required_for_role: bool
@@ -743,6 +744,7 @@ class WorkforceCeuOperatorSummary(BaseModel):
     records_missing_vouchers: int = 0
     earned_contact_hours: float = 0.0
     required_contact_hours: float = 0.0
+    cert_program: str = "drinking_water"
 
 
 class WorkforceCeuSummaryResponse(BaseModel):
@@ -874,7 +876,7 @@ class CeuRoleRequirement(BaseModel):
     grades: List[CeuGradeRequirement] = Field(default_factory=list)
 
 
-class CeuRequirementsResponse(BaseModel):
+class CeuProgramRequirements(BaseModel):
     renewal_cycle_years: int
     federal_citation: str
     state_citation: str
@@ -882,6 +884,30 @@ class CeuRequirementsResponse(BaseModel):
     scope_notes: List[str] = Field(default_factory=list)
     default_ceu_by_grade: Dict[str, float] = Field(default_factory=dict)
     roles: List[CeuRoleRequirement] = Field(default_factory=list)
+
+
+class CeuRequirementsResponse(CeuProgramRequirements):
+    """Drinking-water fields remain at top level; full catalog also under programs."""
+
+    programs: Dict[str, CeuProgramRequirements] = Field(default_factory=dict)
+
+
+class CoverageChiefOperator(BaseModel):
+    employee_code: str
+    employee_name: str
+    certification_grade: Optional[str] = None
+    expiration_date: Optional[date] = None
+
+
+class CoverageSummaryResponse(BaseModel):
+    facility_id: str
+    district_code: str
+    facility_type: Optional[str] = None
+    required_grade: Optional[str] = None
+    program: str
+    covered: bool
+    chief_operator: Optional[CoverageChiefOperator] = None
+    warnings: List[str] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------

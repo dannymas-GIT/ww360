@@ -13,6 +13,7 @@ import WorkspaceHomePage from '@/pages/workspaces/WorkspaceHomePage';
 import DigitalReachPage from '@/pages/analytics/DigitalReachPage';
 import WorkforceContinuityPage from '@/pages/WorkforceContinuityPage';
 import SdwisLandscapePage from '@/pages/sdwis/SdwisLandscapePage';
+import FacilitiesLandscapePage from '@/pages/facilities/FacilitiesLandscapePage';
 import SdwisWatchlistPage from '@/pages/sdwis/SdwisWatchlistPage';
 import SdwisLookupPage from '@/pages/sdwis/SdwisLookupPage';
 import SdwisCompliancePage from '@/pages/sdwis/SdwisCompliancePage';
@@ -101,6 +102,7 @@ export default function App() {
           path="/continuity/ceu-training"
           element={<WorkforceContinuityPage workspace="ceu_training" />}
         />
+        <Route path="/facilities" element={<FacilitiesLandscapePage />} />
         <Route path="/water-systems" element={<SdwisLandscapePage />} />
         <Route path="/water-systems/watchlist" element={<SdwisWatchlistPage />} />
         <Route path="/water-systems/lookup" element={<SdwisLookupPage />} />

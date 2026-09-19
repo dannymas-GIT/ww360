@@ -52,6 +52,7 @@ class Settings(BaseSettings):
 
     SDWIS_API_BASE_URL: str = "https://echodata.epa.gov/echo"
     SDWIS_SYNC_ENABLED: bool = True
+    NPDES_SYNC_ENABLED: bool = True
     SDWIS_REQUEST_TIMEOUT_SECONDS: float = 45.0
     SDWIS_MAX_LOOKUP_PAGES: int = 50
     SDWIS_LOOKUP_FILTERED_MAX_PAGES: int = 3

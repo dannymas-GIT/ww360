@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Camera, GraduationCap } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -17,7 +17,16 @@ import {
   type DocumentationTask,
   type RecorderAccess,
 } from '@/services/documentationTaskService';
-import { fetchCeuSummary } from '@/services/workforceSuccessionService';
+import {
+  certProgramLabel,
+  normalizeCertProgram,
+  renewalCycleYears,
+  type CertProgramKey,
+} from '@/components/workforce/certProgramMetrics';
+import {
+  fetchCeuSummary,
+  type WorkforceCeuOperatorSummary,
+} from '@/services/workforceSuccessionService';
 import { WorkforceOperatorResponsibilityForm } from '@/components/workforce/WorkforceOperatorResponsibilityForm';
 import { UsajobsJobListingsPanel } from '@/pages/workspaces/UsajobsJobListingsPanel';
 
@@ -29,10 +38,8 @@ export default function OperatorHomePage() {
   const district = actingDistrictCode ?? user?.districts?.[0] ?? 'HFWD';
   const [tasks, setTasks] = useState<DocumentationTask[]>([]);
   const [recorder, setRecorder] = useState<RecorderAccess | null>(null);
-  const [ceuHours, setCeuHours] = useState(0);
+  const [myCeuRows, setMyCeuRows] = useState<WorkforceCeuOperatorSummary[]>([]);
   const [progressDraft, setProgressDraft] = useState<Record<number, number>>({});
-
-  const [ceuRequired, setCeuRequired] = useState(GRADE_REQUIREMENT_FALLBACK);
 
   const reload = useCallback(async () => {
     const [t, r, ceu] = await Promise.all([
@@ -42,16 +49,24 @@ export default function OperatorHomePage() {
     ]);
     setTasks(t);
     setRecorder(r);
-    const mine = ceu?.operators?.find(o =>
-      user?.full_name ? o.employee_name?.includes(user.full_name.split(' ')[0]) : false
-    );
-    const op = mine ?? ceu?.operators?.[0];
-    setCeuHours(op?.earned_hours ?? 0);
-    const required =
-      op?.required_contact_hours ??
-      (op?.required_hours != null ? op.required_hours * 10 : GRADE_REQUIREMENT_FALLBACK);
-    setCeuRequired(required);
+    const firstName = user?.full_name?.split(' ')[0];
+    const mine =
+      ceu?.operators?.filter(o =>
+        firstName ? o.employee_name?.includes(firstName) : false
+      ) ?? [];
+    setMyCeuRows(mine.length > 0 ? mine : (ceu?.operators?.slice(0, 1) ?? []));
   }, [district, user?.full_name]);
+
+  const ceuByProgram = useMemo(() => {
+    const map = new Map<CertProgramKey, WorkforceCeuOperatorSummary>();
+    for (const row of myCeuRows) {
+      map.set(normalizeCertProgram(row.cert_program), row);
+    }
+    return map;
+  }, [myCeuRows]);
+
+  const showCeuSplit =
+    ceuByProgram.has('drinking_water') && ceuByProgram.has('wastewater');
 
   useEffect(() => {
     void reload();
@@ -74,15 +89,44 @@ export default function OperatorHomePage() {
       />
 
       <Ww360Section tourId="operator-ceu" title="My CEU hours">
-        <div className="px-5 pb-5 space-y-3">
-          <div className="flex justify-between text-sm">
-            <span>
-              {ceuHours.toFixed(1)} / {ceuRequired.toFixed(0)} contact hrs (3-year cycle)
-            </span>
-            <Badge>{Math.round((ceuHours / ceuRequired) * 100)}%</Badge>
-          </div>
-          <Progress value={Math.min(100, (ceuHours / ceuRequired) * 100)} />
-          <Button asChild size="sm" variant="outline">
+        <div className="px-5 pb-5 space-y-4">
+          {(showCeuSplit
+            ? (['drinking_water', 'wastewater'] as CertProgramKey[])
+            : ([...ceuByProgram.keys()] as CertProgramKey[])
+          ).map(program => {
+            const op = ceuByProgram.get(program);
+            if (!op) return null;
+            const required =
+              op.required_contact_hours ??
+              (op.required_hours != null ? op.required_hours * 10 : GRADE_REQUIREMENT_FALLBACK);
+            const earned = op.earned_contact_hours ?? op.earned_hours ?? 0;
+            const cycleYears = renewalCycleYears(program);
+            const pct = required > 0 ? Math.round((earned / required) * 100) : 0;
+            return (
+              <div key={program} className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                {showCeuSplit ? (
+                  <p className="text-base font-medium text-slate-800">{certProgramLabel(program)}</p>
+                ) : null}
+                <div className="flex justify-between text-base">
+                  <span>
+                    {earned.toFixed(1)} / {required.toFixed(0)} contact hrs ({cycleYears}-year cycle)
+                  </span>
+                  <Badge>{pct}%</Badge>
+                </div>
+                <Progress value={Math.min(100, pct)} />
+                {op.days_until_cycle_end != null ? (
+                  <p className="text-[0.875rem] text-slate-600">
+                    {op.days_until_cycle_end} days until renewal
+                    {op.cert_program ? ` · ${certProgramLabel(program)} (${cycleYears}-year)` : ''}
+                  </p>
+                ) : null}
+              </div>
+            );
+          })}
+          {myCeuRows.length === 0 ? (
+            <p className="text-base text-slate-500">No CEU progress tracked yet for your account.</p>
+          ) : null}
+          <Button asChild size="sm" variant="outline" className="min-h-[44px] text-base">
             <Link to="/continuity/ceu-training?tab=ceu">Log CEU hours</Link>
           </Button>
         </div>

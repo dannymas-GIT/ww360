@@ -14,6 +14,7 @@ from app.db import base
 from app.db.database import SessionLocal, init_db
 from app.services.sdwis_state_refresh_service import refresh_configured_states
 from app.services.national.sdwis_bulk_ingest import refresh_all_states
+from app.services.national.npdes_bulk_ingest import refresh_all_states as refresh_all_npdes_states
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -38,6 +39,19 @@ def _run_sdwis_refresh() -> None:
     finally:
         db.close()
 
+
+
+def _run_npdes_refresh() -> None:
+    if not getattr(settings, "NPDES_SYNC_ENABLED", True):
+        return
+    db = SessionLocal()
+    try:
+        results = refresh_all_npdes_states(db)
+        logger.info("NPDES state refresh completed: %s", results)
+    except Exception as exc:
+        logger.warning("NPDES state refresh failed: %s", exc)
+    finally:
+        db.close()
 
 def _run_national_metrics_refresh() -> None:
     db = SessionLocal()
@@ -86,6 +100,7 @@ async def lifespan(app: FastAPI):
     if settings.SDWIS_SYNC_ENABLED:
         _scheduler = BackgroundScheduler()
         _scheduler.add_job(_run_sdwis_refresh, "cron", hour=3, minute=0, id="sdwis_state_refresh")
+        _scheduler.add_job(_run_npdes_refresh, "cron", day_of_week="sun", hour=5, minute=0, id="npdes_state_refresh")
         _scheduler.add_job(
             _run_national_metrics_refresh, "cron", hour=4, minute=0, id="national_metrics_refresh"
         )
@@ -94,6 +109,7 @@ async def lifespan(app: FastAPI):
         )
         _scheduler.start()
         logger.info("SDWIS nightly refresh scheduled (03:00 UTC)")
+        logger.info("NPDES weekly refresh scheduled (Sun 05:00 UTC)")
         logger.info("Documentation task notifier scheduled (08:00 UTC)")
 
     yield

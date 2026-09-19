@@ -24,6 +24,8 @@ export interface FederalJobsResponse {
   total: number;
   jobs: FederalJobListing[];
   state_filter?: string | null;
+  search_keywords?: string[];
+  bls_soc?: string;
 }
 
 export async function fetchFederalJobOpenings(

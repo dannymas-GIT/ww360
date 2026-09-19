@@ -82,3 +82,8 @@ opcert:
       label: C — Plant or Distribution System
     - code: D
       label: D — Distribution System
+wastewater:
+  agency: NYSDEC
+  grades: ["1", "2", "3", "4", "1A", "2A", "3A", "4A"]
+  renewal_cycle_years: 5
+  cyber_ceu_effective: "2027-01-01"

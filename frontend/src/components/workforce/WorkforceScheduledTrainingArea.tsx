@@ -392,6 +392,37 @@ export function WorkforceScheduledTrainingArea({
                 />
               </Field>
               <div className="grid grid-cols-2 gap-3">
+                <Field label="Program">
+                  <Select
+                    value={form.cert_program}
+                    onValueChange={v => setForm(f => ({ ...f, cert_program: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="drinking_water">Drinking water</SelectItem>
+                      <SelectItem value="wastewater">Wastewater</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Cert type">
+                  <Select
+                    value={form.cert_type}
+                    onValueChange={v => setForm(f => ({ ...f, cert_type: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="treatment">Treatment</SelectItem>
+                      <SelectItem value="distribution">Distribution</SelectItem>
+                      <SelectItem value="collection">Collection</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
                 <Field label="Start" required>
                   <Input
                     type="datetime-local"

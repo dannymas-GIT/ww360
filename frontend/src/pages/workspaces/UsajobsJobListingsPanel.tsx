@@ -39,7 +39,7 @@ export const UsajobsJobListingsPanel: React.FC<UsajobsJobListingsPanelProps> = (
   return (
     <Ww360Section
       title="Federal operator openings"
-      description="Live job announcements from USAJOBS — water, wastewater, and treatment plant roles."
+      description="Live job announcements from USAJOBS — water and wastewater treatment plant operators (BLS SOC 51-8031)."
       dataMode={dataMode}
       tourId={tourId}
     >
@@ -125,8 +125,9 @@ export const UsajobsJobListingsPanel: React.FC<UsajobsJobListingsPanelProps> = (
               ))}
             </ul>
             <p className="text-[0.875rem] text-slate-500">
-              These are federal announcements only. Municipal utilities often post on GovernmentJobs.com
-              or state workforce boards — not included here.
+              Searches include water treatment and wastewater operator titles (BLS SOC 51-8031).
+              These are federal announcements only — municipal utilities often post on
+              GovernmentJobs.com or state workforce boards.
             </p>
           </>
         )}

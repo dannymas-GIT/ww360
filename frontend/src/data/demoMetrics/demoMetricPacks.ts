@@ -105,7 +105,7 @@ export const DEMO_METRIC_PACKS: Record<string, DemoMetricPack> = {
       },
       {
         id: 'workforce-openings',
-        title: 'Projected openings (water operators)',
+        title: 'Projected openings (water & wastewater operators)',
         subtitle: '2024–2034 illustrative trend from BLS/Projections Central patterns',
         dataMode: 'sample',
         source: 'bls_oews',

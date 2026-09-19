@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Droplets, Users } from 'lucide-react';
+import { Droplets, Factory, Users } from 'lucide-react';
 import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
 import { Ww360Section } from '@/components/ww360/Ww360Section';
 import { Ww360KpiTile } from '@/components/ww360/Ww360KpiTile';
@@ -47,6 +47,19 @@ function NationalOverviewFull() {
     [data]
   );
 
+  const potwTotals = useMemo(() => {
+    const rows = data?.states || [];
+    const hasPotw = rows.some(s => s.active_potws != null);
+    if (!hasPotw) return null;
+    return rows.reduce(
+      (acc, s) => ({
+        active: acc.active + (s.active_potws ?? 0),
+        major: acc.major + (s.major_potws ?? 0),
+      }),
+      { active: 0, major: 0 }
+    );
+  }, [data]);
+
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6">
       <Ww360PageHero
@@ -57,6 +70,25 @@ function NationalOverviewFull() {
       />
 
       {loading && <p className="text-[1.125rem] text-slate-500">Loading national metrics…</p>}
+
+      {potwTotals && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Ww360KpiTile
+            label="Active POTWs"
+            value={formatCompact(potwTotals.active)}
+            sub="EPA ICIS-NPDES cached inventory"
+            dataMode="live"
+            icon={<Factory className="h-4 w-4" />}
+          />
+          <Ww360KpiTile
+            label="Major POTWs"
+            value={formatCompact(potwTotals.major)}
+            sub="Major NPDES facilities nationwide"
+            dataMode="live"
+            icon={<Factory className="h-4 w-4" />}
+          />
+        </div>
+      )}
 
       {headline && (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
@@ -123,6 +155,8 @@ function NationalOverviewFull() {
               <tr className="border-b text-left text-sm uppercase text-slate-500">
                 <th className="py-2">State</th>
                 <th className="py-2 text-right">CWS</th>
+                <th className="py-2 text-right">POTWs</th>
+                <th className="py-2 text-right">Major POTWs</th>
                 <th className="py-2 text-right">Health violations</th>
                 <th className="py-2 text-right">Certified ops</th>
                 <th className="py-2 text-right">DWSRF allotment</th>
@@ -134,6 +168,12 @@ function NationalOverviewFull() {
                 <tr key={s.state_code} className="border-b border-slate-100">
                   <td className="py-2 font-medium">{s.state_code}</td>
                   <td className="py-2 text-right tabular-nums">{formatCompact(s.active_cws)}</td>
+                  <td className="py-2 text-right tabular-nums">
+                    {s.active_potws != null ? formatCompact(s.active_potws) : '—'}
+                  </td>
+                  <td className="py-2 text-right tabular-nums">
+                    {s.major_potws != null ? formatCompact(s.major_potws) : '—'}
+                  </td>
                   <td className="py-2 text-right tabular-nums">{formatCompact(s.health_violations)}</td>
                   <td className="py-2 text-right tabular-nums">
                     {s.certified_operators != null ? formatCompact(s.certified_operators) : '—'}

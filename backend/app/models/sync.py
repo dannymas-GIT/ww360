@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
 
@@ -90,3 +90,30 @@ class SyncCursor(Base):
     entity = Column(String(64), primary_key=True)
     last_version = Column(Integer, nullable=False, default=0)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class ExtFacility(Base):
+    """Facility registry mirrored from AquaSafe (PWS) and wastewater app (WWTP)."""
+
+    __tablename__ = "ext_facilities"
+    __table_args__ = (
+        UniqueConstraint("publisher", "facility_id", name="uq_ext_facility_publisher_id"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    publisher = Column(String(64), nullable=False, index=True)  # aquasafe | aquasafe-wastewater
+    facility_id = Column(String(128), nullable=False, index=True)
+    district_code = Column(String(50), nullable=False, index=True)
+    facility_type = Column(String(32), nullable=False, index=True)  # pws | wwtp | collection_system
+    name = Column(String(255), nullable=False)
+    state_code = Column(String(2), nullable=True, index=True)
+    pwsid = Column(String(12), nullable=True, index=True)
+    npdes_id = Column(String(15), nullable=True, index=True)
+    spdes_id = Column(String(15), nullable=True)
+    plant_class = Column(String(16), nullable=True)
+    design_flow_mgd = Column(Float, nullable=True)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    version = Column(Integer, nullable=False, default=1)
+    synced_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

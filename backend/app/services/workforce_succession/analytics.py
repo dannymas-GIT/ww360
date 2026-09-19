@@ -172,6 +172,7 @@ def compute_continuity_response(
                     "employee_name": employee.full_name if employee else None,
                     "certification_type": cert.certification_type,
                     "certification_grade": cert.certification_grade,
+                    "cert_program": (cert.cert_program or "drinking_water").strip().lower(),
                     "expiration_date": cert.expiration_date,
                     "days_until_expiration": delta,
                     "is_required_for_role": cert.is_required_for_role,

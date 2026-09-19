@@ -47,6 +47,13 @@ export function buildOwwTourSlides(pack: JurisdictionPack): OwwTourSlide[] {
       tip: 'Link utility PWSIDs under Admin → PWSID links to build a member watchlist from this landscape.',
     },
     {
+      id: 'wastewater',
+      title: 'Wastewater operators & POTWs',
+      body: `Beyond SDWIS drinking-water systems, ${stateName} POTWs and NYSDEC-certified wastewater operators (grades 1–4 and 1A–4A) appear on Facilities landscape and in OpCert program tabs — five-year renewals and POTW-per-operator ratios for workforce planning.`,
+      highlight: '[data-tour="opcert-panel"]',
+      tip: 'Open Facilities → Wastewater for live NPDES inventory when recruiting for treatment or collection roles.',
+    },
+    {
       id: 'pipeline',
       title: 'Candidate pipeline',
       body: 'How many people are at each stage between awareness and employment. Drop-offs between stages tell you where outreach, scholarships or exam prep would move the most people.',

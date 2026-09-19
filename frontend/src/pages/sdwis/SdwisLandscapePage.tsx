@@ -21,7 +21,7 @@ import { useJurisdiction } from '@/context/JurisdictionContext';
 import { fetchWorkforceInsights, type SDWISWorkforceInsights } from '@/services/sdwisService';
 import { LandscapeTourOverlay, requestOpenLandscapeTour } from './LandscapeTourOverlay';
 
-export default function SdwisLandscapePage() {
+export default function SdwisLandscapePage({ embedded = false }: { embedded?: boolean }) {
   const { activeState, pack } = useJurisdiction();
   const [insights, setInsights] = useState<SDWISWorkforceInsights | null>(null);
   const [loading, setLoading] = useState(true);
@@ -115,9 +115,10 @@ export default function SdwisLandscapePage() {
     !Object.keys(sizeTiers).length &&
     !allCounties.length;
 
-  return (
-    <div className="ww360-app-shell mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6">
-      <LandscapeTourOverlay autoOpen />
+  const body = (
+    <>
+      {!embedded ? <LandscapeTourOverlay autoOpen /> : null}
+      {!embedded ? (
       <Ww360PageHero
         eyebrow="EPA SDWIS · ECHO"
         title="Water system landscape"
@@ -167,6 +168,7 @@ export default function SdwisLandscapePage() {
           </div>
         }
       />
+      ) : null}
 
       {loading ? (
         <p className="text-[1.125rem] text-slate-500">Loading state landscape…</p>
@@ -412,6 +414,16 @@ export default function SdwisLandscapePage() {
           </Ww360Section>
         </>
       ) : null}
+    </>
+  );
+
+  if (embedded) {
+    return <div className="space-y-6">{body}</div>;
+  }
+
+  return (
+    <div className="ww360-app-shell mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6">
+      {body}
     </div>
   );
 }

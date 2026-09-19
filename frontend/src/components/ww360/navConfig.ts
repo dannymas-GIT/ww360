@@ -5,6 +5,7 @@ import {
   Briefcase,
   ClipboardList,
   Droplets,
+  Factory,
   GraduationCap,
   LayoutDashboard,
   PenSquare,
@@ -46,6 +47,11 @@ export const ww360NavGroups: NavGroup[] = [
       { label: 'US overview', path: '/national', icon: Globe },
       { label: 'State scorecards', path: '/national', icon: Map },
     ],
+  },
+  {
+    id: 'facilities',
+    label: 'Facilities',
+    items: [{ label: 'Facilities', path: '/facilities', icon: Factory }],
   },
   {
     id: 'water-systems',
@@ -301,6 +307,14 @@ function navGroupsSimplified(
       id: 'national',
       label: 'National',
       items: [{ label: 'State scorecards', path: '/national', icon: Map }],
+    });
+  }
+
+  if (profile === 'state_partner' || profile === 'regulator' || profile === 'national') {
+    extras.push({
+      id: 'facilities',
+      label: 'Facilities',
+      items: [{ label: 'Facilities', path: '/facilities', icon: Factory }],
     });
   }
 

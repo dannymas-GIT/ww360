@@ -162,6 +162,12 @@ function defaultSlides(profile: WorkspaceProfile, personaKey?: string | null): W
       tip: 'Municipal utility jobs are usually on GovernmentJobs.com or state boards; this panel is federal only.',
     },
     {
+      id: 'wastewater',
+      title: 'Wastewater operator track',
+      body: 'NYSDEC wastewater grades (1–4 and 1A–4A), five-year renewals, and POTW coverage sit alongside NYSDOH drinking-water OpCert on regulator and facilities views — same platform, separate program tabs.',
+      tip: 'Open Facilities landscape and switch to Wastewater for live NPDES POTW inventory.',
+    },
+    {
       id: 'studio',
       title: 'Document Studio',
       body: 'Every role has access to Document Studio — author, publish, and connect Microsoft or Google libraries for program documents.',

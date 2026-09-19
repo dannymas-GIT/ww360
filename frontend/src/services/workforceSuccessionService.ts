@@ -60,6 +60,7 @@ export interface CertificationCliffEntry {
   employee_name: string | null;
   certification_type: string;
   certification_grade: string | null;
+  cert_program?: string;
   expiration_date: string | null;
   days_until_expiration: number | null;
   is_required_for_role: boolean;
@@ -444,6 +445,7 @@ export type WorkforceListFilters = {
   position_code?: string;
   employee_code?: string;
   function_code?: string;
+  cert_program?: string;
   expiring_within_days?: number;
   upcoming_only?: boolean;
 };
@@ -533,6 +535,7 @@ export interface WorkforceCeuOperatorSummary {
   employee_code: string;
   employee_name: string;
   certification_grade: string | null;
+  cert_program?: string;
   renewal_cycle_end: string;
   required_hours: number;
   earned_hours: number;
@@ -847,7 +850,7 @@ export interface CeuRoleRequirement {
   grades: CeuGradeRequirement[];
 }
 
-export interface CeuRequirementsResponse {
+export interface CeuProgramRequirements {
   renewal_cycle_years: number;
   federal_citation: string;
   state_citation: string;
@@ -855,6 +858,10 @@ export interface CeuRequirementsResponse {
   scope_notes: string[];
   default_ceu_by_grade: Record<string, number>;
   roles: CeuRoleRequirement[];
+}
+
+export interface CeuRequirementsResponse extends CeuProgramRequirements {
+  programs?: Record<string, CeuProgramRequirements>;
 }
 
 export async function fetchCeuRequirements(): Promise<CeuRequirementsResponse> {

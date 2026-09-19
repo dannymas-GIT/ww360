@@ -7,6 +7,7 @@ export type Ww360Slide = {
   bullets: [string, string, string];
   image: string;
   alt: string;
+  badge?: string;
 };
 
 export const WW360_SLIDES: Ww360Slide[] = [
@@ -63,6 +64,20 @@ export const WW360_SLIDES: Ww360Slide[] = [
     alt: 'Night exterior of a water treatment plant with a lit doorway',
   },
   {
+    id: 'wastewater',
+    label: 'Wastewater Operator Track · Early access',
+    headline: 'Wastewater operator certification and POTW coverage',
+    body: 'Track NYSDEC wastewater operator grades (1–4 and 1A–4A), five-year renewals, 2027 cyber-security CE hours, and POTW facility coverage alongside drinking-water programs.',
+    bullets: [
+      'Grades 1–4 and 1A–4A with five-year renewal windows',
+      '2027 cyber-security training hours on the renewal path',
+      'POTW landscape from EPA NPDES for workforce planning',
+    ],
+    image: '/landing/ww360/slide-readiness.jpg',
+    alt: 'Wastewater treatment plant exterior at dusk with operational lighting',
+    badge: 'Early access',
+  },
+  {
     id: 'ls-sync',
     label: 'OWW Bridge',
     headline: 'Training in OWW → proof in-district',
@@ -101,8 +116,8 @@ export const WW360_STAGE_SLIDES: Ww360StageSlide[] = [
     label: 'Workforce 360',
     logoFocus: true,
     headline: 'Employer-side workforce planning',
-    headlineAccent: 'for New York utilities.',
-    body: 'Water Workforce 360 helps utilities document staffing, anticipated vacancies, retirements, and training needs — so One Water Workforce can connect candidate development before gaps become emergencies.',
+    headlineAccent: 'for New York water and wastewater utilities.',
+    body: 'Water Workforce 360 helps utilities document staffing, anticipated vacancies, retirements, and training needs — aligned with NYSDOH drinking-water and NYSDEC wastewater operator programs — so One Water Workforce can connect candidate development before gaps become emergencies.',
     image: '/landing/ww360/hero.jpg',
     alt: 'Water utility team reviewing plans and a tablet at a treatment plant at dusk',
     focus: 'center 45%',

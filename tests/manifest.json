@@ -6,11 +6,19 @@
       "specFile": "frontend/e2e/ww360_landing.spec.ts",
       "pathPatterns": [
         "frontend/src/pages/workforce360/**",
-        "backend/app/api/v1/endpoints/ww360_public.py"
+        "backend/app/api/v1/endpoints/ww360_public.py",
+        "frontend/src/pages/workforce360/ww360LandingSlides.ts",
+        "frontend/src/pages/workforce360/Workforce360Landing.tsx"
       ],
-      "defaultRunOn": ["staging", "pr"],
+      "defaultRunOn": [
+        "staging",
+        "pr"
+      ],
       "flakeBudget": 2,
-      "tags": ["ww360", "landing"]
+      "tags": [
+        "ww360",
+        "landing"
+      ]
     },
     {
       "id": "ww360-auth",
@@ -23,9 +31,15 @@
         "backend/app/services/sso_auth_service.py",
         "backend/app/models/user.py"
       ],
-      "defaultRunOn": ["staging", "pr"],
+      "defaultRunOn": [
+        "staging",
+        "pr"
+      ],
       "flakeBudget": 2,
-      "tags": ["ww360", "auth"]
+      "tags": [
+        "ww360",
+        "auth"
+      ]
     },
     {
       "id": "digital-reach",
@@ -41,9 +55,15 @@
         "backend/app/services/ga4_data_service.py",
         "backend/app/schemas/digital_analytics.py"
       ],
-      "defaultRunOn": ["staging", "pr"],
+      "defaultRunOn": [
+        "staging",
+        "pr"
+      ],
       "flakeBudget": 2,
-      "tags": ["ww360", "analytics"]
+      "tags": [
+        "ww360",
+        "analytics"
+      ]
     },
     {
       "id": "oww-exec-dashboard",
@@ -59,9 +79,15 @@
         "backend/app/services/sdwis_workforce_insights.py",
         "backend/scripts/seed_ww360_admin.py"
       ],
-      "defaultRunOn": ["staging", "pr"],
+      "defaultRunOn": [
+        "staging",
+        "pr"
+      ],
       "flakeBudget": 2,
-      "tags": ["ww360", "oww"]
+      "tags": [
+        "ww360",
+        "oww"
+      ]
     },
     {
       "id": "ww360-routes",
@@ -73,11 +99,18 @@
         "frontend/src/pages/WorkforceContinuityPage.tsx",
         "frontend/src/components/workforce/workforceContinuityTabs.ts",
         "backend/app/api/v1/endpoints/tenant.py",
-        "backend/app/api/v1/endpoints/admin_users.py"
+        "backend/app/api/v1/endpoints/admin_users.py",
+        "frontend/src/pages/facilities/**"
       ],
-      "defaultRunOn": ["staging", "pr"],
+      "defaultRunOn": [
+        "staging",
+        "pr"
+      ],
       "flakeBudget": 3,
-      "tags": ["ww360", "routes"]
+      "tags": [
+        "ww360",
+        "routes"
+      ]
     },
     {
       "id": "doc-studio",
@@ -108,9 +141,16 @@
         "frontend/src/utils/screenshotCapture.ts",
         "frontend/src/main.tsx"
       ],
-      "defaultRunOn": ["staging", "pr"],
+      "defaultRunOn": [
+        "staging",
+        "pr"
+      ],
       "flakeBudget": 2,
-      "tags": ["ww360", "studio", "content"]
+      "tags": [
+        "ww360",
+        "studio",
+        "content"
+      ]
     },
     {
       "id": "sdwis-insights",
@@ -120,9 +160,14 @@
         "backend/app/services/sdwis_state_refresh_service.py",
         "backend/app/models/sdwis_state_system.py"
       ],
-      "defaultRunOn": ["pr", "staging"],
+      "defaultRunOn": [
+        "pr",
+        "staging"
+      ],
       "flakeBudget": 1,
-      "tags": ["sdwis"]
+      "tags": [
+        "sdwis"
+      ]
     },
     {
       "id": "workforce-continuity",
@@ -132,9 +177,13 @@
         "backend/app/api/endpoints/workforce_succession.py",
         "backend/app/services/workforce_succession/**"
       ],
-      "defaultRunOn": ["staging"],
+      "defaultRunOn": [
+        "staging"
+      ],
       "flakeBudget": 3,
-      "tags": ["workforce"]
+      "tags": [
+        "workforce"
+      ]
     },
     {
       "id": "district-roles",
@@ -156,9 +205,16 @@
         "backend/app/services/documentation_task_notifier.py",
         "backend/app/services/workforce_succession/alert_scanner.py"
       ],
-      "defaultRunOn": ["staging", "pr"],
+      "defaultRunOn": [
+        "staging",
+        "pr"
+      ],
       "flakeBudget": 2,
-      "tags": ["ww360", "district", "hfwd"]
+      "tags": [
+        "ww360",
+        "district",
+        "hfwd"
+      ]
     },
     {
       "id": "jurisdiction-primacy",
@@ -176,9 +232,15 @@
         "frontend/src/components/ww360/StateSwitcher.tsx",
         "frontend/src/pages/admin/AdminJurisdictionsPage.tsx"
       ],
-      "defaultRunOn": ["staging", "pr"],
+      "defaultRunOn": [
+        "staging",
+        "pr"
+      ],
       "flakeBudget": 2,
-      "tags": ["ww360", "jurisdiction"]
+      "tags": [
+        "ww360",
+        "jurisdiction"
+      ]
     },
     {
       "id": "sync-contract",
@@ -186,12 +248,63 @@
       "pathPatterns": [
         "backend/app/api/v1/endpoints/sync.py",
         "backend/app/services/sync_processor.py",
-        "backend/app/models/sync.py"
+        "backend/app/models/sync.py",
+        "backend/tests/test_sync_facility.py"
       ],
       "alwaysRun": true,
-      "defaultRunOn": ["pr", "staging"],
+      "defaultRunOn": [
+        "pr",
+        "staging"
+      ],
       "flakeBudget": 0,
-      "tags": ["sync", "contract"]
+      "tags": [
+        "sync",
+        "contract"
+      ]
+    },
+    {
+      "id": "facilities-landscape",
+      "specFile": "frontend/e2e/facilities_landscape.spec.ts",
+      "pathPatterns": [
+        "frontend/src/pages/facilities/**",
+        "frontend/src/services/npdesService.ts",
+        "backend/app/api/endpoints/npdes.py",
+        "backend/app/api/endpoints/facilities.py",
+        "backend/app/models/npdes_state_facility.py",
+        "backend/app/services/national/npdes_bulk_ingest.py",
+        "backend/app/services/npdes_client.py"
+      ],
+      "defaultRunOn": [
+        "staging",
+        "pr"
+      ],
+      "flakeBudget": 2,
+      "tags": [
+        "ww360",
+        "npdes",
+        "facilities"
+      ]
+    },
+    {
+      "id": "wastewater-cert-program",
+      "specFile": "frontend/e2e/wastewater_cert_program.spec.ts",
+      "pathPatterns": [
+        "frontend/src/components/workforce/**",
+        "frontend/src/pages/WorkforceContinuityPage.tsx",
+        "backend/app/services/workforce_succession/ceu_requirements_wastewater.py",
+        "backend/app/api/endpoints/coverage.py",
+        "backend/app/models/workforce_succession.py"
+      ],
+      "defaultRunOn": [
+        "staging",
+        "pr"
+      ],
+      "flakeBudget": 2,
+      "tags": [
+        "ww360",
+        "wastewater",
+        "certifications"
+      ]
     }
   ]
 }

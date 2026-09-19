@@ -22,6 +22,9 @@ from app.services.workforce_succession.ceu_requirements import (
     normalize_grade,
     required_hours_for_grade as _required_hours_for_grade,
 )
+from app.services.workforce_succession.ceu_requirements_wastewater import (
+    RENEWAL_CYCLE_YEARS_WW,
+)
 
 # Re-export for tests and district config overrides (workforce_alerts.ceu_requirements_by_grade).
 __all__ = [
@@ -58,6 +61,7 @@ class CeuOperatorSummary:
     records_missing_vouchers: int = 0
     earned_contact_hours: float = 0.0
     required_contact_hours: float = 0.0
+    cert_program: str = "drinking_water"
 
 
 def contact_hours_for_record(record: WorkforceCeuRecord) -> float:
@@ -73,21 +77,38 @@ def ceu_for_record(record: WorkforceCeuRecord) -> float:
 
 
 def required_hours_for_grade(
-    grade: Optional[str], overrides: Optional[Dict[str, float]] = None
+    grade: Optional[str],
+    overrides: Optional[Dict[str, float]] = None,
+    *,
+    cert_program: str = "drinking_water",
+    expiration_date: Optional[date] = None,
 ) -> float:
-    return _required_hours_for_grade(grade, overrides)
+    return _required_hours_for_grade(
+        grade,
+        overrides,
+        cert_program=cert_program,
+        expiration_date=expiration_date,
+    )
 
 
 def renewal_cycle_bounds(
-    expiration_date: Optional[date], today: Optional[date] = None
+    expiration_date: Optional[date],
+    today: Optional[date] = None,
+    *,
+    cert_program: str = "drinking_water",
 ) -> tuple[date, date]:
     today = today or date.today()
+    cycle_years = (
+        RENEWAL_CYCLE_YEARS_WW
+        if (cert_program or "drinking_water").strip().lower() == "wastewater"
+        else RENEWAL_CYCLE_YEARS
+    )
     if expiration_date:
         cycle_end = expiration_date
-        cycle_start = expiration_date - timedelta(days=365 * RENEWAL_CYCLE_YEARS)
+        cycle_start = expiration_date - timedelta(days=365 * cycle_years)
         return cycle_start, cycle_end
     cycle_end = date(today.year + 1, today.month, today.day)
-    cycle_start = cycle_end - timedelta(days=365 * RENEWAL_CYCLE_YEARS)
+    cycle_start = cycle_end - timedelta(days=365 * cycle_years)
     return cycle_start, cycle_end
 
 
@@ -101,13 +122,21 @@ def compute_operator_ceu_summary(
     ceu_overrides: Optional[Dict[str, float]] = None,
 ) -> CeuOperatorSummary:
     today = today or date.today()
+    cert_program = (
+        (certification.cert_program if certification else None) or "drinking_water"
+    ).strip().lower()
     grade = (getattr(employee, "operator_grade", None) or "").strip() or None
     if not grade and certification:
         grade = certification.certification_grade
     cert_id = certification.id if certification else None
     exp = certification.expiration_date if certification else None
-    cycle_start, cycle_end = renewal_cycle_bounds(exp, today)
-    required = required_hours_for_grade(grade, ceu_overrides)
+    cycle_start, cycle_end = renewal_cycle_bounds(exp, today, cert_program=cert_program)
+    required = required_hours_for_grade(
+        grade,
+        ceu_overrides,
+        cert_program=cert_program,
+        expiration_date=exp,
+    )
     required_contact = required * CONTACT_HOURS_PER_CEU
 
     records = (
@@ -167,6 +196,7 @@ def compute_operator_ceu_summary(
         records_missing_vouchers=records_missing_vouchers,
         earned_contact_hours=round(earned_contact, 2),
         required_contact_hours=round(required_contact, 2),
+        cert_program=cert_program,
     )
 
 
@@ -208,22 +238,28 @@ def compute_district_ceu_summaries(
             for c in emp_certs
             if (c.certification_type or "").lower().find("operator") >= 0
             or (c.issuing_authority or "").upper().find("DOH") >= 0
+            or (c.issuing_authority or "").upper().find("DEC") >= 0
+            or (c.cert_program or "").strip().lower() == "wastewater"
         ]
-        target_cert = nys_certs[0] if nys_certs else (emp_certs[0] if emp_certs else None)
-        summary = compute_operator_ceu_summary(
-            db,
-            district_code=district_code,
-            employee=emp,
-            certification=target_cert,
-            today=today,
-            ceu_overrides=ceu_overrides,
-        )
-        alert_window = summary.is_shortfall and 0 <= summary.days_until_cycle_end <= ceu_shortfall_lead_days
-        out.append(
-            {
-                **summary.__dict__,
-                "needs_ceu_alert": alert_window,
-            }
-        )
+        target_certs = nys_certs if nys_certs else ([emp_certs[0]] if emp_certs else [None])
+        for target_cert in target_certs:
+            summary = compute_operator_ceu_summary(
+                db,
+                district_code=district_code,
+                employee=emp,
+                certification=target_cert,
+                today=today,
+                ceu_overrides=ceu_overrides,
+            )
+            alert_window = (
+                summary.is_shortfall
+                and 0 <= summary.days_until_cycle_end <= ceu_shortfall_lead_days
+            )
+            out.append(
+                {
+                    **summary.__dict__,
+                    "needs_ceu_alert": alert_window,
+                }
+            )
     out.sort(key=lambda row: row["days_until_cycle_end"])
     return out

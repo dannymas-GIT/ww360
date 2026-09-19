@@ -148,6 +148,7 @@ class WorkforceCertificationBase(BaseModel):
     employee_code: Optional[str] = Field(None, max_length=50)
     certification_type: str = Field(..., min_length=1, max_length=100)
     certification_grade: Optional[str] = Field(None, max_length=50)
+    cert_program: str = Field(default="drinking_water", max_length=50)
     issuing_authority: Optional[str] = Field(None, max_length=100)
     credential_id: Optional[str] = Field(None, max_length=100)
     issued_date: Optional[date] = None
@@ -165,6 +166,7 @@ class WorkforceCertificationUpdate(BaseModel):
     employee_code: Optional[str] = Field(None, max_length=50)
     certification_type: Optional[str] = Field(None, min_length=1, max_length=100)
     certification_grade: Optional[str] = Field(None, max_length=50)
+    cert_program: Optional[str] = Field(None, max_length=50)
     issuing_authority: Optional[str] = Field(None, max_length=100)
     credential_id: Optional[str] = Field(None, max_length=100)
     issued_date: Optional[date] = None

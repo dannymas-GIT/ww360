@@ -192,6 +192,10 @@ class WorkforceCertification(Base):
 
     certification_type = Column(String(100), nullable=False, index=True)
     certification_grade = Column(String(50), nullable=True)
+    # drinking_water (default) | wastewater — mirrors training course discriminator
+    cert_program = Column(
+        String(50), nullable=False, default="drinking_water", index=True
+    )
     issuing_authority = Column(String(100), nullable=True)
     credential_id = Column(String(100), nullable=True)
 
@@ -913,4 +917,22 @@ def ensure_binder_intake_schema(engine) -> None:
     insp = inspect(engine)
     if not insp.has_table("workforce_binder_intake_sessions"):
         WorkforceBinderIntakeSession.__table__.create(bind=engine, checkfirst=True)
+
+
+def ensure_workforce_certification_schema(engine) -> None:
+    """Idempotently add cert_program for wastewater vs drinking-water operator certs.
+
+    ``create_all`` does not ALTER existing tables; patch staging/prod in place.
+    """
+    from sqlalchemy import text
+
+    statements = [
+        "ALTER TABLE workforce_certifications "
+        "ADD COLUMN IF NOT EXISTS cert_program VARCHAR(50) NOT NULL DEFAULT 'drinking_water'",
+        "CREATE INDEX IF NOT EXISTS ix_workforce_certifications_cert_program "
+        "ON workforce_certifications (cert_program)",
+    ]
+    with engine.begin() as conn:
+        for stmt in statements:
+            conn.execute(text(stmt))
 

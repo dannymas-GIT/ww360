@@ -35,7 +35,10 @@ def init_db() -> None:
     from app.models.impersonation import ensure_impersonation_schema
     from app.models.national_metrics import ensure_national_schema
     from app.models.workspace_customization import ensure_workspace_customization_schema
-    from app.models.workforce_succession import ensure_binder_intake_schema
+    from app.models.workforce_succession import (
+        ensure_binder_intake_schema,
+        ensure_workforce_certification_schema,
+    )
 
     ensure_doc_studio_schema(engine)
     ensure_user_schema(engine)
@@ -47,3 +50,4 @@ def init_db() -> None:
     ensure_national_schema(engine)
     ensure_workspace_customization_schema(engine)
     ensure_binder_intake_schema(engine)
+    ensure_workforce_certification_schema(engine)

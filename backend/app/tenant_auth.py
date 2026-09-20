@@ -120,6 +120,10 @@ class TenantContext:
     def has_district_access(self, district_code: str) -> bool:
         if self.is_global_admin:
             return True
+        # OWW / state partners need Continuity + Document Studio access to
+        # member-utility binders (e.g. ?scope=MCWA), not only assigned codes.
+        if self.is_state_exec():
+            return True
         return (
             district_code == self.district_code
             or district_code in self.assigned_districts

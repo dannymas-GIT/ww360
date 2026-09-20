@@ -75,16 +75,22 @@ def _word_count(markdown: str | None) -> int:
 
 
 def resolve_scope(context: TenantContext, requested: str | None = None) -> str:
-    """State-keyed program library or district scope."""
+    """State-keyed program library or district scope.
+
+    Section/state partners default to the program library, but may also open a
+    member-utility scope (Continuity deep-links use ``?scope=<district_code>``).
+    """
     default_program = context.program_scope()
 
     if requested:
         norm = normalize_doc_scope(requested, default_state=context.active_state_code)
         if context.is_global_admin:
             return norm
-        if is_program_scope(norm) and context.is_state_exec():
-            if norm == default_program:
-                return norm
+        if is_program_scope(norm):
+            if context.is_state_exec() or context.is_global_admin:
+                if norm == default_program:
+                    return norm
+                raise HTTPException(status.HTTP_403_FORBIDDEN, "No access to that document scope")
             raise HTTPException(status.HTTP_403_FORBIDDEN, "No access to that document scope")
         if context.has_district_access(norm):
             return norm

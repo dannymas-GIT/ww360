@@ -128,6 +128,7 @@ const TOUR_STORAGE_PREFIXES = [
   'ww360-oww-tour-',
   'ww360-landscape-tour-',
   'ww360-grants-tour-',
+  'ww360-insights-tour-',
   'ww360-tour-session-auto:',
 ];
 

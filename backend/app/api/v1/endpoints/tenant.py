@@ -26,6 +26,14 @@ def list_tenant_districts(
         if not codes:
             return {"districts": []}
         q = q.filter(WaterDistrict.district_code.in_(list(codes)))
+    else:
+        # Primacy-scoped catalog for platform admins (NY vs NJ switcher).
+        st = (context.active_state_code or "").upper()[:2]
+        if st:
+            scoped = q.filter(WaterDistrict.state_code == st)
+            # Fall back if legacy rows lack state_code and would wipe the list.
+            if scoped.count() > 0:
+                q = scoped
     rows = q.order_by(WaterDistrict.district_name).all()
     return {
         "districts": [

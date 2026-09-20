@@ -8,6 +8,7 @@ import {
   BookOpen,
   ClipboardCheck,
   FileText,
+  LayoutTemplate,
   PenSquare,
   PlayCircle,
   Wrench,
@@ -47,11 +48,17 @@ function StatCell({
       }
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="text-[0.875rem] font-medium leading-snug text-slate-600">{label}</p>
-        <Icon
-          className={`mt-0.5 h-4 w-4 shrink-0 ${emphasize ? 'text-sky-700' : 'text-slate-500'}`}
-          aria-hidden
-        />
+        <p className="min-w-0 flex-1 text-[0.875rem] font-medium leading-5 text-slate-600">
+          {label}
+        </p>
+        {/* h-5 matches label leading-5 so the glyph centers on the first line */}
+        <span
+          className={`inline-flex h-5 w-4 shrink-0 items-center justify-center ${
+            emphasize ? 'text-sky-700' : 'text-slate-500'
+          }`}
+        >
+          <Icon className="h-4 w-4" aria-hidden />
+        </span>
       </div>
       <p
         className={`mt-1.5 text-[1.5rem] font-semibold tabular-nums leading-none ${
@@ -66,15 +73,25 @@ function StatCell({
 }
 
 function statsOrZero(s: DocStudioStats | undefined) {
+  const successionDocs = s?.succession_docs ?? 0;
+  const tutorials = s?.tutorials ?? 0;
+  const operations = s?.operations_docs ?? 0;
+  const documents = s?.documents ?? 0;
+  // Prefer server templates_docs; until staging ships it, approximate the
+  // exclusive remainder so the card still explains Library total.
+  const templates =
+    s?.templates_docs ??
+    Math.max(0, documents - successionDocs - tutorials - operations);
   return {
     successionPublished: s?.succession_published ?? 0,
-    successionDocs: s?.succession_docs ?? 0,
+    successionDocs,
     pendingApproval: s?.pending_approval ?? 0,
-    tutorials: s?.tutorials ?? 0,
-    operations: s?.operations_docs ?? 0,
+    tutorials,
+    operations,
+    templates,
     drafts: s?.drafts ?? 0,
     published: s?.published ?? 0,
-    documents: s?.documents ?? 0,
+    documents,
   };
 }
 
@@ -128,7 +145,7 @@ export function DocumentStudioPanel({
           Library counts unavailable right now. You can still open Document Studio.
         </p>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <StatCell
             label="Succession docs"
             value={`${counts.successionPublished}/${counts.successionDocs}`}
@@ -136,23 +153,29 @@ export function DocumentStudioPanel({
             icon={BookOpen}
           />
           <StatCell
-            label="Pending approval"
-            value={counts.pendingApproval}
-            hint={counts.pendingApproval > 0 ? 'Submitted for publish' : 'None waiting'}
-            icon={ClipboardCheck}
+            label="Templates"
+            value={counts.templates}
+            hint="Starters & gallery samples"
+            icon={LayoutTemplate}
+            emphasize
           />
           <StatCell
             label="Tutorials"
             value={counts.tutorials}
             hint="Recorded walkthroughs"
             icon={PlayCircle}
-            emphasize
           />
           <StatCell
             label="Operations docs"
             value={counts.operations}
             hint="SOPs & procedures"
             icon={Wrench}
+          />
+          <StatCell
+            label="Pending approval"
+            value={counts.pendingApproval}
+            hint={counts.pendingApproval > 0 ? 'Submitted for publish' : 'None waiting'}
+            icon={ClipboardCheck}
           />
           <StatCell
             label="Library total"

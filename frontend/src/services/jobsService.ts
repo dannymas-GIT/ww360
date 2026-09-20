@@ -15,7 +15,7 @@ export interface FederalJobListing {
 
 export interface FederalJobsResponse {
   configured: boolean;
-  data_mode: 'live' | 'unavailable';
+  data_mode: 'live' | 'unavailable' | 'error';
   source: string;
   source_label: string;
   provenance_url: string;
@@ -24,6 +24,8 @@ export interface FederalJobsResponse {
   total: number;
   jobs: FederalJobListing[];
   state_filter?: string | null;
+  /** True when a state filter returned zero hits and nationwide results were shown instead. */
+  state_filter_relaxed?: boolean;
   search_keywords?: string[];
   bls_soc?: string;
 }

@@ -639,12 +639,18 @@ async def workforce_scorecards(
         if "*" in auth:
             from app.models.water_district import WaterDistrict
 
+            st = (getattr(context, "active_state_code", None) or "NY").upper()[:2]
+            q = db.query(WaterDistrict.district_code).filter(
+                WaterDistrict.is_active.is_(True)
+            )
+            if st:
+                scoped = q.filter(WaterDistrict.state_code == st)
+                if scoped.count() > 0:
+                    q = scoped
             requested = [
                 d[0]
-                for d in db.query(WaterDistrict.district_code)
-                .filter(WaterDistrict.is_active.is_(True))
-                .order_by(WaterDistrict.district_code)
-                .limit(50)
+                for d in q.order_by(WaterDistrict.district_name)
+                .limit(200)
                 .all()
             ]
         else:

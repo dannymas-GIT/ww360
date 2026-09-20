@@ -126,6 +126,8 @@ export function tourStorageKey(base: string, userId?: string | number | null): s
 const TOUR_STORAGE_PREFIXES = [
   'ww360-studio-tour-',
   'ww360-oww-tour-',
+  'ww360-landscape-tour-',
+  'ww360-grants-tour-',
   'ww360-tour-session-auto:',
 ];
 

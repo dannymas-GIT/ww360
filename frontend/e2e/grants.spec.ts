@@ -31,6 +31,10 @@ test.describe('Grants Studio', () => {
       page.getByRole('heading', { name: /grants studio/i }).or(page.getByText(/funding catalog|programs/i).first())
     ).toBeVisible({ timeout: 20_000 });
 
+    await expect(page.getByRole('button', { name: /how to use this/i })).toBeVisible({
+      timeout: 10_000,
+    });
+
     await expect(page.getByText(/epa|iwiwd|innovative water/i).first()).toBeVisible({
       timeout: 15_000,
     });
@@ -41,5 +45,11 @@ test.describe('Grants Studio', () => {
         page.getByText(/eligibility|nofo|readiness/i).first()
       )
     ).toBeVisible({ timeout: 20_000 });
+
+    await expect(page.getByRole('button', { name: /how to use this/i })).toBeVisible();
+    await page.getByRole('button', { name: /how to use this/i }).click();
+    await expect(page.getByText(/program detail|eligibility rules|welcome to grants studio/i).first()).toBeVisible({
+      timeout: 10_000,
+    });
   });
 });

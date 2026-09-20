@@ -20,6 +20,8 @@ export interface GrantChecklistItem {
   id: string;
   label: string;
   required?: boolean;
+  /** Document Studio template to open for this checklist item. */
+  studio_template_id?: string;
 }
 
 export interface GrantNofoSection {

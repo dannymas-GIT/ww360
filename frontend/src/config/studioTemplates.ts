@@ -377,6 +377,258 @@ Align personnel, fringe, travel, contracts, and other direct costs to SF-424A.
 `,
   },
   {
+    id: 'epa-iwiwd-2026-sf424',
+    name: 'EPA IWIWD SF-424 / SF-424A draft',
+    description:
+      'Worksheet to draft Application for Federal Assistance and Budget Information before Grants.gov upload.',
+    category: 'grant',
+    audiences: ['program'],
+    preview: 'Applicant · UEI · budget categories · match',
+    markdown: `# SF-424 / SF-424A draft — EPA-OW-OWM-26-03
+
+**Opportunity:** EPA Innovative Water Infrastructure Workforce Development  
+**Applicant:** {{applicant}}  
+**UEI / EIN:**  
+**Authorized Representative:**  
+
+## SF-424 — Application for Federal Assistance
+
+| Field | Value |
+| --- | --- |
+| Legal name | {{applicant}} |
+| Address | |
+| Type of applicant | Nonprofit / higher-ed / labor / public works |
+| Funding opportunity | EPA-OW-OWM-26-03 |
+| Project title | {{project_title}} |
+| Proposed project start / end | |
+| Estimated funding (federal) | {{requested_amount}} |
+| Estimated funding (applicant / other) | |
+| State | {{state_code}} |
+
+## SF-424A — Budget information (Section A / B)
+
+Align dollar totals with the Budget Narrative template before upload.
+
+| Object class | Federal | Non-federal | Total |
+| --- | --- | --- | --- |
+| Personnel | {{budget_personnel}} | | |
+| Fringe benefits | {{budget_fringe}} | | |
+| Travel | {{budget_travel}} | | |
+| Equipment | | | |
+| Supplies | | | |
+| Contractual | {{budget_contracts}} | | |
+| Other | {{budget_other}} | | |
+| Indirect | | | |
+| **Total** | {{requested_amount}} | | |
+
+## Pre-upload checklist
+
+- [ ] UEI active in SAM.gov
+- [ ] AOR listed matches Grants.gov workspace
+- [ ] Federal totals match Budget Narrative
+- [ ] Period of performance matches Project Narrative cover page
+
+*Draft only — final forms are completed in Grants.gov / Workspace.*
+`,
+  },
+  {
+    id: 'epa-iwiwd-2026-budget-narrative',
+    name: 'EPA IWIWD budget narrative',
+    description: 'Line-item budget narrative tied to SF-424A object classes for EPA-OW-OWM-26-03.',
+    category: 'grant',
+    audiences: ['program'],
+    preview: 'Personnel · fringe · travel · contracts · other',
+    markdown: `# Budget Narrative — EPA-OW-OWM-26-03
+
+**Applicant:** {{applicant}}  
+**Requested federal amount:** {{requested_amount}}  
+**Program area:** {{suggested_project_area}}
+
+Explain each SF-424A object class. Totals must match the SF-424A draft.
+
+## Personnel
+
+| Role | FTE / hours | Rate | Amount | Justification |
+| --- | --- | --- | --- | --- |
+| Project director | | | {{budget_personnel}} | |
+| | | | | |
+
+## Fringe benefits
+
+Fringe rate and base:  
+
+Amount: {{budget_fringe}}
+
+## Travel
+
+| Trip | Purpose | Travelers | Est. cost |
+| --- | --- | --- | --- |
+| | Regional training / partner convening | | {{budget_travel}} |
+
+## Contractual
+
+| Vendor / partner | Scope | Amount |
+| --- | --- | --- |
+| | Training delivery / evaluation | {{budget_contracts}} |
+
+## Other direct costs
+
+| Item | Amount | Notes |
+| --- | --- | --- |
+| | {{budget_other}} | Materials, exam fees, outreach |
+
+## Indirect costs
+
+Rate source (NICRA / de minimis) and base:  
+
+## Summary
+
+| Category | Amount |
+| --- | --- |
+| Personnel | {{budget_personnel}} |
+| Fringe | {{budget_fringe}} |
+| Travel | {{budget_travel}} |
+| Contracts | {{budget_contracts}} |
+| Other | {{budget_other}} |
+| **Federal total** | {{requested_amount}} |
+
+*Keep this document aligned with SF-424A before Grants.gov submission.*
+`,
+  },
+  {
+    id: 'epa-iwiwd-2026-partner-letter',
+    name: 'EPA IWIWD partner commitment letter',
+    description: 'Letter of commitment from a partner utility or training provider.',
+    category: 'grant',
+    audiences: ['program'],
+    preview: 'Role · commitment · signature',
+    markdown: `# Letter of Commitment — EPA Innovative Water Infrastructure Workforce Development
+
+**Date:**  
+**To:** {{applicant}}  
+**From:** [Partner organization name]  
+**Re:** Commitment to support EPA-OW-OWM-26-03 application
+
+Dear [Authorized Official],
+
+[Partner organization] commits to partner with {{applicant}} on the proposed Innovative Water Infrastructure Workforce Development project in {{state_code}}.
+
+## Our role
+
+- [ ] Host training / apprenticeship seats  
+- [ ] Nominate operators or candidates  
+- [ ] Provide subject-matter instructors  
+- [ ] Share facilities or equipment  
+- [ ] Other:  
+
+## Specific commitment
+
+Describe what we will contribute (seats, hours, in-kind value, timeline):
+
+>
+
+## Population / systems we serve
+
+Population served: {{population_served}} · Systems: {{cws_count}} CWS / {{potw_count}} POTWs (edit as needed)
+
+We understand this letter may be included in the application packet and that our organization will coordinate with {{applicant}} if funded.
+
+Sincerely,
+
+**Name:**  
+**Title:**  
+**Organization:**  
+**Phone / email:**  
+**Signature:**  
+`,
+  },
+  {
+    id: 'epa-iwiwd-2026-sam-gov',
+    name: 'EPA IWIWD SAM.gov readiness',
+    description: 'Internal checklist to confirm SAM.gov registration before Grants.gov submit.',
+    category: 'grant',
+    audiences: ['program'],
+    preview: 'UEI · entity · reps · expiration',
+    markdown: `# SAM.gov registration readiness — EPA-OW-OWM-26-03
+
+**Applicant:** {{applicant}}  
+**State:** {{state_code}}
+
+SAM.gov is required before award. Complete this checklist and keep a screenshot of the active registration with the application file.
+
+## Entity status
+
+- [ ] Unique Entity ID (UEI) issued and recorded: _______________
+- [ ] Legal business name matches SF-424
+- [ ] Physical / mailing address current
+- [ ] CAGE code (if applicable) current
+- [ ] Registration status = **Active** (not Expired / ID Assigned only)
+- [ ] Expiration date: _______________ (renew ≥30 days before deadline)
+
+## Points of contact
+
+| Role | Name | Email | Phone |
+| --- | --- | --- | --- |
+| Electronic business POC | | | |
+| Government business POC | | | |
+| Authorized representative (AOR) | | | |
+
+## Notes / blockers
+
+>
+
+*Portal: https://sam.gov — do not paste passwords or private keys into this document.*
+`,
+  },
+  {
+    id: 'epa-iwiwd-2026-grants-gov',
+    name: 'EPA IWIWD Grants.gov workspace',
+    description: 'Workspace and AOR setup checklist for EPA-OW-OWM-26-03 submission.',
+    category: 'grant',
+    audiences: ['program'],
+    preview: 'Workspace · AOR · forms · submit',
+    markdown: `# Grants.gov workspace / AOR — EPA-OW-OWM-26-03
+
+**Opportunity:** EPA-OW-OWM-26-03  
+**Applicant:** {{applicant}}  
+**Deadline:** {{deadline}} (11:59pm ET)
+
+## Workspace setup
+
+- [ ] Organization registered in Grants.gov
+- [ ] Workspace created for this opportunity
+- [ ] Opportunity package downloaded / forms attached
+- [ ] AOR (Authorized Organization Representative) assigned and able to submit
+- [ ] Additional users (Workspace Manager / Participants) invited as needed
+
+## Forms package
+
+- [ ] SF-424 complete and validated
+- [ ] SF-424A complete and validated
+- [ ] Project Narrative PDF attached (≤20 pages + required sections)
+- [ ] Budget Narrative attached (totals match SF-424A)
+- [ ] Partner commitment letters attached
+- [ ] Other mandatory forms from the NOFO package
+
+## Submit dry-run
+
+- [ ] Run Grants.gov validation / Check Package for Errors
+- [ ] Confirm AOR will be available on deadline day
+- [ ] Screenshot confirmation email folder ready
+- [ ] Backup PDF packet stored in Document Studio / shared drive
+
+## Contacts
+
+| Role | Name | Backup |
+| --- | --- | --- |
+| AOR | | |
+| Narrative lead | | |
+| Budget lead | | |
+
+*Portal: https://grants.gov — final submission happens in Grants.gov, not WW360.*
+`,
+  },
+  {
     id: 'epa-quarterly-narrative',
     name: 'EPA Area 3 quarterly narrative',
     description: 'Progress narrative for the grant reporting period, mapped to Tasks 1–4.',

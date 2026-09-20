@@ -122,6 +122,7 @@
         "frontend/src/components/ww360/Ww360TourOverlay.tsx",
         "frontend/src/services/docStudioService.ts",
         "frontend/src/config/studioTemplates.ts",
+        "frontend/src/lib/studioTemplateFill.ts",
         "backend/app/api/v1/endpoints/doc_studio.py",
         "backend/app/services/doc_studio_service.py",
         "backend/app/services/doc_studio_export_service.py",

@@ -66,6 +66,8 @@ import {
 } from './studioTourContent';
 import { resolveLandingKind } from '@/utils/resolveLandingKind';
 import { useImpersonation } from '@/context/ImpersonationContext';
+import { useJurisdiction } from '@/context/JurisdictionContext';
+import { fillStudioTemplateMarkdown } from '@/lib/studioTemplateFill';
 
 const AUTOSAVE_MS = 2500;
 
@@ -88,6 +90,7 @@ export default function DocumentStudioPage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { isPreviewMode } = useImpersonation();
+  const { activeState, pack } = useJurisdiction();
   const qc = useQueryClient();
   const { openRecorder } = useTutorialRecorder();
   const [params, setParams] = useSearchParams();
@@ -431,7 +434,7 @@ export default function DocumentStudioPage() {
   });
 
   // Grants / readiness "Open in Studio" (?template=…) → create that template immediately
-  // instead of dropping the user on a blank New document gallery.
+  // with jurisdiction / EPA autofill applied when {{placeholders}} are present.
   useEffect(() => {
     if (templateDeepLinkHandled.current) return;
     if (!deepLinkTemplateId) return;
@@ -441,26 +444,51 @@ export default function DocumentStudioPage() {
     templateDeepLinkHandled.current = true;
     const folder_id =
       folderSel !== ALL_DOCS && folderSel !== UNFILED ? folderSel : null;
-    createMut.mutate(
-      {
-        title: tpl.name,
-        folder_id,
-        template_id: tpl.id,
-        markdown: tpl.markdown,
-      },
-      {
-        onSettled: () => {
-          const next = new URLSearchParams(params);
-          next.delete('template');
-          setParams(next, { replace: true });
+    const districtCode =
+      studioScope && studioScope !== 'program' ? studioScope : null;
+    let cancelled = false;
+    void (async () => {
+      const markdown = await fillStudioTemplateMarkdown(tpl.markdown, {
+        templateId: tpl.id,
+        stateCode: activeState,
+        ...(districtCode ? { districtCode } : {}),
+        ...(pack?.partner_name ? { partnerName: pack.partner_name } : {}),
+      });
+      if (cancelled) return;
+      createMut.mutate(
+        {
+          title: tpl.name,
+          folder_id,
+          template_id: tpl.id,
+          markdown,
         },
-        onError: () => {
-          // Fall back to the gallery with the template pre-selected.
-          setNewOpen(true);
-        },
-      }
-    );
-  }, [deepLinkTemplateId, accessQ.isSuccess, canAuthor, folderSel]); // createMut.mutate is stable enough; ref gates once
+        {
+          onSettled: () => {
+            const next = new URLSearchParams(params);
+            next.delete('template');
+            setParams(next, { replace: true });
+          },
+          onError: () => {
+            // Fall back to the gallery with the template pre-selected.
+            setNewOpen(true);
+          },
+        }
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    deepLinkTemplateId,
+    accessQ.isSuccess,
+    canAuthor,
+    folderSel,
+    studioScope,
+    activeState,
+    pack?.partner_name,
+    params,
+    setParams,
+  ]); // createMut.mutate is stable enough; ref gates once
 
   const importMut = useMutation({
     mutationFn: (file: File) =>
@@ -1206,9 +1234,24 @@ export default function DocumentStudioPage() {
             setParams(next, { replace: true });
           }
         }}
-        onCreate={({ title, folder_id, template }) =>
-          createMut.mutate({ title, folder_id, template_id: template.id, markdown: template.markdown })
-        }
+        onCreate={({ title, folder_id, template }) => {
+          const districtCode =
+            studioScope && studioScope !== 'program' ? studioScope : null;
+          void (async () => {
+            const markdown = await fillStudioTemplateMarkdown(template.markdown, {
+              templateId: template.id,
+              stateCode: activeState,
+              ...(districtCode ? { districtCode } : {}),
+              ...(pack?.partner_name ? { partnerName: pack.partner_name } : {}),
+            });
+            createMut.mutate({
+              title,
+              folder_id,
+              template_id: template.id,
+              markdown,
+            });
+          })();
+        }}
       />
 
       {canConnectLibrary ? (

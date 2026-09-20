@@ -135,6 +135,8 @@ export interface DocStudioStats {
   succession_docs?: number;
   succession_published?: number;
   operations_docs?: number;
+  /** Templates folder / role galleries, or gallery-sourced docs not in other cards. */
+  templates_docs?: number;
   recent: DocSummary[];
 }
 

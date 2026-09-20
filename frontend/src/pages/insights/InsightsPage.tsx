@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { CircleHelp } from 'lucide-react';
 import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
 import { Ww360Section } from '@/components/ww360/Ww360Section';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,7 @@ import {
   type InsightsPersona,
 } from '@/services/insightsService';
 import { InsightsCorrelationCards } from '@/pages/insights/InsightsCorrelationCards';
+import { InsightsTourOverlay, requestOpenInsightsTour } from '@/pages/insights/InsightsTourOverlay';
 
 const PERSONAS: Array<{ id: InsightsPersona; label: string; blurb: string }> = [
   {
@@ -69,15 +71,32 @@ export default function InsightsPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6" data-tour="insights-page">
+      <InsightsTourOverlay autoOpen />
       <Ww360PageHero
         eyebrow="Funding · Insights"
         title={`${state} workforce & funding correlations`}
         description="Persona-tuned cards linking compliance pressure, operator capacity, and grant opportunity fit."
         dataMode={data?.data_mode === 'live' ? 'live' : 'mixed'}
         actions={
-          <Link to="/grants" className="text-base text-white underline">
-            Grants catalog →
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="min-h-[44px] border-white/20 bg-white/5 text-base text-white hover:bg-white/15 md:min-h-9"
+              onClick={() => requestOpenInsightsTour(0)}
+            >
+              <CircleHelp className="mr-1 h-4 w-4" aria-hidden />
+              How to use this
+            </Button>
+            <Link
+              to="/grants"
+              data-tour="insights-grants-link"
+              className="inline-flex min-h-[44px] items-center text-base text-white underline"
+            >
+              Grants catalog →
+            </Link>
+          </div>
         }
       />
 
@@ -85,6 +104,7 @@ export default function InsightsPage() {
         className="flex flex-wrap gap-2"
         role="tablist"
         aria-label="Insights persona"
+        data-tour="insights-personas"
       >
         {PERSONAS.map(p => (
           <Button
@@ -101,7 +121,9 @@ export default function InsightsPage() {
         ))}
       </div>
       {activeBlurb && (
-        <p className="text-[1.125rem] leading-relaxed text-slate-600">{activeBlurb}</p>
+        <p className="text-[1.125rem] leading-relaxed text-slate-600" data-tour="insights-persona-blurb">
+          {activeBlurb}
+        </p>
       )}
 
       {loading && (

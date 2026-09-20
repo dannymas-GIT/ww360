@@ -186,6 +186,9 @@ class DocStudioStats(BaseModel):
     succession_docs: int = 0
     succession_published: int = 0
     operations_docs: int = 0
+    # Docs in Templates (and role template folders), or from a gallery template
+    # and not already counted under succession / tutorials / operations.
+    templates_docs: int = 0
     recent: list[DocDocumentRead] = Field(default_factory=list)
 
 

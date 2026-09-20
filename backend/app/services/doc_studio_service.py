@@ -743,6 +743,13 @@ class DocStudioService:
             for fid, name in folder_rows
             if "succession" in (name or "").lower()
         }
+        # Blank starters + role template galleries (Operators / Managers / Partners).
+        template_folder_ids = {
+            fid
+            for fid, name in folder_rows
+            if (name or "").strip().lower()
+            in {"templates", "operators", "managers", "partners"}
+        }
 
         def _is_succession(d: DocDocument) -> bool:
             tags = d.tags if isinstance(d.tags, list) else []
@@ -753,11 +760,30 @@ class DocStudioService:
             title = (d.title or "").lower()
             return "succession binder" in title or "ceu tracker" in title
 
+        def _is_tutorial(d: DocDocument) -> bool:
+            return (d.doc_type or "") == "tutorial"
+
+        def _is_operations(d: DocDocument) -> bool:
+            return bool(d.folder_id and d.folder_id in ops_ids)
+
+        def _is_template(d: DocDocument) -> bool:
+            """Templates folder / role galleries, or gallery-sourced docs not in other cards."""
+            if d.folder_id and d.folder_id in template_folder_ids:
+                return True
+            tid = (getattr(d, "template_id", None) or "").strip()
+            if not tid:
+                return False
+            # Avoid double-counting docs already shown under other category cards.
+            if _is_succession(d) or _is_tutorial(d) or _is_operations(d):
+                return False
+            return True
+
         succession_docs = sum(1 for d in rows if _is_succession(d))
         succession_published = sum(
             1 for d in rows if _is_succession(d) and d.status == "published"
         )
-        operations_docs = sum(1 for d in rows if d.folder_id in ops_ids)
+        operations_docs = sum(1 for d in rows if _is_operations(d))
+        templates_docs = sum(1 for d in rows if _is_template(d))
 
         words = int(
             self.db.query(func.coalesce(func.sum(DocDocument.word_count), 0))
@@ -779,6 +805,7 @@ class DocStudioService:
             succession_docs=succession_docs,
             succession_published=succession_published,
             operations_docs=operations_docs,
+            templates_docs=templates_docs,
             recent=[DocDocumentRead.model_validate(r) for r in recent],
         )
 

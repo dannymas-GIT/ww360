@@ -9,6 +9,10 @@ import {
   type GrantApplication,
   type GrantApplicationChecklist,
 } from '@/services/grantsService';
+import { Button } from '@/components/ui/button';
+import { GrantsHint, GrantsHintLabel } from './GrantsHint';
+import { GRANTS_PAGE_HINTS, readinessHintFor } from './grantsHints';
+import { useGrantsHints } from './useGrantsHints';
 
 export default function GrantApplicationPage() {
   const { applicationId = '' } = useParams<{ applicationId: string }>();
@@ -16,6 +20,7 @@ export default function GrantApplicationPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const { hintsEnabled, setHintsEnabled, toggleHints } = useGrantsHints();
 
   useEffect(() => {
     if (!applicationId) return;
@@ -80,7 +85,17 @@ export default function GrantApplicationPage() {
         }
         dataMode="live"
         actions={
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="min-h-[44px] border-white/20 bg-white/5 text-base text-white hover:bg-white/15 md:min-h-9"
+              onClick={toggleHints}
+              aria-pressed={hintsEnabled}
+            >
+              {hintsEnabled ? 'Hints on' : 'Hints off'}
+            </Button>
             <Link to="/grants" className="text-base text-white underline">
               ← Catalog
             </Link>
@@ -146,15 +161,22 @@ export default function GrantApplicationPage() {
                           disabled={busy}
                           onChange={e => void toggleChecklistItem(id, e.target.checked)}
                         />
-                        <span className="text-[1.125rem] text-slate-900">
-                          {item.label || id}
-                          {item.required ? (
-                            <span className="ml-2 text-sm text-slate-500">Required</span>
-                          ) : null}
-                          {busy ? (
-                            <span className="ml-2 text-sm text-slate-500">Saving…</span>
-                          ) : null}
-                        </span>
+                        <GrantsHintLabel
+                          label={item.label || id}
+                          hint={readinessHintFor(id, item.label || id)}
+                          enabled={hintsEnabled}
+                          onDisableHints={() => setHintsEnabled(false)}
+                          trailing={
+                            <>
+                              {item.required ? (
+                                <span className="ml-1 text-sm text-slate-500">Required</span>
+                              ) : null}
+                              {busy ? (
+                                <span className="ml-1 text-sm text-slate-500">Saving…</span>
+                              ) : null}
+                            </>
+                          }
+                        />
                       </label>
                     </li>
                   );
@@ -164,13 +186,33 @@ export default function GrantApplicationPage() {
           </Ww360Section>
 
           {app.program_id === 'epa-iwiwd-2026' && (
-            <Ww360Section tourId="grant-app-studio" title="Document Studio" dataMode="mixed">
-              <Link
-                to="/studio?template=epa-iwiwd-2026-narrative"
-                className="inline-flex min-h-[44px] items-center rounded-md bg-sky-700 px-4 text-base font-medium text-white hover:bg-sky-800"
-              >
-                Open EPA IWIWD narrative template
-              </Link>
+            <Ww360Section
+              tourId="grant-app-studio"
+              title="Document Studio"
+              dataMode="mixed"
+              action={
+                <GrantsHint
+                  text={GRANTS_PAGE_HINTS.mixedData}
+                  enabled={hintsEnabled}
+                  onDisableHints={() => setHintsEnabled(false)}
+                  className="min-h-9 min-w-9"
+                />
+              }
+            >
+              <span className="inline-flex flex-wrap items-center gap-1">
+                <Link
+                  to="/studio?template=epa-iwiwd-2026-narrative"
+                  className="inline-flex min-h-[44px] items-center rounded-md bg-sky-700 px-4 text-base font-medium text-white hover:bg-sky-800"
+                >
+                  Open EPA IWIWD narrative template
+                </Link>
+                <GrantsHint
+                  text={GRANTS_PAGE_HINTS.iwiwd}
+                  enabled={hintsEnabled}
+                  onDisableHints={() => setHintsEnabled(false)}
+                  className="min-h-9 min-w-9"
+                />
+              </span>
             </Ww360Section>
           )}
         </>

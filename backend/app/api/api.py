@@ -18,7 +18,9 @@ from app.api.v1.endpoints import (
     digital_analytics,
     districts,
     doc_studio,
+    grants,
     impersonation,
+    insights,
     jobs,
     jurisdiction_admin,
     jurisdictions,
@@ -141,4 +143,14 @@ api_router.include_router(
     kpis.router,
     prefix="/kpis",
     tags=["kpis"],
+)
+api_router.include_router(
+    grants.router,
+    prefix="/grants",
+    tags=["grants"],
+)
+api_router.include_router(
+    insights.router,
+    prefix="/insights",
+    tags=["insights"],
 )

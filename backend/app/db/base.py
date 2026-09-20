@@ -21,4 +21,5 @@ def import_models() -> None:
     import app.models.notification  # noqa: F401
     import app.models.impersonation  # noqa: F401
     import app.models.national_metrics  # noqa: F401
+    import app.models.grants  # noqa: F401
     import app.models.workspace_customization  # noqa: F401

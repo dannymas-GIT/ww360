@@ -26,6 +26,10 @@ import NationalOverviewPage from '@/pages/national/NationalOverviewPage';
 import StateScorecardPage from '@/pages/national/StateScorecardPage';
 import JobOpeningsPage from '@/pages/jobs/JobOpeningsPage';
 import ProfilePage from '@/pages/ProfilePage';
+import GrantsListPage from '@/pages/grants/GrantsListPage';
+import GrantDetailPage from '@/pages/grants/GrantDetailPage';
+import GrantApplicationPage from '@/pages/grants/GrantApplicationPage';
+import InsightsPage from '@/pages/insights/InsightsPage';
 
 const DocumentStudioPage = lazy(() => import('@/pages/studio/DocumentStudioPage'));
 
@@ -118,6 +122,10 @@ export default function App() {
         />
         <Route path="/national" element={<NationalOverviewPage />} />
         <Route path="/national/states/:st" element={<StateScorecardPage />} />
+        <Route path="/grants" element={<GrantsListPage />} />
+        <Route path="/grants/applications/:applicationId" element={<GrantApplicationPage />} />
+        <Route path="/grants/:programId" element={<GrantDetailPage />} />
+        <Route path="/insights" element={<InsightsPage />} />
         <Route path="/jobs" element={<JobOpeningsPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/admin/pwsid-links" element={<AdminPwsidLinksPage />} />

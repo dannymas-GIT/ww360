@@ -4,6 +4,8 @@ import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
 import { Ww360Section } from '@/components/ww360/Ww360Section';
 import { Ww360KpiTile, Ww360StatTile } from '@/components/ww360/Ww360KpiTile';
 import { fetchStateScorecard, fetchStateWorkforce } from '@/services/nationalService';
+import { fetchInsightsOverview, type InsightsCorrelationCard } from '@/services/insightsService';
+import { InsightsCorrelationCards } from '@/pages/insights/InsightsCorrelationCards';
 import { formatCompact, formatUsd } from '@/pages/oww/owwMockData';
 
 export default function StateScorecardPage() {
@@ -11,6 +13,7 @@ export default function StateScorecardPage() {
   const stateCode = (st || 'NY').toUpperCase().slice(0, 2);
   const [scorecard, setScorecard] = useState<Record<string, unknown> | null>(null);
   const [workforce, setWorkforce] = useState<Record<string, unknown> | null>(null);
+  const [insightCards, setInsightCards] = useState<InsightsCorrelationCard[]>([]);
 
   useEffect(() => {
     void Promise.all([fetchStateScorecard(stateCode), fetchStateWorkforce(stateCode)])
@@ -22,6 +25,10 @@ export default function StateScorecardPage() {
         setScorecard(null);
         setWorkforce(null);
       });
+
+    void fetchInsightsOverview({ state: stateCode, persona: 'regulator' })
+      .then(overview => setInsightCards(overview.correlations || []))
+      .catch(() => setInsightCards([]));
   }, [stateCode]);
 
   const compliance = (scorecard?.compliance || {}) as Record<string, number>;
@@ -113,6 +120,27 @@ export default function StateScorecardPage() {
           </p>
         </Ww360Section>
       )}
+
+      <Ww360Section
+        tourId="scorecard-insights"
+        title="Insights"
+        eyebrow="Correlations"
+        dataMode="mixed"
+        action={
+          <Link
+            to="/insights"
+            className="inline-flex min-h-[44px] items-center text-base font-medium text-sky-800 underline-offset-2 hover:underline"
+          >
+            Open Insights
+          </Link>
+        }
+      >
+        <InsightsCorrelationCards
+          cards={insightCards}
+          compact
+          emptyMessage="No correlation cards yet — open Insights for persona views."
+        />
+      </Ww360Section>
     </div>
   );
 }

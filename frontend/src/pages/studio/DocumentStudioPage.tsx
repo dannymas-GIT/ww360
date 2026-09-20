@@ -106,6 +106,8 @@ export default function DocumentStudioPage() {
   const [titleDraft, setTitleDraft] = useState('');
   const [restoringVersion, setRestoringVersion] = useState<number | null>(null);
   const [editorFullscreen, setEditorFullscreen] = useState(false);
+  const deepLinkTemplateId = params.get('template');
+  const templateDeepLinkHandled = useRef(false);
 
   const editorRef = useRef<StudioEditorHandle>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -182,6 +184,15 @@ export default function DocumentStudioPage() {
     if (docParam && docParam !== selectedId) setSelectedId(docParam);
     if (folderParam && folderParam !== folderSel) setFolderSel(folderParam);
   }, [params]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Grants Studio deep link (?template=epa-iwiwd-2026-narrative) → open New document gallery
+  useEffect(() => {
+    if (templateDeepLinkHandled.current) return;
+    if (!deepLinkTemplateId || !templateById(deepLinkTemplateId)) return;
+    if (!accessQ.isSuccess || !canAuthor) return;
+    templateDeepLinkHandled.current = true;
+    setNewOpen(true);
+  }, [deepLinkTemplateId, accessQ.isSuccess, canAuthor]);
 
   useEffect(() => {
     if (doc) setTitleDraft(doc.title);
@@ -1161,7 +1172,15 @@ export default function DocumentStudioPage() {
         busy={busy}
         tourActive={tourOpen}
         audience={templateAudience}
-        onClose={() => setNewOpen(false)}
+        initialTemplateId={deepLinkTemplateId}
+        onClose={() => {
+          setNewOpen(false);
+          if (deepLinkTemplateId) {
+            const next = new URLSearchParams(params);
+            next.delete('template');
+            setParams(next, { replace: true });
+          }
+        }}
         onCreate={({ title, folder_id, template }) =>
           createMut.mutate({ title, folder_id, template_id: template.id, markdown: template.markdown })
         }

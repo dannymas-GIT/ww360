@@ -1,0 +1,34 @@
+---
+description: SaaS Document Studio — folders, TipTap editor, versions, import/export, optional cloud libraries
+globs:
+  - "**/doc-studio/**"
+  - "**/doc_studio*"
+  - "**/routes/studio/**"
+alwaysApply: false
+---
+
+# SaaS Document Studio
+
+User-owned libraries (not tenant scope strings). Reference: Author2Publish `/studio`, WW360 donor (read-only).
+
+## Required behavior
+
+1. **Ownership** — every folder/document scoped by `owner_user_id`; IDOR-safe (404 on other users' IDs).
+2. **Versions** — autosave updates working copy only; explicit Save/Publish/Restore cut versions (cap ~60).
+3. **Export** — md, html, pdf, docx; download links may pass JWT via `?token=`.
+4. **Import** — docx, pdf, md, txt (size cap ~20MB).
+5. **Assets** — images/video/audio in `doc_assets`; serve by UUID (unguessable).
+6. **Libraries** — OAuth connect/import/export; block connect/callback/disconnect while impersonating.
+7. **Type + responsive** — body `text-lg`, controls ≥ `text-base`, captions ≥ `text-sm`, touch ≥44px; ~900px reflow to segmented panes.
+8. **Context autofill** — when Studio opens from a surface that already has identity data (Grants, jurisdiction, district scope, `?template=` deep link), replace `{{placeholders}}` in the template markdown (e.g. `{{applicant}}`, `{{state_code}}`, grant stats). Leave unknown tokens visible; never invent UEI/POC secrets. Shared helper pattern: WW360 `frontend/src/lib/studioTemplateFill.ts`.
+
+## Do not
+
+- Duplicate project JSON/ebook export pipelines — Studio links to projects via optional `project_id` / send-to-project.
+- Ship custody transfer unless product explicitly requires it.
+- Put OAuth secrets in rules or code — env names only.
+- Drop users into a template from Grants/readiness with raw `{{applicant}}` still showing when jurisdiction/autofill APIs can supply values.
+
+## Scaffold
+
+`templates/saas-skeleton-overlay/modules/doc-studio/` + `--with-doc-studio` in `skills/saas-scaffold/scripts/scaffold.py`.

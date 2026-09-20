@@ -204,6 +204,20 @@ test.describe('Document Studio', () => {
     }
   });
 
+  test('grant template deep-link autofills applicant and state placeholders', async ({ page, request }) => {
+    await page.goto('/studio?template=epa-iwiwd-2026-sam-gov');
+    await expect(page.locator('[data-tour="studio-workspace"]')).toBeVisible({ timeout: 20_000 });
+    const editor = page.locator('[data-tour="studio-editor"] .ProseMirror');
+    await expect(editor).toBeVisible({ timeout: 25_000 });
+    // Placeholders should be replaced from jurisdiction / EPA autofill.
+    await expect(editor).not.toContainText('{{applicant}}');
+    await expect(editor).not.toContainText('{{state_code}}');
+    await expect(editor).toContainText(/SAM\.gov registration readiness/i);
+
+    const docId = page.url().match(/[?&]doc=([^&]+)/)?.[1];
+    if (docId) createdIds.push(docId);
+  });
+
   test('studio tour opens from the header and highlights folders', async ({ page }) => {
     await page.goto('/studio');
     await expect(page.locator('[data-tour="studio-workspace"]')).toBeVisible({ timeout: 20_000 });

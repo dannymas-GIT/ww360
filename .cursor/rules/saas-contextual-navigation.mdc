@@ -1,0 +1,27 @@
+---
+description: Preserve context on drill-down navigation (back links, query params)
+alwaysApply: true
+---
+
+# SaaS contextual navigation (drill-down)
+
+When users move **list → detail → related tool** (county → utilities → PWS lookup, grant → Studio template, etc.), **never strand them**. Preserve enough context to return in one click.
+
+## Required patterns
+
+1. **Carry query context** — encode parent context in the URL (`?county=`, `?pwsid=`, `?template=`, `?scope=`). Prefer query/search params over ephemeral component state alone.
+2. **Explicit back** — detail/lookup surfaces show **Back to {parent}** (not only browser Back). Label names the parent (e.g. “Back to Dutchess utilities”).
+3. **Restore parent view** — back target re-opens the same filtered/drill-down state (`/landscape?county=Dutchess`), not a blank list.
+4. **Deep links** — opening `/lookup?pwsid=NY…&county=…` must auto-select the system **and** still offer return to county.
+5. **Mobile** — back control is a ≥44px touch target; not hover-only.
+
+## Do not
+
+- Navigate to a global tool (lookup, studio, settings) from a drill-down without a return path.
+- Clear county/filter state when opening a child row unless the user explicitly “clears”.
+- Rely on history alone when the child page may be opened in a new tab or from a bookmark.
+
+## Reference
+
+- WW360: county utilities → `/water-systems/lookup?pwsid=&county=`; Studio `?template=` + jurisdiction autofill
+- Grants: Open in Studio deep-link with template id

@@ -1,0 +1,36 @@
+---
+description: Sortable + filterable data tables baseline for all SaaS apps
+alwaysApply: true
+---
+
+# SaaS data tables baseline
+
+Every SaaS admin, landscape, watchlist, or inventory **HTML table** that lists more than a handful of rows must ship **client-side sort + text filter** as part of the deliverable — not a follow-up.
+
+## Required UX
+
+1. **Sortable headers** — clickable column heads with clear asc/desc affordance (icon or `aria-sort`). Pair with a shared head component (e.g. `SortableTableHead`).
+2. **Text filter** — search box left of the table; filters across the visible identity columns (name, id, county, status, etc.).
+3. **Counts** — show **Filtered (N)** vs **All (M)** (or equivalent) so reviewers know the table is subsetted.
+4. **Empty states** — distinct copy for “no rows in dataset” vs “no rows match filter”.
+5. **Type + touch** — controls ≥ `text-base`, captions ≥ `text-sm`, touch targets ≥ **44×44px** (`saas-accessible-type.mdc`).
+6. **Mobile** — wrap table in horizontal scroll **or** card-stack under ~900px (`saas-responsive.mdc`); never clip row actions.
+
+## Implementation rules
+
+- Prefer a **shared hook + pure helpers** (WW360: `useTableControls`, `tableControls.ts`) over per-page sort state.
+- **Sort toggle:** do **not** nest `setSortDir` inside `setSortKey` updaters — React Strict Mode double-invokes nested updaters and asc↔desc cancels (column looks “stuck”). Read current sort key/dir in `toggleSort` and set independently.
+- Comparators: null/empty last; numeric-aware string compare; booleans as 0/1.
+- Server-paginated APIs: document whether sort/filter is client (current page) or server; do not pretend full-catalog sort if only one page is loaded.
+- E2E: when tables ship, extend Playwright coverage for at least one column sort + filter clear (`tests/manifest.json` pathPatterns).
+
+## Do not
+
+- Ship static unsortable admin/landscape tables when the same surface has search elsewhere.
+- Rely on browser find (Ctrl+F) as the only filter.
+- Use tiny header buttons or hover-only sort controls on touch devices.
+
+## Reference
+
+- WW360: `frontend/src/hooks/useTableControls.ts`, `frontend/src/lib/tableControls.ts`, `SortableTableHead`, `TableSearchFilter`
+- Mission Control quality breakpoints: `config/quality-policy.yaml`

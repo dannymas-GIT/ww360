@@ -19,7 +19,13 @@ import { TableSearchFilter } from '@/components/ui/table-search-filter';
 import { useTableControls } from '@/hooks/useTableControls';
 import { trackEvent } from '@/lib/ga4';
 import { useJurisdiction } from '@/context/JurisdictionContext';
-import { fetchNpdesLandscape, type NpdesFacility } from '@/services/npdesService';
+import { NpdesPreviewPanel } from '@/components/facilities/NpdesPreviewPanel';
+import {
+  fetchNpdesLandscape,
+  fetchNpdesPreview,
+  type NpdesFacility,
+  type NpdesPreview,
+} from '@/services/npdesService';
 import SdwisLandscapePage from '@/pages/sdwis/SdwisLandscapePage';
 
 type FacilityProgram = 'dw' | 'ww';
@@ -130,6 +136,31 @@ function WastewaterLandscape({ stateCode }: { stateCode: string }) {
   const [search, setSearch] = useState('');
   const [majorOnly, setMajorOnly] = useState(false);
   const [countyFilter, setCountyFilter] = useState('all');
+  const [selected, setSelected] = useState<NpdesFacility | null>(null);
+  const [preview, setPreview] = useState<NpdesPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
+  const clearPreview = () => {
+    setSelected(null);
+    setPreview(null);
+    setPreviewError(null);
+    setPreviewLoading(false);
+  };
+
+  const openPreview = (row: NpdesFacility) => {
+    setSelected(row);
+    setPreview(null);
+    setPreviewError(null);
+    setPreviewLoading(true);
+    void fetchNpdesPreview(row.npdes_id, row.state_code || stateCode)
+      .then(data => {
+        setPreview(data);
+        trackEvent('npdes_viewed', { surface: 'preview', state: row.state_code || stateCode });
+      })
+      .catch(() => setPreviewError(`Could not load the EPA report for ${row.npdes_id}.`))
+      .finally(() => setPreviewLoading(false));
+  };
 
   const load = () => {
     setLoading(true);
@@ -149,6 +180,7 @@ function WastewaterLandscape({ stateCode }: { stateCode: string }) {
 
   useEffect(() => {
     setCountyFilter('all');
+    clearPreview();
     load();
   }, [stateCode, majorOnly]);
 
@@ -229,7 +261,77 @@ function WastewaterLandscape({ stateCode }: { stateCode: string }) {
             </div>
           </div>
 
+          {selected ? (
+            <Ww360Section
+              tourId="npdes-preview"
+              title={`Facility preview — ${selected.facility_name || selected.npdes_id}`}
+              eyebrow="EPA ECHO · Detailed Facility Report"
+              dataMode="live"
+              action={
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-[44px] text-base md:min-h-9"
+                  onClick={clearPreview}
+                >
+                  Back to facility list
+                </Button>
+              }
+            >
+              <div className="mb-4 grid gap-1 text-[1rem] text-slate-700 sm:grid-cols-2 lg:grid-cols-3">
+                <p className="break-words">
+                  <span className="text-slate-500">Cached county:</span>{' '}
+                  {selected.county || '—'}
+                </p>
+                <p className="break-words">
+                  <span className="text-slate-500">Cached permit type:</span>{' '}
+                  {selected.permit_type || '—'}
+                </p>
+                <p className="break-words">
+                  <span className="text-slate-500">Cached facility type:</span>{' '}
+                  {selected.facility_type_code || '—'}
+                </p>
+                <p className="break-words">
+                  <span className="text-slate-500">Cached SIC code:</span>{' '}
+                  {selected.sic_code || '—'}
+                </p>
+                <p className="break-words">
+                  <span className="text-slate-500">Cached owner type:</span>{' '}
+                  {selected.owner_type || '—'}
+                </p>
+                <p className="break-words">
+                  <span className="text-slate-500">Cached permit window:</span>{' '}
+                  {selected.permit_effective || '—'} → {selected.permit_expiration || '—'}
+                </p>
+                <p className="break-words">
+                  <span className="text-slate-500">Cache refreshed:</span>{' '}
+                  {selected.last_refreshed || '—'}
+                </p>
+              </div>
+              {previewLoading ? (
+                <p className="text-[1.125rem] text-slate-500">
+                  Loading EPA report for {selected.npdes_id}…
+                </p>
+              ) : previewError ? (
+                <div className="space-y-3">
+                  <p className="text-[1rem] text-rose-700">{previewError}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-h-[44px] text-base md:min-h-9"
+                    onClick={() => openPreview(selected)}
+                  >
+                    Retry preview
+                  </Button>
+                </div>
+              ) : preview ? (
+                <NpdesPreviewPanel preview={preview} />
+              ) : null}
+            </Ww360Section>
+          ) : null}
+
           <Ww360Section
+            tourId="npdes-facilities"
             title="POTW facilities"
             eyebrow="EPA ICIS-NPDES · state cache"
             dataMode="live"
@@ -350,10 +452,31 @@ function WastewaterLandscape({ stateCode }: { stateCode: string }) {
                 </TableHeader>
                 <TableBody>
                   {facilityTable.rows.map(row => (
-                    <TableRow key={row.npdes_id}>
-                      <TableCell className="font-mono text-[1rem]">{row.npdes_id}</TableCell>
-                      <TableCell className="font-medium">{row.facility_name || '—'}</TableCell>
-                      <TableCell>{row.county || '—'}</TableCell>
+                    <TableRow
+                      key={row.npdes_id}
+                      onClick={() => openPreview(row)}
+                      aria-selected={selected?.npdes_id === row.npdes_id}
+                      className={`cursor-pointer hover:bg-sky-50 ${
+                        selected?.npdes_id === row.npdes_id ? 'bg-sky-50' : ''
+                      }`}
+                    >
+                      <TableCell className="font-mono text-[1rem]">
+                        <button
+                          type="button"
+                          className="min-h-[44px] rounded px-1 text-left font-mono text-[1rem] text-sky-800 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 md:min-h-9"
+                          onClick={e => {
+                            e.stopPropagation();
+                            openPreview(row);
+                          }}
+                          aria-label={`Preview EPA report for ${row.npdes_id}`}
+                        >
+                          {row.npdes_id}
+                        </button>
+                      </TableCell>
+                      <TableCell className="break-words font-medium">
+                        {row.facility_name || '—'}
+                      </TableCell>
+                      <TableCell className="break-words">{row.county || '—'}</TableCell>
                       <TableCell>{formatMajorMinor(row.major_minor)}</TableCell>
                       <TableCell className="text-right tabular-nums">
                         {formatDesignFlow(row.design_flow_mgd ?? row.total_design_flow)}

@@ -52,10 +52,15 @@ function countySearchText(row: CountyRow): string {
   return `${String(row.county || '')} ${String(row.economic_region_label || '')}`;
 }
 
-type LabeledCountRow = [string, number];
+type LabeledCountRow = { label: string; count: number; order: number };
+
+const TIER_ORDER = ['very_small', 'small', 'medium', 'large', 'very_large'] as const;
+const GRADE_ORDER = ['A', 'B', 'C', 'D'] as const;
 
 function labeledCountSortValue(row: LabeledCountRow, key: string): unknown {
-  return key === 'label' ? row[0] : Number(row[1]);
+  if (key === 'label') return row.order;
+  if (key === 'count') return row.count;
+  return '';
 }
 
 export default function SdwisLandscapePage({ embedded = false }: { embedded?: boolean }) {
@@ -173,21 +178,35 @@ export default function SdwisLandscapePage({ embedded = false }: { embedded?: bo
   }, [countyFilter, regionFilter, allCounties, regionCountySet]);
 
   const sizeTierRows = useMemo<LabeledCountRow[]>(
-    () => Object.entries(sizeTiers).map(([k, v]) => [k, Number(v)]),
+    () =>
+      TIER_ORDER.map((label, order) => ({
+        label,
+        count: Number(sizeTiers[label] ?? 0),
+        order,
+      })),
     [sizeTiers]
   );
   const gradeDemandRows = useMemo<LabeledCountRow[]>(
-    () => Object.entries(gradeDemand).map(([k, v]) => [k, Number(v)]),
+    () =>
+      GRADE_ORDER.map((label, order) => ({
+        label,
+        count: Number(gradeDemand[label] ?? 0),
+        order,
+      })),
     [gradeDemand]
   );
 
   const sizeTierTable = useTableControls<LabeledCountRow>({
     rows: sizeTierRows,
     getValue: labeledCountSortValue,
+    initialSortKey: 'label',
+    initialSortDir: 'asc',
   });
   const gradeDemandTable = useTableControls<LabeledCountRow>({
     rows: gradeDemandRows,
     getValue: labeledCountSortValue,
+    initialSortKey: 'label',
+    initialSortDir: 'asc',
   });
   const countyTable = useTableControls<CountyRow>({
     rows: counties,
@@ -371,21 +390,14 @@ export default function SdwisLandscapePage({ embedded = false }: { embedded?: bo
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sizeTierTable.rows.map(([tier, count]) => (
-                    <TableRow key={tier}>
-                      <TableCell>{tier}</TableCell>
+                  {sizeTierTable.rows.map(row => (
+                    <TableRow key={row.label}>
+                      <TableCell>{row.label}</TableCell>
                       <TableCell className="text-right tabular-nums">
-                        {Number(count).toLocaleString()}
+                        {row.count.toLocaleString()}
                       </TableCell>
                     </TableRow>
                   ))}
-                  {!Object.keys(sizeTiers).length && (
-                    <TableRow>
-                      <TableCell colSpan={2} className="text-[1rem] text-slate-500">
-                        No size-tier data yet.
-                      </TableCell>
-                    </TableRow>
-                  )}
                 </TableBody>
               </Table>
             </Ww360Section>
@@ -422,21 +434,14 @@ export default function SdwisLandscapePage({ embedded = false }: { embedded?: bo
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {gradeDemandTable.rows.map(([grade, count]) => (
-                    <TableRow key={grade}>
-                      <TableCell>{grade}</TableCell>
+                  {gradeDemandTable.rows.map(row => (
+                    <TableRow key={row.label}>
+                      <TableCell>{row.label}</TableCell>
                       <TableCell className="text-right tabular-nums">
-                        {Number(count).toLocaleString()}
+                        {row.count.toLocaleString()}
                       </TableCell>
                     </TableRow>
                   ))}
-                  {!Object.keys(gradeDemand).length && (
-                    <TableRow>
-                      <TableCell colSpan={2} className="text-[1rem] text-slate-500">
-                        No grade-demand data yet.
-                      </TableCell>
-                    </TableRow>
-                  )}
                 </TableBody>
               </Table>
             </Ww360Section>

@@ -36,6 +36,9 @@ function tierForPopulation(pop: number | null | undefined): string {
   return 'very_large';
 }
 
+const TIER_ORDER = ['very_small', 'small', 'medium', 'large', 'very_large'] as const;
+const GRADE_ORDER = ['A', 'B', 'C', 'D'] as const;
+
 const GRADE_FROM_TIER: Record<string, Record<string, number>> = {
   very_small: { D: 1 },
   small: { C: 1, D: 1 },
@@ -43,6 +46,14 @@ const GRADE_FROM_TIER: Record<string, Record<string, number>> = {
   large: { A: 1, B: 1 },
   very_large: { A: 2, B: 1 },
 };
+
+type LabeledCountRow = { label: string; count: number; order: number };
+
+function labeledCountValue(row: LabeledCountRow, key: string): unknown {
+  if (key === 'label') return row.order;
+  if (key === 'count') return row.count;
+  return '';
+}
 
 export interface CountyUtilitiesCardProps {
   county: string;
@@ -69,6 +80,8 @@ export function CountyUtilitiesCard({
   onBack,
 }: CountyUtilitiesCardProps) {
   const [systems, setSystems] = useState<SDWISStateSystem[]>([]);
+  const [totalMatched, setTotalMatched] = useState<number | null>(null);
+  const [resultLimit, setResultLimit] = useState(2000);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -77,9 +90,13 @@ export function CountyUtilitiesCard({
     setLoading(true);
     setError(null);
     setSystems([]);
-    void fetchStateSystemsByCounty(county, stateCode)
-      .then(rows => {
-        if (!cancelled) setSystems(rows);
+    setTotalMatched(null);
+    void fetchStateSystemsByCounty(county, stateCode, 2000)
+      .then(({ systems: rows, total, limit }) => {
+        if (cancelled) return;
+        setSystems(rows);
+        setTotalMatched(total);
+        setResultLimit(limit);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -146,7 +163,7 @@ export function CountyUtilitiesCard({
     [systems]
   );
 
-  const sizeTiers = useMemo(() => {
+  const sizeTiers = useMemo<LabeledCountRow[]>(() => {
     const counts: Record<string, number> = {
       very_small: 0,
       small: 0,
@@ -157,10 +174,14 @@ export function CountyUtilitiesCard({
     for (const s of systems) {
       counts[tierForPopulation(s.population_served)] += 1;
     }
-    return Object.entries(counts).filter(([, n]) => n > 0);
+    return TIER_ORDER.map((label, order) => ({
+      label,
+      count: counts[label] ?? 0,
+      order,
+    }));
   }, [systems]);
 
-  const gradeDemand = useMemo(() => {
+  const gradeDemand = useMemo<LabeledCountRow[]>(() => {
     const grades: Record<string, number> = { A: 0, B: 0, C: 0, D: 0 };
     for (const s of systems) {
       const tier = tierForPopulation(s.population_served);
@@ -168,9 +189,28 @@ export function CountyUtilitiesCard({
         grades[grade] = (grades[grade] || 0) + n;
       }
     }
-    return Object.entries(grades).filter(([, n]) => n > 0);
+    return GRADE_ORDER.map((label, order) => ({
+      label,
+      count: grades[label] ?? 0,
+      order,
+    }));
   }, [systems]);
 
+  const sizeTiersTable = useTableControls({
+    rows: sizeTiers,
+    getValue: labeledCountValue,
+    initialSortKey: 'label',
+    initialSortDir: 'asc',
+  });
+  const gradeDemandTable = useTableControls({
+    rows: gradeDemand,
+    getValue: labeledCountValue,
+    initialSortKey: 'label',
+    initialSortDir: 'asc',
+  });
+
+  const truncated =
+    !loading && totalMatched != null && totalMatched > systems.length;
   const systemsCount = loading ? (summary?.systems ?? 0) : systems.length;
   const healthCount = loading ? (summary?.health ?? 0) : liveHealth;
   const sncCount = loading ? (summary?.snc ?? 0) : liveSnc;
@@ -202,6 +242,14 @@ export function CountyUtilitiesCard({
         </p>
       </div>
 
+      {truncated ? (
+        <p className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[1rem] text-amber-900">
+          Showing {systems.length.toLocaleString()} of {totalMatched!.toLocaleString()} systems in
+          this county (page limit {resultLimit.toLocaleString()}). Metrics and tables below are
+          based on the loaded systems.
+        </p>
+      ) : null}
+
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Ww360StatTile label="Systems" value={systemsCount.toLocaleString()} />
         <Ww360StatTile
@@ -217,21 +265,34 @@ export function CountyUtilitiesCard({
           <div>
             <h3 className="mb-2 text-[1rem] font-semibold text-slate-800">Size tiers</h3>
             <p className="mb-2 text-[0.875rem] text-slate-600">
-              From this county&apos;s population served.
+              From this county&apos;s population served (loaded systems). Empty tiers stay visible.
             </p>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableCell className="font-medium">Tier</TableCell>
-                  <TableCell className="text-right font-medium">Systems</TableCell>
+                  <SortableTableHead
+                    column="label"
+                    label="Tier"
+                    sortKey={sizeTiersTable.sortKey}
+                    sortDir={sizeTiersTable.sortDir}
+                    onSort={sizeTiersTable.toggleSort}
+                  />
+                  <SortableTableHead
+                    column="count"
+                    label="Systems"
+                    align="right"
+                    sortKey={sizeTiersTable.sortKey}
+                    sortDir={sizeTiersTable.sortDir}
+                    onSort={sizeTiersTable.toggleSort}
+                  />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sizeTiers.map(([tier, count]) => (
-                  <TableRow key={tier}>
-                    <TableCell>{tier}</TableCell>
+                {sizeTiersTable.rows.map(row => (
+                  <TableRow key={row.label}>
+                    <TableCell>{row.label}</TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {count.toLocaleString()}
+                      {row.count.toLocaleString()}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -243,21 +304,35 @@ export function CountyUtilitiesCard({
               Grade demand estimate
             </h3>
             <p className="mb-2 text-[0.875rem] text-slate-600">
-              Planning estimate for this county only.
+              Planning seats, not a 1:1 system count — e.g. small systems map to both C and D, so
+              demand can exceed systems. Grade A appears when large / very_large systems are present.
             </p>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableCell className="font-medium">Grade</TableCell>
-                  <TableCell className="text-right font-medium">Est. demand</TableCell>
+                  <SortableTableHead
+                    column="label"
+                    label="Grade"
+                    sortKey={gradeDemandTable.sortKey}
+                    sortDir={gradeDemandTable.sortDir}
+                    onSort={gradeDemandTable.toggleSort}
+                  />
+                  <SortableTableHead
+                    column="count"
+                    label="Est. demand"
+                    align="right"
+                    sortKey={gradeDemandTable.sortKey}
+                    sortDir={gradeDemandTable.sortDir}
+                    onSort={gradeDemandTable.toggleSort}
+                  />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {gradeDemand.map(([grade, count]) => (
-                  <TableRow key={grade}>
-                    <TableCell>{grade}</TableCell>
+                {gradeDemandTable.rows.map(row => (
+                  <TableRow key={row.label}>
+                    <TableCell>{row.label}</TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {count.toLocaleString()}
+                      {row.count.toLocaleString()}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -331,7 +406,7 @@ export function CountyUtilitiesCard({
                   <TableRow key={row.pwsid}>
                     <TableCell className="font-mono text-base">
                       <Link
-                        to={`/water-systems/lookup?pwsid=${encodeURIComponent(row.pwsid)}`}
+                        to={`/water-systems/lookup?pwsid=${encodeURIComponent(row.pwsid)}&county=${encodeURIComponent(county)}`}
                         className="text-sky-800 underline-offset-2 hover:underline"
                       >
                         {row.pwsid}

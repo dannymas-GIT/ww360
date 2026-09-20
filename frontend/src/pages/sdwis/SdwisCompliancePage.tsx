@@ -75,50 +75,55 @@ function ComplianceViolationsTable({ rows }: { rows: SDWISViolation[] }) {
         resultCount={resultCount}
         totalCount={totalCount}
       />
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <SortableTableHead
-              column="rule"
-              label="Contaminant / rule"
-              sortKey={sortKey}
-              sortDir={sortDir}
-              onSort={toggleSort}
-              className="min-w-[120px]"
-            />
-            <SortableTableHead
-              column="category"
-              label="Category"
-              sortKey={sortKey}
-              sortDir={sortDir}
-              onSort={toggleSort}
-              className="hidden md:table-cell"
-            />
-            <SortableTableHead
-              column="status"
-              label="Status"
-              sortKey={sortKey}
-              sortDir={sortDir}
-              onSort={toggleSort}
-            />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {displayRows.map(v => (
-            <TableRow key={v.id}>
-              <TableCell className="max-w-[220px] align-top text-base">
-                <div className="font-medium">
-                  {v.contaminant_name || v.rule_name || '—'}
-                </div>
-              </TableCell>
-              <TableCell className="hidden text-base md:table-cell">
-                {v.category_desc || v.category_code || '—'}
-              </TableCell>
-              <TableCell className="text-base">{v.status || '—'}</TableCell>
+      <div className="overflow-x-auto">
+        <Table className="w-full min-w-[32rem] table-fixed">
+          <TableHeader>
+            <TableRow>
+              <SortableTableHead
+                column="rule"
+                label="Contaminant / rule"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+                className="w-[44%]"
+              />
+              <SortableTableHead
+                column="category"
+                label="Category"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+                className="hidden w-[34%] md:table-cell"
+              />
+              <SortableTableHead
+                column="status"
+                label="Status"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+                className="w-[22%]"
+              />
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {displayRows.map(v => (
+              <TableRow key={v.id}>
+                <TableCell className="align-top break-words text-base">
+                  <div className="font-medium">
+                    {v.contaminant_name || v.rule_name || '—'}
+                  </div>
+                </TableCell>
+                <TableCell className="hidden align-top break-words text-base md:table-cell">
+                  {v.category_desc || v.category_code || '—'}
+                </TableCell>
+                <TableCell className="align-top break-words text-base">
+                  {v.status || '—'}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
@@ -172,46 +177,53 @@ function ComplianceEnforcementTable({ rows }: { rows: SDWISEnforcement[] }) {
         resultCount={resultCount}
         totalCount={totalCount}
       />
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <SortableTableHead
-              column="date"
-              label="Date"
-              sortKey={sortKey}
-              sortDir={sortDir}
-              onSort={toggleSort}
-            />
-            <SortableTableHead
-              column="type"
-              label="Type"
-              sortKey={sortKey}
-              sortDir={sortDir}
-              onSort={toggleSort}
-            />
-            <SortableTableHead
-              column="description"
-              label="Description"
-              sortKey={sortKey}
-              sortDir={sortDir}
-              onSort={toggleSort}
-            />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {displayRows.map(e => (
-            <TableRow key={e.id}>
-              <TableCell className="whitespace-nowrap text-base">
-                {e.action_date || '—'}
-              </TableCell>
-              <TableCell className="text-base">{e.enforcement_type || '—'}</TableCell>
-              <TableCell className="max-w-[220px] text-base">
-                {e.action_description || '—'}
-              </TableCell>
+      <div className="overflow-x-auto">
+        <Table className="w-full min-w-[32rem] table-fixed">
+          <TableHeader>
+            <TableRow>
+              <SortableTableHead
+                column="date"
+                label="Date"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+                className="w-[20%]"
+              />
+              <SortableTableHead
+                column="type"
+                label="Type"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+                className="w-[26%]"
+              />
+              <SortableTableHead
+                column="description"
+                label="Description"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+                className="w-[54%]"
+              />
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {displayRows.map(e => (
+              <TableRow key={e.id}>
+                <TableCell className="align-top whitespace-nowrap text-base">
+                  {e.action_date || '—'}
+                </TableCell>
+                <TableCell className="align-top break-words text-base">
+                  {e.enforcement_type || '—'}
+                </TableCell>
+                <TableCell className="align-top break-words text-base">
+                  {e.action_description || '—'}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

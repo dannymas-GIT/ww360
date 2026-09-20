@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Set, Tuple
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -128,9 +128,10 @@ def workforce_insights(
 
 @router.get("/state-systems", response_model=List[SDWISStateSystemOut])
 def list_state_systems_by_county(
+    response: Response,
     county: str = Query(..., min_length=1, description="County name from landscape pressure table"),
     state: str = Query("NY", min_length=2, max_length=2),
-    limit: int = Query(500, ge=1, le=2000),
+    limit: int = Query(2000, ge=1, le=5000),
     db: Session = Depends(deps.get_db),
     context: TenantContext = Depends(deps.get_current_tenant_user),
 ):
@@ -168,10 +169,12 @@ def list_state_systems_by_county(
             or want_bare.startswith(f"{bare} ")
         ):
             matched.append(row)
-        if len(matched) >= limit:
-            break
 
-    return [SDWISStateSystemOut.model_validate(r) for r in matched]
+    total = len(matched)
+    response.headers["X-Total-Count"] = str(total)
+    response.headers["X-Result-Limit"] = str(limit)
+    page = matched[:limit]
+    return [SDWISStateSystemOut.model_validate(r) for r in page]
 
 
 @router.post("/refresh-state")

@@ -292,6 +292,91 @@ Links, handouts and equipment the instructor needs on day one.
 `,
   },
   {
+    id: 'epa-iwiwd-2026-narrative',
+    name: 'EPA IWIWD 2026 project narrative',
+    description:
+      'NOFO outline for EPA-OW-OWM-26-03 — Cover through Budget with autofill placeholders.',
+    category: 'grant',
+    audiences: ['program'],
+    preview: 'Cover · Exec summary · Project · Results · Capability · Budget',
+    markdown: `# EPA Innovative Water Infrastructure Workforce Development — Project Narrative
+
+**Opportunity:** EPA-OW-OWM-26-03 ({{opportunity_number}})  
+**Applicant:** {{applicant}}  
+**State:** {{state_code}}  
+**Requested amount:** {{requested_amount}}  
+**Suggested project area:** {{suggested_project_area}}  
+**Deadline:** {{deadline}}
+
+---
+
+## 1. Cover Page
+
+- **Project title:** {{project_title}}
+- **Program area (1–4):** {{suggested_project_area}}
+- **Lead applicant:** {{applicant}}
+- **Key partners:** {{partner_utilities}}
+- **Population / systems served:** {{population_served}} people · {{cws_count}} CWS · {{potw_count}} POTWs
+
+## 2. Executive Summary
+
+≤1 page. Need, approach, and expected outputs/outcomes.
+
+**Need snapshot**
+
+- Retirement-eligible share: {{retirement_share_pct}}% ({{retirement_eligible_count}} of {{employee_count}})
+- Critical vacancies: {{vacant_critical_positions}}
+- Certifications expiring ≤90 days: {{certs_expiring_90d}}
+- Small/rural CWS partners: {{small_rural_system_count}}
+- SDWIS SNC systems: {{sdwis_snc_count}} · health-flag systems: {{health_flag_systems}}
+- Major POTWs: {{major_potws}} (SNC: {{potw_snc}})
+
+## 3. Project Description
+
+Activities, partners, recruitment, training delivery, and equity.
+
+1. **Recruitment & pathways** — apprenticeships / pre-apprenticeships targeting {{vacant_critical_positions}} critical vacancies.
+2. **Training delivery** — CEU and certification support for {{certs_expiring_90d}} near-term renewals.
+3. **Regional collaboration** — engage {{small_rural_system_count}} small/rural systems and {{partner_utilities}}.
+4. **Equity & access** — prioritize communities with compliance pressure ({{sdwis_snc_count}} SNC).
+
+## 4. Environmental Results
+
+Outputs and outcomes linked to EPA Pillar 1 (workforce capacity → sustained compliance).
+
+| Output / outcome | Baseline | Target |
+| --- | --- | --- |
+| Operators trained / placed | {{baseline_operators}} | {{target_operators}} |
+| Partner utilities engaged | {{baseline_partners}} | {{target_partners}} |
+| Certifications supported | {{certs_expiring_90d}} | {{target_certs}} |
+
+## 5. Programmatic Capability / Past Performance
+
+OWW track record, staff, fiscal controls, and WW360 data systems supporting {{state_code}}.
+
+- Continuity / roster coverage for enrolled districts
+- Live SDWIS / NPDES inventory ({{cws_count}} CWS · {{potw_count}} POTWs)
+- Document Studio narrative + grants application tracker
+
+## 6. Budget Narrative
+
+Align personnel, fringe, travel, contracts, and other direct costs to SF-424A.
+
+| Category | Amount | Notes |
+| --- | --- | --- |
+| Personnel | {{budget_personnel}} | |
+| Fringe | {{budget_fringe}} | |
+| Travel | {{budget_travel}} | |
+| Contracts | {{budget_contracts}} | |
+| Other | {{budget_other}} | |
+| **Total** | {{requested_amount}} | |
+
+---
+
+*Stats autofilled from WW360 Grants Studio (template {{template_id}}).*
+`,
+  },
+  {
     id: 'epa-quarterly-narrative',
     name: 'EPA Area 3 quarterly narrative',
     description: 'Progress narrative for the grant reporting period, mapped to Tasks 1–4.',

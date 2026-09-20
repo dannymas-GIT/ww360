@@ -46,12 +46,12 @@ programs:
       - { fact: vacant_critical_positions, op: gte, value: 1, weight: 1, reason: "Documented critical vacancies strengthen need narrative" }
       - { fact: small_rural_system_count, op: gte, value: 5, weight: 1, reason: "Small/rural utility partners available for Area 3" }
     readiness_checklist:
-      - { id: sam_gov, label: "SAM.gov registration active", required: true }
-      - { id: grants_gov, label: "Grants.gov workspace / authorized organization representative", required: true }
-      - { id: sf424, label: "SF-424 and SF-424A drafted", required: true }
-      - { id: narrative, label: "20-page project narrative (NOFO §4.B)", required: true }
-      - { id: letters, label: "Partner commitment letters", required: true }
-      - { id: budget, label: "Budget narrative tied to SF-424A", required: true }
+      - { id: sam_gov, label: "SAM.gov registration active", required: true, studio_template_id: epa-iwiwd-2026-sam-gov }
+      - { id: grants_gov, label: "Grants.gov workspace / authorized organization representative", required: true, studio_template_id: epa-iwiwd-2026-grants-gov }
+      - { id: sf424, label: "SF-424 and SF-424A drafted", required: true, studio_template_id: epa-iwiwd-2026-sf424 }
+      - { id: narrative, label: "20-page project narrative (NOFO §4.B)", required: true, studio_template_id: epa-iwiwd-2026-narrative }
+      - { id: letters, label: "Partner commitment letters", required: true, studio_template_id: epa-iwiwd-2026-partner-letter }
+      - { id: budget, label: "Budget narrative tied to SF-424A", required: true, studio_template_id: epa-iwiwd-2026-budget-narrative }
     nofo_outline:
       - { section: "1. Cover Page", hint: "Project title, Area 1–4, applicant, partners, requested amount" }
       - { section: "2. Executive Summary", hint: "≤1 page — need, approach, outputs/outcomes" }

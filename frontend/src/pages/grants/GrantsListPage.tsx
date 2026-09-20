@@ -1,15 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, Landmark } from 'lucide-react';
+import { AlertTriangle, CircleHelp, Landmark } from 'lucide-react';
 import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
 import { Ww360Section } from '@/components/ww360/Ww360Section';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   fetchGrantMatch,
   fetchGrantPrograms,
   type GrantMatchResult,
   type GrantProgram,
 } from '@/services/grantsService';
+import { GrantsTourOverlay, requestOpenGrantsTour } from './GrantsTourOverlay';
 
 const EPA_PROGRAM_ID = 'epa-iwiwd-2026';
 const DEADLINE_BANNER_DAYS = 60;
@@ -89,16 +91,30 @@ export default function GrantsListPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6" data-tour="grants-list">
+      <GrantsTourOverlay view="list" autoOpen />
       <Ww360PageHero
         eyebrow="Funding"
         title="Grants Studio"
         description="Browse water and wastewater funding programs, check eligibility fit, and open application packets for Document Studio."
         dataMode="mixed"
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="min-h-[44px] border-white/20 bg-white/5 text-base text-white hover:bg-white/15 md:min-h-9"
+            onClick={() => requestOpenGrantsTour(0)}
+          >
+            <CircleHelp className="mr-1 h-4 w-4" aria-hidden />
+            How to use this
+          </Button>
+        }
       />
 
       {showEpaBanner && (
         <div
           role="status"
+          data-tour="grants-deadline-banner"
           className="flex flex-col gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between"
         >
           <div className="flex gap-3">

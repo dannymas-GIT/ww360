@@ -31,6 +31,8 @@ export interface NewDocumentDialogProps {
   tourActive?: boolean | undefined;
   /** Filters the gallery to program / district / operator starters. */
   audience?: StudioTemplateAudience;
+  /** Pre-select a template when the dialog opens (e.g. Grants deep link). */
+  initialTemplateId?: string | null;
   onClose: () => void;
   onCreate: (payload: { title: string; folder_id: string | null; template: StudioTemplate }) => void;
 }
@@ -42,6 +44,7 @@ export function NewDocumentDialog({
   busy,
   tourActive = false,
   audience = 'program',
+  initialTemplateId = null,
   onClose,
   onCreate,
 }: NewDocumentDialogProps) {
@@ -53,9 +56,9 @@ export function NewDocumentDialog({
     if (open) {
       setTitle('');
       setFolderId(defaultFolderId);
-      setTemplateId('blank');
+      setTemplateId(initialTemplateId || 'blank');
     }
-  }, [open, defaultFolderId]);
+  }, [open, defaultFolderId, initialTemplateId]);
 
   const grouped = useMemo(() => groupedTemplatesForAudience(audience), [audience]);
 

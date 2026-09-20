@@ -7,6 +7,7 @@ import {
   Droplets,
   Factory,
   GraduationCap,
+  Landmark,
   LayoutDashboard,
   PenSquare,
   Link2,
@@ -14,6 +15,7 @@ import {
   Globe,
   Settings,
   Shield,
+  Sparkles,
   Users,
   Workflow,
 } from 'lucide-react';
@@ -95,6 +97,14 @@ export const ww360NavGroups: NavGroup[] = [
     ],
   },
   {
+    id: 'funding',
+    label: 'Funding',
+    items: [
+      { label: 'Grants', path: '/grants', icon: Landmark },
+      { label: 'Insights', path: '/insights', icon: Sparkles },
+    ],
+  },
+  {
     id: 'content',
     label: 'Content',
     items: [{ label: 'Document Studio', path: '/studio', icon: PenSquare }],
@@ -118,6 +128,15 @@ export const ww360NavGroups: NavGroup[] = [
     ],
   },
 ];
+
+const fundingNavGroup: NavGroup = {
+  id: 'funding',
+  label: 'Funding',
+  items: [
+    { label: 'Grants', path: '/grants', icon: Landmark },
+    { label: 'Insights', path: '/insights', icon: Sparkles },
+  ],
+};
 
 export function navItemTo(item: NavItem): string {
   const q = item.search ? `?${item.search}` : '';
@@ -256,6 +275,7 @@ function navGroupsForRolesFull(roles: string[], districts: string[] = []): NavGr
         },
       ],
     },
+    fundingNavGroup,
     {
       id: 'content',
       label: 'Content',
@@ -351,5 +371,5 @@ function navGroupsSimplified(
     });
   }
 
-  return [today, ...extras, careersGroup, studioGroup];
+  return [today, ...extras, careersGroup, fundingNavGroup, studioGroup];
 }

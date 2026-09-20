@@ -286,6 +286,48 @@
       ]
     },
     {
+      "id": "grants-studio",
+      "specFile": "frontend/e2e/grants.spec.ts",
+      "pathPatterns": [
+        "frontend/src/pages/grants/**",
+        "frontend/src/services/grantsService.ts",
+        "frontend/src/config/studioTemplates.ts",
+        "frontend/src/components/ww360/navConfig.ts",
+        "backend/app/api/v1/endpoints/grants.py",
+        "backend/app/services/grants/**",
+        "backend/app/models/grants.py",
+        "backend/app/national/grants_catalog.yaml"
+      ],
+      "defaultRunOn": [
+        "staging",
+        "pr"
+      ],
+      "flakeBudget": 2,
+      "tags": [
+        "ww360",
+        "grants"
+      ]
+    },
+    {
+      "id": "insights",
+      "specFile": "frontend/e2e/insights.spec.ts",
+      "pathPatterns": [
+        "frontend/src/pages/insights/**",
+        "frontend/src/services/insightsService.ts",
+        "frontend/src/pages/national/StateScorecardPage.tsx",
+        "backend/app/api/v1/endpoints/insights.py"
+      ],
+      "defaultRunOn": [
+        "staging",
+        "pr"
+      ],
+      "flakeBudget": 2,
+      "tags": [
+        "ww360",
+        "insights"
+      ]
+    },
+    {
       "id": "wastewater-cert-program",
       "specFile": "frontend/e2e/wastewater_cert_program.spec.ts",
       "pathPatterns": [

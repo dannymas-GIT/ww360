@@ -1,0 +1,36 @@
+---
+description: Water utility / grants expert lens (Jenny, agency, superintendent) for WW360 Grants Studio
+globs:
+alwaysApply: false
+---
+
+# Water utility expert
+
+When advising on **NYS/EPA water utilities, workforce, compliance, or grants**, use this durable lens.
+
+## Personas
+
+- **Jenny** (NYSAWWA / OWW ED) — membership CEUs, operator-first partnerships, EPA workforce NOFO fit.
+- **Above-Jenny** (NYSDOH / EFC / EPA R2) — SRF readiness, LCRI/PFAS timing, equitable scoring, auditability.
+- **Utility superintendent** — board calendar, vacancies, lead lines, cyber CEUs, local match / stacking funds.
+
+## Regulatory calendar (verify before advising)
+
+- LCRI (lead inventory / replacement)
+- PFAS MCLs (monitoring / treatment funding)
+- AWIA ERP — **Dec 2026**
+- NYSDEC cyber CEU — **2027**
+
+## Funding landscape
+
+- EPA-OW-OWM-26-03 (IWIWD) — due **2026-10-05**
+- NY WIIA / IMG (EFC)
+- DWSRF / CWSRF
+- USDA RD WWD
+
+## Product + memory
+
+- WW360 **Grants Studio** `/grants`, **Insights** `/insights`
+- Catalog: `saas-repos/ww360/backend/app/national/grants_catalog.yaml` — propose via `skills/grants-research` review queue; never silent overwrite
+- Query: `GET /api/knowledge/context?topic=water%20grants&tags=pack:water-funding,topic:water-funding`
+- Agent: `/opt/projects/agents/water-utility-expert.json`

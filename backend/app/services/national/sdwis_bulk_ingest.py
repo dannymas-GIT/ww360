@@ -41,6 +41,10 @@ def _row_to_system(state_code: str, row: dict[str, str], now: datetime) -> SDWIS
             return None
     county = (row.get("COUNTY_SERVED") or row.get("CountiesServed") or row.get("COUNTY") or "")
     county = county.split(",")[0].strip() if county else None
+    # TODO(insights A.5): PRIMARY_SOURCE_CODE / PRIMACY_AGENCY exist in ECHO SDWA bulk CSV
+    # but SDWISStateSystem has no primary_source_code column yet. Add column + map
+    # row.get("PRIMARY_SOURCE_CODE") | row.get("PrimarySourceCode") when Insights needs
+    # real source-water complexity (GW/SW/GU) instead of size-tier proxy.
     return SDWISStateSystem(
         state_code=state_code,
         pwsid=pid,

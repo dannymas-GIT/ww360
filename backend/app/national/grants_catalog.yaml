@@ -1,0 +1,341 @@
+# WW360 Grants Studio catalog — verified water/wastewater funding programs.
+# Eligibility rules are keyed to WW360 district facts (see grants/matcher.py).
+# Refresh via Mission Control skills/grants-research when deadlines change.
+
+version: 1
+updated: "2026-09-20"
+programs:
+  - id: epa-iwiwd-2026
+    name: Innovative Water Infrastructure Workforce Development Grant
+    short_name: EPA IWIWD
+    funder: U.S. Environmental Protection Agency
+    level: federal
+    water_focus: both
+    opportunity_number: EPA-OW-OWM-26-03
+    status: open
+    applicant_types: [nonprofit, higher_ed, labor_org, public_works]
+    award_min_usd: 250000
+    award_max_usd: 7800000
+    total_funding_usd: 10800000
+    deadline: "2026-10-05"
+    cycle_note: "NOFO posted Aug 19, 2026; due Oct 5, 2026 11:59pm ET"
+    portal_url: "https://grants.gov/search-results-detail/363657"
+    info_url: "https://www.epa.gov/sustainable-water-infrastructure/innovative-water-infrastructure-workforce-development-program"
+    program_areas:
+      - id: area_1
+        name: Targeted internship / apprenticeship / pre-apprenticeship
+        award_range: "$1M–$7.8M"
+      - id: area_2
+        name: Education programs for elementary, secondary, and higher-ed students
+        award_range: "$250K–$1M"
+      - id: area_3
+        name: Regional workforce collaborations (small/rural / high retirement share)
+        award_range: "$250K–$1M"
+      - id: area_4
+        name: Decentralized water worker training (wells / septic)
+        award_range: "$250K–$1M"
+    application_components:
+      - SF-424 Application for Federal Assistance
+      - SF-424A Budget Information
+      - Project Narrative (max 20 pages) — Cover, Executive Summary, Project Description, Environmental Results, Programmatic Capability, Budget Narrative
+      - Letters of commitment from partner utilities / training providers
+      - SAM.gov registration
+    eligibility_rules:
+      - { fact: applicant_nonprofit_or_edu, op: eq, value: true, weight: 3, reason: "Eligible applicant type (nonprofit, higher-ed, labor, or public works)" }
+      - { fact: retirement_share_pct, op: gte, value: 15, weight: 2, reason: "Area 3 fit — elevated retirement-eligible share" }
+      - { fact: vacant_critical_positions, op: gte, value: 1, weight: 1, reason: "Documented critical vacancies strengthen need narrative" }
+      - { fact: small_rural_system_count, op: gte, value: 5, weight: 1, reason: "Small/rural utility partners available for Area 3" }
+    readiness_checklist:
+      - { id: sam_gov, label: "SAM.gov registration active", required: true }
+      - { id: grants_gov, label: "Grants.gov workspace / authorized organization representative", required: true }
+      - { id: sf424, label: "SF-424 and SF-424A drafted", required: true }
+      - { id: narrative, label: "20-page project narrative (NOFO §4.B)", required: true }
+      - { id: letters, label: "Partner commitment letters", required: true }
+      - { id: budget, label: "Budget narrative tied to SF-424A", required: true }
+    nofo_outline:
+      - { section: "1. Cover Page", hint: "Project title, Area 1–4, applicant, partners, requested amount" }
+      - { section: "2. Executive Summary", hint: "≤1 page — need, approach, outputs/outcomes" }
+      - { section: "3. Project Description", hint: "Activities, partners, recruitment, training delivery, equity" }
+      - { section: "4. Environmental Results", hint: "Outputs and outcomes linked to EPA Pillar 1" }
+      - { section: "5. Programmatic Capability / Past Performance", hint: "OWW track record, staff, fiscal controls" }
+      - { section: "6. Budget Narrative", hint: "Personnel, fringe, travel, contracts, other — align to SF-424A" }
+
+  - id: ny-wiia-dw
+    name: NYS Water Infrastructure Improvement Act — Drinking Water
+    short_name: WIIA DW
+    funder: NYS Environmental Facilities Corporation
+    level: state
+    water_focus: drinking_water
+    status: closed
+    applicant_types: [municipality, public_authority, tribal]
+    award_max_usd: 5000000
+    award_share_pct: 70
+    deadline: "2026-07-27"
+    cycle_note: "2026 round closed Jul 27; next round expected ~spring 2027. Pairable with DWSRF."
+    portal_url: "https://efc.ny.gov/wiia"
+    info_url: "https://efc.ny.gov/wiia"
+    application_components:
+      - WIIA/IMG web application (grant-only or combined with SRF)
+      - Engineering report
+      - SEQR / SHPO (not required for pure LSL scope)
+      - Smart Growth form
+      - MWBE / EEO documentation
+    eligibility_rules:
+      - { fact: is_ny_municipality, op: eq, value: true, weight: 3, reason: "NY municipality / eligible public entity" }
+      - { fact: has_dw_project_need, op: eq, value: true, weight: 2, reason: "Documented drinking-water infrastructure need" }
+      - { fact: dac_status, op: eq, value: true, weight: 1, reason: "Disadvantaged Community status strengthens award priority" }
+      - { fact: emerging_contaminant_exceedance, op: eq, value: true, weight: 2, reason: "EC above MCL may unlock enhanced WIIA share (70%, uncapped)" }
+      - { fact: lsl_inventory_needed, op: eq, value: true, weight: 1, reason: "Lead service line inventory/replacement eligible under WIIA LSL track" }
+    readiness_checklist:
+      - { id: eng_report, label: "Engineering report complete", required: true }
+      - { id: seqr, label: "SEQR / SHPO (if applicable)", required: false }
+      - { id: smart_growth, label: "Smart Growth assessment", required: true }
+      - { id: mwbe, label: "MWBE / EEO plan", required: true }
+      - { id: hardship, label: "Hardship / income survey (if seeking enhanced share)", required: false }
+
+  - id: ny-wiia-cw
+    name: NYS Water Infrastructure Improvement Act — Clean Water
+    short_name: WIIA CW
+    funder: NYS Environmental Facilities Corporation
+    level: state
+    water_focus: wastewater
+    status: closed
+    applicant_types: [municipality, public_authority, tribal]
+    award_max_usd: 25000000
+    award_share_pct: 25
+    deadline: "2026-07-27"
+    cycle_note: "2026 round closed Jul 27; enhanced awards for small/rural/DAC (pop < 3,500 + hardship)."
+    portal_url: "https://efc.ny.gov/wiia"
+    info_url: "https://efc.ny.gov/wiia"
+    eligibility_rules:
+      - { fact: is_ny_municipality, op: eq, value: true, weight: 3, reason: "NY municipality / eligible public entity" }
+      - { fact: has_ww_project_need, op: eq, value: true, weight: 2, reason: "Documented clean-water / POTW infrastructure need" }
+      - { fact: population_served, op: lt, value: 3500, weight: 1, reason: "Small/rural population may qualify for enhanced WIIA CW share" }
+      - { fact: dac_status, op: eq, value: true, weight: 1, reason: "DAC / EJ priority" }
+      - { fact: potw_snc, op: eq, value: true, weight: 1, reason: "SNC / compliance pressure supports readiness scoring" }
+    readiness_checklist:
+      - { id: eng_report, label: "Engineering report complete", required: true }
+      - { id: seqr, label: "SEQR / SHPO", required: true }
+      - { id: smart_growth, label: "Smart Growth assessment", required: true }
+      - { id: mwbe, label: "MWBE / EEO / SDVOB plan", required: true }
+
+  - id: ny-img
+    name: Intermunicipal Water Infrastructure Grants
+    short_name: IMG
+    funder: NYS Environmental Facilities Corporation
+    level: state
+    water_focus: both
+    status: closed
+    applicant_types: [municipality]
+    award_max_usd: 30000000
+    award_share_pct: 40
+    deadline: "2026-07-27"
+    cycle_note: "2026 round — no separate IMG application; use combined WIIA/IMG form."
+    portal_url: "https://efc.ny.gov/wiia"
+    eligibility_rules:
+      - { fact: is_ny_municipality, op: eq, value: true, weight: 3, reason: "Lead municipality eligible" }
+      - { fact: multi_municipality_project, op: eq, value: true, weight: 3, reason: "Shared / interconnection project across municipalities" }
+    readiness_checklist:
+      - { id: intermuni_agreement, label: "Intermunicipal agreement / lead designation", required: true }
+      - { id: eng_report, label: "Engineering report", required: true }
+
+  - id: ny-dwsrf
+    name: Drinking Water State Revolving Fund
+    short_name: DWSRF
+    funder: NYS EFC / NYSDOH
+    level: state
+    water_focus: drinking_water
+    status: open
+    applicant_types: [municipality, public_water_system]
+    deadline: null
+    cycle_note: "Annual IUP listing — 2027 IUP listing forms due ~May 2026 window; financing rolling after listing."
+    portal_url: "https://efc.ny.gov/dwsrf"
+    info_url: "https://efc.ny.gov/dwsrf"
+    eligibility_rules:
+      - { fact: is_ny_municipality, op: eq, value: true, weight: 2, reason: "Eligible DWSRF applicant" }
+      - { fact: has_dw_project_need, op: eq, value: true, weight: 2, reason: "Project ready for IUP listing" }
+      - { fact: mhi_below_state, op: eq, value: true, weight: 1, reason: "Hardship / interest-free financing pathway" }
+    readiness_checklist:
+      - { id: listing_form, label: "IUP listing form submitted", required: true }
+      - { id: eng_report, label: "Acceptable engineering report", required: true }
+      - { id: smart_growth, label: "Smart Growth form", required: true }
+
+  - id: ny-cwsrf
+    name: Clean Water State Revolving Fund
+    short_name: CWSRF
+    funder: NYS EFC / NYSDEC
+    level: state
+    water_focus: wastewater
+    status: open
+    applicant_types: [municipality]
+    deadline: null
+    cycle_note: "Annual IUP; hardship interest-free financing available."
+    portal_url: "https://efc.ny.gov/cwsrf"
+    eligibility_rules:
+      - { fact: is_ny_municipality, op: eq, value: true, weight: 2, reason: "Eligible CWSRF applicant" }
+      - { fact: has_ww_project_need, op: eq, value: true, weight: 2, reason: "Clean-water project need" }
+      - { fact: mhi_below_state, op: eq, value: true, weight: 1, reason: "Hardship financing fit" }
+    readiness_checklist:
+      - { id: listing_form, label: "IUP listing form", required: true }
+      - { id: eng_report, label: "Engineering report (CWSRF outline)", required: true }
+
+  - id: ny-epg
+    name: Engineering Planning Grant
+    short_name: EPG
+    funder: NYS Environmental Facilities Corporation
+    level: state
+    water_focus: wastewater
+    status: open
+    applicant_types: [municipality]
+    cycle_note: "Planning grants for hardship communities preparing CWSRF projects."
+    portal_url: "https://efc.ny.gov/"
+    eligibility_rules:
+      - { fact: is_ny_municipality, op: eq, value: true, weight: 2, reason: "NY municipality" }
+      - { fact: mhi_below_state, op: eq, value: true, weight: 3, reason: "Hardship community priority for EPG" }
+      - { fact: has_ww_project_need, op: eq, value: true, weight: 1, reason: "Planning toward CWSRF-eligible project" }
+    readiness_checklist:
+      - { id: scope, label: "Planning scope / consultant RFP", required: true }
+
+  - id: ny-gigp
+    name: Green Innovation Grant Program
+    short_name: GIGP
+    funder: NYS Environmental Facilities Corporation
+    level: state
+    water_focus: both
+    status: open
+    applicant_types: [municipality]
+    portal_url: "https://efc.ny.gov/gigp"
+    eligibility_rules:
+      - { fact: is_ny_municipality, op: eq, value: true, weight: 2, reason: "Eligible GIGP applicant" }
+      - { fact: green_infrastructure_project, op: eq, value: true, weight: 3, reason: "Green infrastructure / stormwater innovation project" }
+    readiness_checklist:
+      - { id: concept, label: "Green infrastructure concept & budget", required: true }
+
+  - id: ny-lslr
+    name: Lead Service Line Replacement (BIL / WIIA LSL track)
+    short_name: LSLR
+    funder: NYS EFC / BIL
+    level: state
+    water_focus: drinking_water
+    status: open
+    applicant_types: [municipality]
+    cycle_note: "Inventory up to $2M at 100%; replacement 70% up to $10M under 2026 WIIA LSL rules."
+    portal_url: "https://efc.ny.gov/wiia"
+    eligibility_rules:
+      - { fact: is_ny_municipality, op: eq, value: true, weight: 2, reason: "NY municipality" }
+      - { fact: lsl_inventory_needed, op: eq, value: true, weight: 3, reason: "LSL inventory or replacement need documented" }
+    readiness_checklist:
+      - { id: inventory, label: "LSL inventory status / LCRI compliance plan", required: true }
+
+  - id: ny-ec-sdc
+    name: Emerging Contaminants — Small/Disadvantaged Communities
+    short_name: EC-SDC
+    funder: EPA / NYS via SRF set-asides
+    level: federal
+    water_focus: drinking_water
+    status: open
+    applicant_types: [municipality, public_water_system]
+    portal_url: "https://efc.ny.gov/dwsrf"
+    eligibility_rules:
+      - { fact: emerging_contaminant_exceedance, op: eq, value: true, weight: 3, reason: "PFAS / 1,4-dioxane (or other EC) above MCL" }
+      - { fact: dac_status, op: eq, value: true, weight: 2, reason: "Small or disadvantaged community" }
+      - { fact: population_served, op: lte, value: 10000, weight: 1, reason: "Small-system preference" }
+    readiness_checklist:
+      - { id: sample_data, label: "Lab results documenting EC exceedance", required: true }
+
+  - id: ny-wqip
+    name: Water Quality Improvement Project Program
+    short_name: WQIP
+    funder: NYS Department of Environmental Conservation
+    level: state
+    water_focus: wastewater
+    status: open
+    applicant_types: [municipality, soil_water_district]
+    portal_url: "https://dec.ny.gov/natural/water/water-quality-improvement-project"
+    eligibility_rules:
+      - { fact: is_ny_municipality, op: eq, value: true, weight: 2, reason: "Eligible WQIP applicant" }
+      - { fact: has_ww_project_need, op: eq, value: true, weight: 2, reason: "Water-quality improvement project" }
+    readiness_checklist:
+      - { id: wqip_app, label: "WQIP application package", required: true }
+
+  - id: usda-wwd
+    name: USDA Rural Development — Water & Waste Disposal Loan & Grant
+    short_name: USDA WWD
+    funder: USDA Rural Development
+    level: federal
+    water_focus: both
+    status: open
+    applicant_types: [municipality, nonprofit, tribal]
+    deadline: null
+    cycle_note: "Rolling Oct 1–Sep 30 via RD Apply. Pop ≤10,000. FY2026 rates poverty 2.875% / intermediate 3.750% / market 4.750%."
+    portal_url: "https://www.rd.usda.gov/programs-services/water-environmental-programs/water-waste-disposal-loan-grant-program"
+    eligibility_rules:
+      - { fact: population_served, op: lte, value: 10000, weight: 3, reason: "Rural area / town population ≤ 10,000" }
+      - { fact: has_dw_or_ww_need, op: eq, value: true, weight: 2, reason: "Water or waste disposal project need" }
+      - { fact: cannot_finance_commercially, op: eq, value: true, weight: 1, reason: "Unable to obtain reasonable commercial credit" }
+    readiness_checklist:
+      - { id: rd_apply, label: "RD Apply account & preliminary engineering", required: true }
+      - { id: env_review, label: "Environmental review pathway identified", required: true }
+
+  - id: usda-search
+    name: USDA SEARCH — Special Evaluation Assistance for Rural Communities
+    short_name: USDA SEARCH
+    funder: USDA Rural Development
+    level: federal
+    water_focus: both
+    status: open
+    applicant_types: [municipality]
+    cycle_note: "Predevelopment for financially distressed communities ≤2,500."
+    portal_url: "https://www.rd.usda.gov/programs-services/water-environmental-programs"
+    eligibility_rules:
+      - { fact: population_served, op: lte, value: 2500, weight: 3, reason: "Very small community ≤ 2,500" }
+      - { fact: mhi_below_state, op: eq, value: true, weight: 2, reason: "Financially distressed" }
+    readiness_checklist:
+      - { id: contact_rd, label: "Contact state RD office", required: true }
+
+  - id: epa-wifia
+    name: Water Infrastructure Finance and Innovation Act
+    short_name: WIFIA
+    funder: U.S. EPA
+    level: federal
+    water_focus: both
+    status: open
+    applicant_types: [municipality, utility, state_srf]
+    cycle_note: "Large projects typically ≥$20M; letters of interest accepted on EPA schedule."
+    portal_url: "https://www.epa.gov/wifia"
+    eligibility_rules:
+      - { fact: project_cost_usd, op: gte, value: 20000000, weight: 3, reason: "Project scale typically meets WIFIA threshold" }
+      - { fact: has_dw_or_ww_need, op: eq, value: true, weight: 1, reason: "Eligible water infrastructure project" }
+    readiness_checklist:
+      - { id: loi, label: "Letter of Interest drafted", required: true }
+
+  - id: efc-cats
+    name: EFC Community Assistance Teams (technical assistance)
+    short_name: EFC CATs
+    funder: NYS Environmental Facilities Corporation
+    level: state
+    water_focus: both
+    status: open
+    applicant_types: [municipality]
+    cycle_note: "Non-competitive TA — focus on small, rural, disadvantaged communities that have not previously accessed funding."
+    portal_url: "https://efc.ny.gov/"
+    eligibility_rules:
+      - { fact: is_ny_municipality, op: eq, value: true, weight: 2, reason: "NY community" }
+      - { fact: never_received_water_funding, op: eq, value: true, weight: 2, reason: "First-time funding seeker (CAT priority)" }
+      - { fact: population_served, op: lt, value: 10000, weight: 1, reason: "Small/rural focus" }
+    readiness_checklist:
+      - { id: cat_meeting, label: "Schedule CAT intake meeting", required: true }
+
+  - id: ny-septic-replacement
+    name: NY Septic System Replacement Fund
+    short_name: Septic Replacement
+    funder: NYSDEC / counties
+    level: state
+    water_focus: wastewater
+    status: open
+    applicant_types: [homeowner_via_county]
+    portal_url: "https://dec.ny.gov/"
+    eligibility_rules:
+      - { fact: septic_priority_area, op: eq, value: true, weight: 3, reason: "Property in designated septic priority area" }
+    readiness_checklist:
+      - { id: county_program, label: "Confirm county participation & income limits", required: true }

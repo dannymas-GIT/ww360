@@ -185,14 +185,7 @@ export default function DocumentStudioPage() {
     if (folderParam && folderParam !== folderSel) setFolderSel(folderParam);
   }, [params]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Grants Studio deep link (?template=epa-iwiwd-2026-narrative) → open New document gallery
-  useEffect(() => {
-    if (templateDeepLinkHandled.current) return;
-    if (!deepLinkTemplateId || !templateById(deepLinkTemplateId)) return;
-    if (!accessQ.isSuccess || !canAuthor) return;
-    templateDeepLinkHandled.current = true;
-    setNewOpen(true);
-  }, [deepLinkTemplateId, accessQ.isSuccess, canAuthor]);
+  // Grants Studio deep link handled after createMut is defined (auto-create below).
 
   useEffect(() => {
     if (doc) setTitleDraft(doc.title);
@@ -436,6 +429,38 @@ export default function DocumentStudioPage() {
     },
     onError: err => toast({ title: 'Could not create document', description: errMessage(err), variant: 'destructive' }),
   });
+
+  // Grants / readiness "Open in Studio" (?template=…) → create that template immediately
+  // instead of dropping the user on a blank New document gallery.
+  useEffect(() => {
+    if (templateDeepLinkHandled.current) return;
+    if (!deepLinkTemplateId) return;
+    const tpl = templateById(deepLinkTemplateId);
+    if (!tpl) return;
+    if (!accessQ.isSuccess || !canAuthor) return;
+    templateDeepLinkHandled.current = true;
+    const folder_id =
+      folderSel !== ALL_DOCS && folderSel !== UNFILED ? folderSel : null;
+    createMut.mutate(
+      {
+        title: tpl.name,
+        folder_id,
+        template_id: tpl.id,
+        markdown: tpl.markdown,
+      },
+      {
+        onSettled: () => {
+          const next = new URLSearchParams(params);
+          next.delete('template');
+          setParams(next, { replace: true });
+        },
+        onError: () => {
+          // Fall back to the gallery with the template pre-selected.
+          setNewOpen(true);
+        },
+      }
+    );
+  }, [deepLinkTemplateId, accessQ.isSuccess, canAuthor, folderSel]); // createMut.mutate is stable enough; ref gates once
 
   const importMut = useMutation({
     mutationFn: (file: File) =>

@@ -15,6 +15,9 @@ import {
   type GrantProgram,
 } from '@/services/grantsService';
 import { GrantsTourOverlay, requestOpenGrantsTour } from './GrantsTourOverlay';
+import { GrantsHint, GrantsHintLabel } from './GrantsHint';
+import { GRANTS_PAGE_HINTS, readinessHintFor } from './grantsHints';
+import { useGrantsHints } from './useGrantsHints';
 
 const EPA_PROGRAM_ID = 'epa-iwiwd-2026';
 const STUDIO_TEMPLATE_ID = 'epa-iwiwd-2026-narrative';
@@ -40,6 +43,7 @@ export default function GrantDetailPage() {
   const [ensureError, setEnsureError] = useState<string | null>(null);
 
   const isEpa = programId === EPA_PROGRAM_ID;
+  const { hintsEnabled, setHintsEnabled, toggleHints } = useGrantsHints();
 
   useEffect(() => {
     if (!programId) return;
@@ -129,6 +133,16 @@ export default function GrantDetailPage() {
               <CircleHelp className="mr-1 h-4 w-4" aria-hidden />
               How to use this
             </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="min-h-[44px] border-white/20 bg-white/5 text-base text-white hover:bg-white/15 md:min-h-9"
+              onClick={toggleHints}
+              aria-pressed={hintsEnabled}
+            >
+              {hintsEnabled ? 'Hints on' : 'Hints off'}
+            </Button>
             <Link to="/grants" className="text-base text-white underline">
               ← All programs
             </Link>
@@ -157,12 +171,20 @@ export default function GrantDetailPage() {
               </Badge>
             )}
             {fitPct != null && (
-              <Badge
-                variant="outline"
-                className="min-h-[28px] border-sky-200 bg-sky-50 text-sm text-sky-900"
-              >
-                {Math.round(Number(fitPct))}% eligibility fit
-              </Badge>
+              <span className="inline-flex items-center gap-1">
+                <Badge
+                  variant="outline"
+                  className="min-h-[28px] border-sky-200 bg-sky-50 text-sm text-sky-900"
+                >
+                  {Math.round(Number(fitPct))}% eligibility fit
+                </Badge>
+                <GrantsHint
+                  text={GRANTS_PAGE_HINTS.fitScore}
+                  enabled={hintsEnabled}
+                  onDisableHints={() => setHintsEnabled(false)}
+                  className="min-h-9 min-w-9"
+                />
+              </span>
             )}
             {(program.award_min_usd != null || program.award_max_usd != null) && (
               <Badge variant="outline" className="min-h-[28px] text-sm">
@@ -213,13 +235,21 @@ export default function GrantDetailPage() {
                     'Ensure OWW application'
                   )}
                 </Button>
-                <Link
-                  to={`/studio?template=${STUDIO_TEMPLATE_ID}`}
-                  className="inline-flex min-h-[44px] items-center gap-2 rounded-md bg-sky-700 px-4 text-base font-medium text-white hover:bg-sky-800"
-                >
-                  <FileText className="h-4 w-4" aria-hidden />
-                  Open studio template
-                </Link>
+                <span className="inline-flex flex-wrap items-center gap-1">
+                  <Link
+                    to={`/studio?template=${STUDIO_TEMPLATE_ID}`}
+                    className="inline-flex min-h-[44px] items-center gap-2 rounded-md bg-sky-700 px-4 text-base font-medium text-white hover:bg-sky-800"
+                  >
+                    <FileText className="h-4 w-4" aria-hidden />
+                    Open EPA IWIWD narrative template
+                  </Link>
+                  <GrantsHint
+                    text={GRANTS_PAGE_HINTS.iwiwd}
+                    enabled={hintsEnabled}
+                    onDisableHints={() => setHintsEnabled(false)}
+                    className="min-h-9 min-w-9"
+                  />
+                </span>
               </>
             )}
           </div>
@@ -234,6 +264,14 @@ export default function GrantDetailPage() {
               tourId="grant-eligibility"
               title="Eligibility rules"
               dataMode="live"
+              action={
+                <GrantsHint
+                  text={GRANTS_PAGE_HINTS.eligibility}
+                  enabled={hintsEnabled}
+                  onDisableHints={() => setHintsEnabled(false)}
+                  className="min-h-9 min-w-9"
+                />
+              }
             >
               <ul className="space-y-3">
                 {program.eligibility_rules!.map((rule, idx) => (
@@ -261,7 +299,19 @@ export default function GrantDetailPage() {
           )}
 
           {(program.nofo_outline?.length || 0) > 0 && (
-            <Ww360Section tourId="grant-nofo" title="NOFO outline" dataMode="live">
+            <Ww360Section
+              tourId="grant-nofo"
+              title="NOFO outline"
+              dataMode="live"
+              action={
+                <GrantsHint
+                  text={GRANTS_PAGE_HINTS.nofo}
+                  enabled={hintsEnabled}
+                  onDisableHints={() => setHintsEnabled(false)}
+                  className="min-h-9 min-w-9"
+                />
+              }
+            >
               <ol className="list-decimal space-y-3 pl-5">
                 {program.nofo_outline!.map(section => (
                   <li key={section.section} className="text-[1.125rem] leading-relaxed">
@@ -294,14 +344,20 @@ export default function GrantDetailPage() {
                           className="mt-0.5 inline-flex h-5 w-5 shrink-0 rounded border border-slate-300"
                           aria-hidden
                         />
-                        <span>
-                          {item.label}
-                          {item.required ? (
-                            <span className="ml-2 text-sm text-slate-500">Required</span>
-                          ) : null}
-                        </span>
+                        <GrantsHintLabel
+                          label={item.label}
+                          hint={readinessHintFor(item.id, item.label)}
+                          enabled={hintsEnabled}
+                          onDisableHints={() => setHintsEnabled(false)}
+                          trailing={
+                            item.required ? (
+                              <span className="ml-1 text-sm text-slate-500">Required</span>
+                            ) : null
+                          }
+                        />
                       </div>
                       {templateId ? (
+                        <span className="inline-flex items-center gap-1">
                         <Link
                           to={`/studio?template=${encodeURIComponent(templateId)}`}
                           className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-md border border-sky-300 bg-sky-50 px-4 text-base font-medium text-sky-900 hover:bg-sky-100"
@@ -309,6 +365,13 @@ export default function GrantDetailPage() {
                           <FileText className="h-4 w-4" aria-hidden />
                           Open in Studio
                         </Link>
+                        <GrantsHint
+                          text={GRANTS_PAGE_HINTS.openInStudio}
+                          enabled={hintsEnabled}
+                          onDisableHints={() => setHintsEnabled(false)}
+                          className="min-h-9 min-w-9"
+                        />
+                        </span>
                       ) : null}
                     </li>
                   );

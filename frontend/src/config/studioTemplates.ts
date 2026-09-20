@@ -297,9 +297,8 @@ Links, handouts and equipment the instructor needs on day one.
     description:
       'NOFO outline for EPA-OW-OWM-26-03 — Cover through Budget with autofill placeholders.',
     category: 'grant',
-    audiences: ['program'],
-    preview: 'Cover · Exec summary · Project · Results · Capability · Budget',
-    markdown: `# EPA Innovative Water Infrastructure Workforce Development — Project Narrative
+    audiences: ['program', 'district'],
+    preview: 'Cover · Exec summary · Project · Results · Capability · Budget',    markdown: `# EPA Innovative Water Infrastructure Workforce Development — Project Narrative
 
 **Opportunity:** EPA-OW-OWM-26-03 ({{opportunity_number}})  
 **Applicant:** {{applicant}}  
@@ -382,7 +381,7 @@ Align personnel, fringe, travel, contracts, and other direct costs to SF-424A.
     description:
       'Worksheet to draft Application for Federal Assistance and Budget Information before Grants.gov upload.',
     category: 'grant',
-    audiences: ['program'],
+    audiences: ['program', 'district'],
     preview: 'Applicant · UEI · budget categories · match',
     markdown: `# SF-424 / SF-424A draft — EPA-OW-OWM-26-03
 
@@ -436,7 +435,7 @@ Align dollar totals with the Budget Narrative template before upload.
     name: 'EPA IWIWD budget narrative',
     description: 'Line-item budget narrative tied to SF-424A object classes for EPA-OW-OWM-26-03.',
     category: 'grant',
-    audiences: ['program'],
+    audiences: ['program', 'district'],
     preview: 'Personnel · fringe · travel · contracts · other',
     markdown: `# Budget Narrative — EPA-OW-OWM-26-03
 
@@ -500,7 +499,7 @@ Rate source (NICRA / de minimis) and base:
     name: 'EPA IWIWD partner commitment letter',
     description: 'Letter of commitment from a partner utility or training provider.',
     category: 'grant',
-    audiences: ['program'],
+    audiences: ['program', 'district'],
     preview: 'Role · commitment · signature',
     markdown: `# Letter of Commitment — EPA Innovative Water Infrastructure Workforce Development
 
@@ -547,7 +546,7 @@ Sincerely,
     name: 'EPA IWIWD SAM.gov readiness',
     description: 'Internal checklist to confirm SAM.gov registration before Grants.gov submit.',
     category: 'grant',
-    audiences: ['program'],
+    audiences: ['program', 'district'],
     preview: 'UEI · entity · reps · expiration',
     markdown: `# SAM.gov registration readiness — EPA-OW-OWM-26-03
 
@@ -585,7 +584,7 @@ SAM.gov is required before award. Complete this checklist and keep a screenshot 
     name: 'EPA IWIWD Grants.gov workspace',
     description: 'Workspace and AOR setup checklist for EPA-OW-OWM-26-03 submission.',
     category: 'grant',
-    audiences: ['program'],
+    audiences: ['program', 'district'],
     preview: 'Workspace · AOR · forms · submit',
     markdown: `# Grants.gov workspace / AOR — EPA-OW-OWM-26-03
 

@@ -14,6 +14,7 @@ import {
   STUDIO_TEMPLATE_CATEGORIES,
   groupedTemplatesForAudience,
   newDocumentDialogBlurb,
+  templateById,
   type StudioTemplate,
   type StudioTemplateAudience,
 } from '@/config/studioTemplates';
@@ -52,21 +53,48 @@ export function NewDocumentDialog({
   const [folderId, setFolderId] = useState<string | null>(defaultFolderId);
   const [templateId, setTemplateId] = useState<string>('blank');
 
+  const deepLinkTemplate = useMemo(
+    () => (initialTemplateId ? templateById(initialTemplateId) : undefined),
+    [initialTemplateId]
+  );
+
   React.useEffect(() => {
     if (open) {
-      setTitle('');
+      const selected = deepLinkTemplate?.id || 'blank';
       setFolderId(defaultFolderId);
-      setTemplateId(initialTemplateId || 'blank');
+      setTemplateId(selected);
+      // Prefill title from the deep-linked template so Create is one click.
+      setTitle(deepLinkTemplate && deepLinkTemplate.id !== 'blank' ? deepLinkTemplate.name : '');
     }
-  }, [open, defaultFolderId, initialTemplateId]);
+  }, [open, defaultFolderId, deepLinkTemplate]);
 
-  const grouped = useMemo(() => groupedTemplatesForAudience(audience), [audience]);
+  const grouped = useMemo(() => {
+    const base = groupedTemplatesForAudience(audience);
+    // Deep-linked templates (e.g. EPA grant packets) may be program-only while the
+    // signed-in audience is district — still inject so selection does not fall back.
+    if (deepLinkTemplate && !base.some(g => g.items.some(t => t.id === deepLinkTemplate.id))) {
+      const idx = base.findIndex(g => g.category === deepLinkTemplate.category);
+      if (idx >= 0) {
+        const next = [...base];
+        next[idx] = {
+          ...next[idx],
+          items: [deepLinkTemplate, ...next[idx].items],
+        };
+        return next;
+      }
+      return [{ category: deepLinkTemplate.category, items: [deepLinkTemplate] }, ...base];
+    }
+    return base;
+  }, [audience, deepLinkTemplate]);
 
   const template = useMemo(() => {
     const flat = grouped.flatMap(g => g.items);
-    return flat.find(t => t.id === templateId) ?? flat[0];
-  }, [grouped, templateId]);
-
+    return (
+      flat.find(t => t.id === templateId) ??
+      deepLinkTemplate ??
+      flat[0]
+    );
+  }, [grouped, templateId, deepLinkTemplate]);
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!template) return;

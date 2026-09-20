@@ -1,6 +1,8 @@
-"""Workspace customization API — module foundry + saved layouts."""
+"""Workspace customization API — module foundry + saved layouts (v2 row grid)."""
 
 from __future__ import annotations
+
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -21,16 +23,30 @@ router = APIRouter()
 VALID_PROFILES = {"national", "regional", "state_partner", "regulator", "utility"}
 
 
-class LayoutItem(BaseModel):
+class DashboardBlock(BaseModel):
+    id: str
+    type: str = Field(default="module", pattern="^(module|chart|metric|metric_group)$")
     module_id: str
-    visible: bool = True
-    size: str = Field(default="full", pattern="^(full|half)$")
+    columnSpan: int = Field(default=1, ge=1, le=3)
+    rowSpan: int = Field(default=1, ge=1, le=2)
+    config: dict[str, Any] = Field(default_factory=dict)
+
+
+class DashboardRow(BaseModel):
+    id: str
+    blocks: list[DashboardBlock] = Field(default_factory=list)
+
+
+class DashboardLayoutV2(BaseModel):
+    version: int = 2
+    rows: list[DashboardRow] = Field(default_factory=list)
 
 
 class LayoutBody(BaseModel):
     workspace_profile: str
     persona_key: str | None = None
-    layout: list[LayoutItem]
+    # Accept v2 object or legacy v1 list for a soft transition window
+    layout: DashboardLayoutV2 | list[dict[str, Any]]
 
 
 def _actor_id(context: TenantContext) -> int:
@@ -40,6 +56,12 @@ def _actor_id(context: TenantContext) -> int:
 
 def _persona_key(raw: str | None) -> str:
     return (raw or "").strip()[:80]
+
+
+def _layout_payload(raw: DashboardLayoutV2 | list[dict[str, Any]] | dict[str, Any] | list[Any]) -> Any:
+    if isinstance(raw, DashboardLayoutV2):
+        return raw.model_dump()
+    return raw
 
 
 @router.get("/modules")
@@ -76,7 +98,14 @@ def get_layout(
         .one_or_none()
     )
     if row:
-        layout = validate_layout(list(row.layout or []), profile)
+        layout = validate_layout(row.layout, profile)
+        # Persist migrated v2 so subsequent reads stay consistent
+        if isinstance(row.layout, list) or (
+            isinstance(row.layout, dict) and row.layout.get("version") != 2
+        ):
+            row.layout = layout
+            db.commit()
+            db.refresh(row)
         return {
             "workspace_profile": profile,
             "persona_key": pk or None,
@@ -107,7 +136,7 @@ def put_layout(
     profile = body.workspace_profile if body.workspace_profile in VALID_PROFILES else "state_partner"
     pk = _persona_key(body.persona_key)
     user_id = _actor_id(context)
-    layout = validate_layout([i.model_dump() for i in body.layout], profile)
+    layout = validate_layout(_layout_payload(body.layout), profile)
 
     row = (
         db.query(WorkspaceCustomization)

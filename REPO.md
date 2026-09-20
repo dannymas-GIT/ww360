@@ -91,14 +91,15 @@ Jenny (`jenny-oww`) and other platform/state admins see **View as role** in the 
 
 **Data modes:** every KPI/chart shows **Live**, **Sample** (illustrative demo pack), or **Mixed**. Live public adapters (SDWIS, BLS, national API) take precedence when fresh; illustrative packs (`frontend/src/data/demoMetrics/`) fill gaps and are labeled with source ids.
 
-### Customize home (panel library)
+### Customize home (row grid)
 
-Available to **all authenticated roles**. Sidebar **Customize home** opens the panel library (building blocks — not “widgets”).
+Available to **all authenticated roles** on the **simplified home** (Kitchen Sink off). Sidebar **Customize home** enters inline edit mode on `/dashboard`.
 
+- **UX:** Enter Edit Mode → **Add Row** → per row **Add Chart** / **Add Widget** (categorized picker). Column span 1–3 and row span 1–2 (taller charts). Drag to reorder.
 - **API:** `GET /api/v1/workspace/modules`, `GET|PUT|DELETE /api/v1/workspace/layout`
-- Layouts are stored in Postgres (`workspace_customizations`) per user + workspace profile (+ optional persona key).
-- Preview mode can browse the library but cannot save; exit preview first.
-- Guided tour covers: identify KPIs → match to panels → save.
+- **Layout v2:** `{ version: 2, rows: [{ id, blocks: [{ id, type, module_id, columnSpan, rowSpan, config }] }] }` in Postgres (`workspace_customizations`). Legacy v1 `{ module_id, visible, size }` migrates on read.
+- Preview mode can view but cannot save; exit preview first.
+- Guided tour covers: add rows, charts/widgets, spans, save.
 
 ### Federal job listings (USAJOBS)
 

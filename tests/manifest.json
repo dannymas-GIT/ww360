@@ -349,6 +349,31 @@
         "wastewater",
         "certifications"
       ]
+    },
+    {
+      "id": "customize-home-dashboard",
+      "specFile": "frontend/e2e/customize_home_dashboard.spec.ts",
+      "pathPatterns": [
+        "frontend/src/pages/workspaces/SimplifiedWorkspaceDashboard.tsx",
+        "frontend/src/pages/workspaces/WorkspaceChartPanel.tsx",
+        "frontend/src/pages/workspaces/customizeTourContent.ts",
+        "frontend/src/components/dashboard/layout/**",
+        "frontend/src/components/ww360/CustomizeHomeButton.tsx",
+        "frontend/src/services/workspaceCustomizationService.ts",
+        "backend/app/api/v1/endpoints/workspace.py",
+        "backend/app/services/workspace_module_foundry.py",
+        "backend/app/models/workspace_customization.py"
+      ],
+      "defaultRunOn": [
+        "staging",
+        "pr"
+      ],
+      "flakeBudget": 2,
+      "tags": [
+        "ww360",
+        "dashboard",
+        "customize"
+      ]
     }
   ]
 }

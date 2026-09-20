@@ -150,9 +150,9 @@ function defaultSlides(profile: WorkspaceProfile, personaKey?: string | null): W
     {
       id: 'customize',
       title: 'Customize your home',
-      body: 'Open Customize home in the sidebar to pick panels from the library, match them to your KPIs, and save the layout for your next visit.',
+      body: 'Open Customize home in the sidebar (or Enter Edit Mode) to add rows, charts, and panels — then save the layout for your next visit.',
       highlight: '[data-tour="customize-home-btn"]',
-      tip: 'Start the customize tour from that dialog for a guided walkthrough.',
+      tip: 'Start the customize tour from the sidebar for a guided walkthrough of Add Row and spans.',
     },
     {
       id: 'jobs',

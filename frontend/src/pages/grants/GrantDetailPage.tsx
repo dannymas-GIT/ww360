@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ExternalLink, FileText, Loader2 } from 'lucide-react';
+import { CircleHelp, ExternalLink, FileText, Loader2 } from 'lucide-react';
 import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
 import { Ww360Section } from '@/components/ww360/Ww360Section';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +14,7 @@ import {
   type GrantEligibilityResponse,
   type GrantProgram,
 } from '@/services/grantsService';
+import { GrantsTourOverlay, requestOpenGrantsTour } from './GrantsTourOverlay';
 
 const EPA_PROGRAM_ID = 'epa-iwiwd-2026';
 const STUDIO_TEMPLATE_ID = 'epa-iwiwd-2026-narrative';
@@ -101,6 +102,12 @@ export default function GrantDetailPage() {
 
   return (
     <div className="mx-auto w-full max-w-[1200px] space-y-6 p-4 md:p-6" data-tour="grant-detail">
+      <GrantsTourOverlay
+        view="detail"
+        autoOpen
+        programName={program?.name}
+        isEpa={isEpa}
+      />
       <Ww360PageHero
         eyebrow="Funding program"
         title={program?.name || (loading ? 'Loading…' : 'Program')}
@@ -111,9 +118,21 @@ export default function GrantDetailPage() {
         }
         dataMode="mixed"
         actions={
-          <Link to="/grants" className="text-base text-white underline">
-            ← All programs
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="min-h-[44px] border-white/20 bg-white/5 text-base text-white hover:bg-white/15 md:min-h-9"
+              onClick={() => requestOpenGrantsTour(0)}
+            >
+              <CircleHelp className="mr-1 h-4 w-4" aria-hidden />
+              How to use this
+            </Button>
+            <Link to="/grants" className="text-base text-white underline">
+              ← All programs
+            </Link>
+          </div>
         }
       />
 
@@ -156,7 +175,7 @@ export default function GrantDetailPage() {
             <p className="text-[1.125rem] leading-relaxed text-slate-700">{program.cycle_note}</p>
           )}
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-3" data-tour="grant-actions">
             {program.portal_url && (
               <a
                 href={program.portal_url}
@@ -263,23 +282,37 @@ export default function GrantDetailPage() {
               dataMode="live"
             >
               <ul className="space-y-2">
-                {program.readiness_checklist!.map(item => (
-                  <li
-                    key={item.id}
-                    className="flex min-h-[44px] items-center gap-3 text-[1.125rem]"
-                  >
-                    <span
-                      className="inline-flex h-5 w-5 shrink-0 rounded border border-slate-300"
-                      aria-hidden
-                    />
-                    <span>
-                      {item.label}
-                      {item.required ? (
-                        <span className="ml-2 text-sm text-slate-500">Required</span>
+                {program.readiness_checklist!.map(item => {
+                  const templateId = item.studio_template_id;
+                  return (
+                    <li
+                      key={item.id}
+                      className="flex min-h-[44px] flex-col gap-2 rounded-md border border-slate-100 bg-white px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="flex min-w-0 items-start gap-3 text-[1.125rem]">
+                        <span
+                          className="mt-0.5 inline-flex h-5 w-5 shrink-0 rounded border border-slate-300"
+                          aria-hidden
+                        />
+                        <span>
+                          {item.label}
+                          {item.required ? (
+                            <span className="ml-2 text-sm text-slate-500">Required</span>
+                          ) : null}
+                        </span>
+                      </div>
+                      {templateId ? (
+                        <Link
+                          to={`/studio?template=${encodeURIComponent(templateId)}`}
+                          className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-md border border-sky-300 bg-sky-50 px-4 text-base font-medium text-sky-900 hover:bg-sky-100"
+                        >
+                          <FileText className="h-4 w-4" aria-hidden />
+                          Open in Studio
+                        </Link>
                       ) : null}
-                    </span>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             </Ww360Section>
           )}

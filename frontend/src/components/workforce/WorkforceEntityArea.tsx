@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   buildWorkforceTabPath,
@@ -25,6 +25,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { SortableTableHead } from '@/components/ui/sortable-table-head';
+import { TableSearchFilter } from '@/components/ui/table-search-filter';
+import { useTableControls } from '@/hooks/useTableControls';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -240,10 +243,39 @@ export function WorkforceEntityArea({
     critical_functions: functionsRef.data ?? [],
   };
   const publishedRows = (listQuery.data ?? []) as Row[];
-  const displayRows = useMemo(
-    () => [...publishedRows].sort((a, b) => Number(b.id ?? 0) - Number(a.id ?? 0)),
-    [publishedRows]
+
+  const getValue = useCallback((row: Row, key: string) => {
+    const v = row[key];
+    if (v == null || v === '') return null;
+    if (typeof v === 'number' || typeof v === 'boolean') return v;
+    return String(v);
+  }, []);
+
+  const getSearchText = useCallback(
+    (row: Row) =>
+      displayColumns
+        .map(c => formatEntityCellValue(entityType, c, row, refRowsBySource))
+        .filter(v => v && v !== '—')
+        .join(' '),
+    [entityType, displayColumns, refRowsBySource]
   );
+
+  const {
+    rows: tableRows,
+    sortKey,
+    sortDir,
+    toggleSort,
+    filter,
+    setFilter,
+    resultCount,
+    totalCount,
+  } = useTableControls({
+    rows: publishedRows,
+    getValue,
+    getSearchText,
+    initialSortKey: 'id',
+    initialSortDir: 'desc',
+  });
   const sampleTemplates = showSampleTemplates && !compact ? samplesForEntity(entityType) : [];
   const dialogTheme = workforceEntityChrome(entityType).theme;
 
@@ -384,12 +416,12 @@ export function WorkforceEntityArea({
     }
   };
 
-  const showGuidance = !compact && (!showSampleTemplates || displayRows.length === 0);
-  const guidanceVariant = displayRows.length === 0 ? 'empty' : 'intro';
+  const showGuidance = !compact && (!showSampleTemplates || publishedRows.length === 0);
+  const guidanceVariant = publishedRows.length === 0 ? 'empty' : 'intro';
 
   const sampleTemplatesSection =
     sampleTemplates.length > 0 ? (
-      <details open={displayRows.length === 0} className="order-2 border-t border-slate-200 pt-6">
+      <details open={publishedRows.length === 0} className="order-2 border-t border-slate-200 pt-6">
         <summary className="cursor-pointer text-sm font-medium text-gray-900">
           Sample templates ({sampleTemplates.length} examples)
         </summary>
@@ -517,18 +549,36 @@ export function WorkforceEntityArea({
             {(listQuery.error as Error).message}
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-md border bg-white">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {displayColumns.map(c => (
-                    <TableHead key={c}>{labelForField(c)}</TableHead>
-                  ))}
-                  <TableHead className="w-24">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {displayRows.length === 0 && !listQuery.isLoading && (
+          <div className="space-y-3">
+            {!compact ? (
+              <TableSearchFilter
+                id={`${entityType}-table-filter`}
+                value={filter}
+                onChange={setFilter}
+                placeholder={`Filter ${ENTITY_LABELS[entityType].toLowerCase()}…`}
+                resultCount={resultCount}
+                totalCount={totalCount}
+              />
+            ) : null}
+            <div className="overflow-x-auto rounded-md border bg-white">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {displayColumns.map(c => (
+                      <SortableTableHead
+                        key={c}
+                        column={c}
+                        label={labelForField(c)}
+                        sortKey={sortKey}
+                        sortDir={sortDir}
+                        onSort={toggleSort}
+                      />
+                    ))}
+                    <TableHead className="w-24">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {tableRows.length === 0 && !listQuery.isLoading && (
                   <TableRow>
                     <TableCell
                       colSpan={displayColumns.length + 1}
@@ -540,7 +590,7 @@ export function WorkforceEntityArea({
                     </TableCell>
                   </TableRow>
                 )}
-                {displayRows.map((row: Row) => (
+                {tableRows.map((row: Row) => (
                   <TableRow
                     key={String(row.id)}
                     className="cursor-pointer hover:bg-slate-50"
@@ -610,6 +660,7 @@ export function WorkforceEntityArea({
                 ))}
               </TableBody>
             </Table>
+            </div>
           </div>
         )}
       </section>

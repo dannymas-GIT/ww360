@@ -11,10 +11,12 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { SortableTableHead } from '@/components/ui/sortable-table-head';
+import { TableSearchFilter } from '@/components/ui/table-search-filter';
+import { useTableControls } from '@/hooks/useTableControls';
 import { trackEvent } from '@/lib/ga4';
 import { useJurisdiction } from '@/context/JurisdictionContext';
 import { fetchNpdesLandscape, type NpdesFacility } from '@/services/npdesService';
@@ -41,6 +43,33 @@ function formatSnc(value: string | null | undefined): string {
   if (v === 'no' || v === 'n') return 'No';
   if (v === 'yes' || v === 'y') return 'Yes';
   return value;
+}
+
+function facilitySortValue(row: NpdesFacility, key: string): unknown {
+  switch (key) {
+    case 'npdes_id':
+      return row.npdes_id;
+    case 'name':
+      return row.facility_name || '';
+    case 'county':
+      return row.county || '';
+    case 'major_minor':
+      return formatMajorMinor(row.major_minor);
+    case 'design_flow':
+      return row.design_flow_mgd ?? row.total_design_flow ?? null;
+    case 'plant_class':
+      return row.plant_class || '';
+    case 'snc':
+      return formatSnc(row.snc);
+    default:
+      return null;
+  }
+}
+
+function facilitySearchText(row: NpdesFacility): string {
+  return [row.npdes_id, row.facility_name, row.county, row.plant_class]
+    .filter(Boolean)
+    .join(' ');
 }
 
 function ProgramToggle({
@@ -141,6 +170,12 @@ function WastewaterLandscape({ stateCode }: { stateCode: string }) {
     }
     return rows;
   }, [facilities, countyFilter]);
+
+  const facilityTable = useTableControls<NpdesFacility>({
+    rows: filteredRows,
+    getValue: facilitySortValue,
+    getSearchText: facilitySearchText,
+  });
 
   const isEmpty = landscape && landscape.count === 0;
 
@@ -248,21 +283,73 @@ function WastewaterLandscape({ stateCode }: { stateCode: string }) {
               </Button>
             </div>
 
+            <TableSearchFilter
+              id="potw-table-filter"
+              className="mb-3 px-1"
+              value={facilityTable.filter}
+              onChange={facilityTable.setFilter}
+              placeholder="Filter loaded facilities…"
+              resultCount={facilityTable.resultCount}
+              totalCount={facilityTable.totalCount}
+            />
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>NPDES ID</TableHead>
-                    <TableHead>Facility name</TableHead>
-                    <TableHead>County</TableHead>
-                    <TableHead>Major/Minor</TableHead>
-                    <TableHead className="text-right">Design flow</TableHead>
-                    <TableHead>Plant class</TableHead>
-                    <TableHead>SNC</TableHead>
+                    <SortableTableHead
+                      column="npdes_id"
+                      label="NPDES ID"
+                      sortKey={facilityTable.sortKey}
+                      sortDir={facilityTable.sortDir}
+                      onSort={facilityTable.toggleSort}
+                    />
+                    <SortableTableHead
+                      column="name"
+                      label="Facility name"
+                      sortKey={facilityTable.sortKey}
+                      sortDir={facilityTable.sortDir}
+                      onSort={facilityTable.toggleSort}
+                    />
+                    <SortableTableHead
+                      column="county"
+                      label="County"
+                      sortKey={facilityTable.sortKey}
+                      sortDir={facilityTable.sortDir}
+                      onSort={facilityTable.toggleSort}
+                    />
+                    <SortableTableHead
+                      column="major_minor"
+                      label="Major/Minor"
+                      sortKey={facilityTable.sortKey}
+                      sortDir={facilityTable.sortDir}
+                      onSort={facilityTable.toggleSort}
+                    />
+                    <SortableTableHead
+                      column="design_flow"
+                      label="Design flow"
+                      align="right"
+                      sortKey={facilityTable.sortKey}
+                      sortDir={facilityTable.sortDir}
+                      onSort={facilityTable.toggleSort}
+                    />
+                    <SortableTableHead
+                      column="plant_class"
+                      label="Plant class"
+                      sortKey={facilityTable.sortKey}
+                      sortDir={facilityTable.sortDir}
+                      onSort={facilityTable.toggleSort}
+                    />
+                    <SortableTableHead
+                      column="snc"
+                      label="SNC"
+                      sortKey={facilityTable.sortKey}
+                      sortDir={facilityTable.sortDir}
+                      onSort={facilityTable.toggleSort}
+                    />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredRows.map(row => (
+                  {facilityTable.rows.map(row => (
                     <TableRow key={row.npdes_id}>
                       <TableCell className="font-mono text-[1rem]">{row.npdes_id}</TableCell>
                       <TableCell className="font-medium">{row.facility_name || '—'}</TableCell>
@@ -275,7 +362,7 @@ function WastewaterLandscape({ stateCode }: { stateCode: string }) {
                       <TableCell>{formatSnc(row.snc)}</TableCell>
                     </TableRow>
                   ))}
-                  {!filteredRows.length && (
+                  {!facilityTable.rows.length && (
                     <TableRow>
                       <TableCell colSpan={7} className="text-[1rem] text-slate-500">
                         No POTW facilities match the current filters.
@@ -286,7 +373,7 @@ function WastewaterLandscape({ stateCode }: { stateCode: string }) {
               </Table>
             </div>
             <p className="mt-3 px-1 text-[0.875rem] leading-relaxed text-slate-600">
-              Showing {filteredRows.length.toLocaleString()} of{' '}
+              Showing {facilityTable.resultCount.toLocaleString()} of{' '}
               {landscape.count.toLocaleString()} cached POTWs for {stateCode}.
             </p>
           </Ww360Section>

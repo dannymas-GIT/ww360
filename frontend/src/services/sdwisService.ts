@@ -324,6 +324,32 @@ export async function fetchWorkforceInsights(state = 'NY'): Promise<SDWISWorkfor
   return data;
 }
 
+export interface SDWISStateSystem {
+  pwsid: string;
+  pws_name?: string | null;
+  state_code: string;
+  county?: string | null;
+  pws_type?: string | null;
+  population_served?: number | null;
+  health_flag?: string | null;
+  serious_violator?: string | null;
+  snc?: string | null;
+  qtrs_with_vio?: number | null;
+  qtrs_with_snc?: number | null;
+}
+
+/** Cached EPA landscape systems for one county (utilities data card). */
+export async function fetchStateSystemsByCounty(
+  county: string,
+  state = 'NY'
+): Promise<SDWISStateSystem[]> {
+  const { data } = await axios.get<SDWISStateSystem[]>(`${base}/state-systems`, {
+    headers: headers(),
+    params: { county, state },
+  });
+  return data;
+}
+
 export async function refreshSdwisState(
   state = 'NY'
 ): Promise<{ success: boolean; state: string; systems_refreshed: number }> {

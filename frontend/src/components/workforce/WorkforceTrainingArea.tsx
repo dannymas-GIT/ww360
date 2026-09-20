@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshCw, Search, CalendarPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { SortableTableHead } from '@/components/ui/sortable-table-head';
+import { TableSearchFilter } from '@/components/ui/table-search-filter';
+import { useTableControls } from '@/hooks/useTableControls';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import {
@@ -26,7 +29,10 @@ import {
   useTriggerTrainingScrape,
   useCreateTrainingFromCourse,
 } from '@/hooks/useWorkforceSuccession';
-import type { TrainingCourseFilters } from '@/services/workforceSuccessionService';
+import type {
+  TrainingCourseFilters,
+  WorkforceTrainingCourse,
+} from '@/services/workforceSuccessionService';
 import { DeliveryModeBadge } from '@/components/workforce/workforceBadges';
 import { cn } from '@/lib/utils';
 
@@ -102,6 +108,69 @@ export function WorkforceTrainingArea({
   const coursesQuery = useTrainingCourses(filters);
   const scrapeMutation = useTriggerTrainingScrape();
   const fromCourseMutation = useCreateTrainingFromCourse();
+
+  const getValue = useCallback((course: WorkforceTrainingCourse, key: string) => {
+    switch (key) {
+      case 'description':
+        return course.course_name;
+      case 'sponsor':
+        return course.sponsor;
+      case 'location':
+        return course.location_text;
+      case 'delivery':
+        return course.delivery_mode;
+      case 'grade':
+        return course.grade;
+      case 'dates':
+        return course.start_date ?? course.end_date;
+      case 'cost':
+        return course.cost_text;
+      case 'contact':
+        return course.contact_phone ?? course.contact_email;
+      default:
+        return null;
+    }
+  }, []);
+
+  const getSearchText = useCallback(
+    (course: WorkforceTrainingCourse) =>
+      [
+        course.course_name,
+        course.description,
+        course.sponsor,
+        course.location_text,
+        course.delivery_mode,
+        course.grade,
+        course.start_date,
+        course.end_date,
+        course.cost_text,
+        course.contact_phone,
+        course.contact_email,
+        course.course_category,
+        course.cert_type,
+        course.source,
+      ]
+        .filter(v => v != null && v !== '')
+        .join(' '),
+    []
+  );
+
+  const {
+    rows: tableRows,
+    sortKey,
+    sortDir,
+    toggleSort,
+    filter: tableFilter,
+    setFilter: setTableFilter,
+    resultCount,
+    totalCount,
+  } = useTableControls({
+    rows: coursesQuery.data?.courses ?? [],
+    getValue,
+    getSearchText,
+    initialSortKey: 'description',
+    initialSortDir: 'asc',
+  });
 
   const onCreateFromCourse = async (courseId: number) => {
     if (!districtCode) {
@@ -287,33 +356,90 @@ export function WorkforceTrainingArea({
         </div>
       </div>
 
+      <TableSearchFilter
+        id="training-catalog-filter"
+        value={tableFilter}
+        onChange={setTableFilter}
+        placeholder="Filter catalog rows…"
+        resultCount={resultCount}
+        totalCount={totalCount}
+      />
+
       <div className="rounded-md border">
         <Table className="table-fixed w-full min-w-[64rem]">
           <TableHeader>
             <TableRow>
-              <TableHead className={cn(columnWidths.description, 'whitespace-normal')}>
-                Description
-              </TableHead>
-              <TableHead className={cn(columnWidths.sponsor, 'whitespace-normal')}>
-                Sponsor
-              </TableHead>
-              <TableHead className={cn(columnWidths.location, 'whitespace-normal')}>
-                Location
-              </TableHead>
-              <TableHead className={columnWidths.delivery}>Delivery</TableHead>
-              <TableHead className={columnWidths.grade}>Grade</TableHead>
-              <TableHead className={cn(columnWidths.dates, 'whitespace-normal')}>Dates</TableHead>
-              <TableHead className={cn(columnWidths.cost, 'whitespace-normal')}>Cost</TableHead>
-              <TableHead className={cn(columnWidths.contact, 'whitespace-normal')}>
-                Contact
-              </TableHead>
+              <SortableTableHead
+                column="description"
+                label="Description"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+                className={cn(columnWidths.description, 'whitespace-normal')}
+              />
+              <SortableTableHead
+                column="sponsor"
+                label="Sponsor"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+                className={cn(columnWidths.sponsor, 'whitespace-normal')}
+              />
+              <SortableTableHead
+                column="location"
+                label="Location"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+                className={cn(columnWidths.location, 'whitespace-normal')}
+              />
+              <SortableTableHead
+                column="delivery"
+                label="Delivery"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+                className={columnWidths.delivery}
+              />
+              <SortableTableHead
+                column="grade"
+                label="Grade"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+                className={columnWidths.grade}
+              />
+              <SortableTableHead
+                column="dates"
+                label="Dates"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+                className={cn(columnWidths.dates, 'whitespace-normal')}
+              />
+              <SortableTableHead
+                column="cost"
+                label="Cost"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+                className={cn(columnWidths.cost, 'whitespace-normal')}
+              />
+              <SortableTableHead
+                column="contact"
+                label="Contact"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+                className={cn(columnWidths.contact, 'whitespace-normal')}
+              />
               {districtCode && canManage ? (
                 <TableHead className={columnWidths.actions}>Actions</TableHead>
               ) : null}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {(coursesQuery.data?.courses ?? []).map(course => (
+            {tableRows.map(course => (
               <TableRow key={course.id}>
                 <TableCell className={cn(columnWidths.description, wrapCell)}>
                   <div className="space-y-1">
@@ -388,6 +514,12 @@ export function WorkforceTrainingArea({
               <TableRow>
                 <TableCell colSpan={colSpan} className="text-center text-sm text-gray-500">
                   {emptyMessage}
+                </TableCell>
+              </TableRow>
+            ) : !tableRows.length ? (
+              <TableRow>
+                <TableCell colSpan={colSpan} className="text-center text-sm text-gray-500">
+                  No courses match your table filter.
                 </TableCell>
               </TableRow>
             ) : null}

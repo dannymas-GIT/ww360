@@ -232,3 +232,22 @@ class SDWISWorkforceInsightsOut(BaseModel):
     member_watchlist: List[dict[str, Any]]
     coverage: dict[str, Any]
     last_refreshed: Optional[datetime] = None
+
+
+class SDWISStateSystemOut(BaseModel):
+    """Cached EPA landscape row (state inventory — not a district link)."""
+
+    pwsid: str
+    pws_name: Optional[str] = None
+    state_code: str
+    county: Optional[str] = None
+    pws_type: Optional[str] = None
+    population_served: Optional[int] = None
+    health_flag: Optional[str] = None
+    serious_violator: Optional[str] = None
+    snc: Optional[str] = None
+    qtrs_with_vio: Optional[int] = None
+    qtrs_with_snc: Optional[int] = None
+
+    class Config:
+        from_attributes = True

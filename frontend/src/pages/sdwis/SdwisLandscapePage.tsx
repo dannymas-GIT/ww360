@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { CircleHelp, MapPin, RefreshCw } from 'lucide-react';
+import { CountyUtilitiesCard } from '@/components/sdwis/CountyUtilitiesCard';
 import { Ww360EmptyState } from '@/components/ww360/Ww360EmptyState';
 import { Ww360DataModeBadgeLight } from '@/components/ww360/Ww360DataModeBadge';
 import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
@@ -11,23 +12,82 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { SortableTableHead } from '@/components/ui/sortable-table-head';
+import { TableSearchFilter } from '@/components/ui/table-search-filter';
+import { useTableControls } from '@/hooks/useTableControls';
 import { formatCompact } from '@/lib/format';
 import { trackEvent } from '@/lib/ga4';
 import { useJurisdiction } from '@/context/JurisdictionContext';
 import { fetchWorkforceInsights, type SDWISWorkforceInsights } from '@/services/sdwisService';
 import { LandscapeTourOverlay, requestOpenLandscapeTour } from './LandscapeTourOverlay';
 
+type CountyRow = Record<string, unknown>;
+
+const numeric = (v: unknown): number | null =>
+  v == null || v === '' || Number.isNaN(Number(v)) ? null : Number(v);
+
+function countySortValue(row: CountyRow, key: string): unknown {
+  switch (key) {
+    case 'county':
+      return String(row.county || '');
+    case 'region':
+      return String(row.economic_region_label || '');
+    case 'systems':
+      return numeric(row.linked_systems_count ?? row.systems ?? row.system_count);
+    case 'health':
+      return numeric(
+        row.health_flag_count ?? row.health_violations ?? row.health_violation_systems
+      );
+    case 'snc':
+      return numeric(row.snc_count ?? row.snc);
+    default:
+      return null;
+  }
+}
+
+function countySearchText(row: CountyRow): string {
+  return `${String(row.county || '')} ${String(row.economic_region_label || '')}`;
+}
+
+type LabeledCountRow = { label: string; count: number; order: number };
+
+const TIER_ORDER = ['very_small', 'small', 'medium', 'large', 'very_large'] as const;
+const GRADE_ORDER = ['A', 'B', 'C', 'D'] as const;
+
+function labeledCountSortValue(row: LabeledCountRow, key: string): unknown {
+  if (key === 'label') return row.order;
+  if (key === 'count') return row.count;
+  return '';
+}
+
 export default function SdwisLandscapePage({ embedded = false }: { embedded?: boolean }) {
   const { activeState, pack } = useJurisdiction();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [insights, setInsights] = useState<SDWISWorkforceInsights | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [countyFilter, setCountyFilter] = useState<string>('all');
   const [regionFilter, setRegionFilter] = useState<string>('all');
+
+  const selectedCounty = (searchParams.get('county') || '').trim();
+
+  const openCounty = (county: string) => {
+    const name = county.trim();
+    if (!name) return;
+    const next = new URLSearchParams(searchParams);
+    next.set('county', name);
+    setSearchParams(next);
+    trackEvent('sdwis_county_drilldown', { county: name, state: activeState });
+  };
+
+  const clearCounty = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('county');
+    setSearchParams(next);
+  };
 
   const regions = pack?.economic_regions ?? [];
 
@@ -62,6 +122,14 @@ export default function SdwisLandscapePage({ embedded = false }: { embedded?: bo
   const allCounties = insights?.compliance_pressure_by_county || [];
   const sizeTiers = insights?.size_tiers || {};
   const gradeDemand = insights?.grade_demand_estimate || {};
+
+  const selectedCountyRow = useMemo(() => {
+    if (!selectedCounty) return null;
+    const want = selectedCounty.toLowerCase();
+    return (
+      allCounties.find(r => String(r.county || '').trim().toLowerCase() === want) ?? null
+    );
+  }, [allCounties, selectedCounty]);
 
   const countyOptions = useMemo(() => {
     let rows = [...allCounties];
@@ -108,6 +176,43 @@ export default function SdwisLandscapePage({ embedded = false }: { embedded?: bo
       setCountyFilter('all');
     }
   }, [countyFilter, regionFilter, allCounties, regionCountySet]);
+
+  const sizeTierRows = useMemo<LabeledCountRow[]>(
+    () =>
+      TIER_ORDER.map((label, order) => ({
+        label,
+        count: Number(sizeTiers[label] ?? 0),
+        order,
+      })),
+    [sizeTiers]
+  );
+  const gradeDemandRows = useMemo<LabeledCountRow[]>(
+    () =>
+      GRADE_ORDER.map((label, order) => ({
+        label,
+        count: Number(gradeDemand[label] ?? 0),
+        order,
+      })),
+    [gradeDemand]
+  );
+
+  const sizeTierTable = useTableControls<LabeledCountRow>({
+    rows: sizeTierRows,
+    getValue: labeledCountSortValue,
+    initialSortKey: 'label',
+    initialSortDir: 'asc',
+  });
+  const gradeDemandTable = useTableControls<LabeledCountRow>({
+    rows: gradeDemandRows,
+    getValue: labeledCountSortValue,
+    initialSortKey: 'label',
+    initialSortDir: 'asc',
+  });
+  const countyTable = useTableControls<CountyRow>({
+    rows: counties,
+    getValue: countySortValue,
+    getSearchText: countySearchText,
+  });
 
   const isEmpty =
     insights &&
@@ -188,6 +293,32 @@ export default function SdwisLandscapePage({ embedded = false }: { embedded?: bo
         />
       ) : insights ? (
         <>
+          {selectedCounty ? (
+            <CountyUtilitiesCard
+              county={selectedCounty}
+              stateCode={activeState}
+              regionLabel={
+                selectedCountyRow
+                  ? String(selectedCountyRow.economic_region_label || '') || null
+                  : null
+              }
+              summary={{
+                systems: numeric(
+                  selectedCountyRow?.linked_systems_count ??
+                    selectedCountyRow?.systems ??
+                    selectedCountyRow?.system_count
+                ),
+                health: numeric(
+                  selectedCountyRow?.health_flag_count ??
+                    selectedCountyRow?.health_violations ??
+                    selectedCountyRow?.health_violation_systems
+                ),
+                snc: numeric(selectedCountyRow?.snc_count ?? selectedCountyRow?.snc),
+              }}
+              onBack={clearCounty}
+            />
+          ) : (
+            <>
           <div className="space-y-2" data-tour="landscape-kpis">
             <div className="flex flex-wrap items-center gap-2">
               <Ww360DataModeBadgeLight
@@ -241,26 +372,32 @@ export default function SdwisLandscapePage({ embedded = false }: { embedded?: bo
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Tier</TableHead>
-                    <TableHead className="text-right">Systems</TableHead>
+                    <SortableTableHead
+                      column="label"
+                      label="Tier"
+                      sortKey={sizeTierTable.sortKey}
+                      sortDir={sizeTierTable.sortDir}
+                      onSort={sizeTierTable.toggleSort}
+                    />
+                    <SortableTableHead
+                      column="count"
+                      label="Systems"
+                      align="right"
+                      sortKey={sizeTierTable.sortKey}
+                      sortDir={sizeTierTable.sortDir}
+                      onSort={sizeTierTable.toggleSort}
+                    />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {Object.entries(sizeTiers).map(([tier, count]) => (
-                    <TableRow key={tier}>
-                      <TableCell>{tier}</TableCell>
+                  {sizeTierTable.rows.map(row => (
+                    <TableRow key={row.label}>
+                      <TableCell>{row.label}</TableCell>
                       <TableCell className="text-right tabular-nums">
-                        {Number(count).toLocaleString()}
+                        {row.count.toLocaleString()}
                       </TableCell>
                     </TableRow>
                   ))}
-                  {!Object.keys(sizeTiers).length && (
-                    <TableRow>
-                      <TableCell colSpan={2} className="text-[1rem] text-slate-500">
-                        No size-tier data yet.
-                      </TableCell>
-                    </TableRow>
-                  )}
                 </TableBody>
               </Table>
             </Ww360Section>
@@ -279,26 +416,32 @@ export default function SdwisLandscapePage({ embedded = false }: { embedded?: bo
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Grade</TableHead>
-                    <TableHead className="text-right">Est. demand</TableHead>
+                    <SortableTableHead
+                      column="label"
+                      label="Grade"
+                      sortKey={gradeDemandTable.sortKey}
+                      sortDir={gradeDemandTable.sortDir}
+                      onSort={gradeDemandTable.toggleSort}
+                    />
+                    <SortableTableHead
+                      column="count"
+                      label="Est. demand"
+                      align="right"
+                      sortKey={gradeDemandTable.sortKey}
+                      sortDir={gradeDemandTable.sortDir}
+                      onSort={gradeDemandTable.toggleSort}
+                    />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {Object.entries(gradeDemand).map(([grade, count]) => (
-                    <TableRow key={grade}>
-                      <TableCell>{grade}</TableCell>
+                  {gradeDemandTable.rows.map(row => (
+                    <TableRow key={row.label}>
+                      <TableCell>{row.label}</TableCell>
                       <TableCell className="text-right tabular-nums">
-                        {Number(count).toLocaleString()}
+                        {row.count.toLocaleString()}
                       </TableCell>
                     </TableRow>
                   ))}
-                  {!Object.keys(gradeDemand).length && (
-                    <TableRow>
-                      <TableCell colSpan={2} className="text-[1rem] text-slate-500">
-                        No grade-demand data yet.
-                      </TableCell>
-                    </TableRow>
-                  )}
                 </TableBody>
               </Table>
             </Ww360Section>
@@ -307,7 +450,7 @@ export default function SdwisLandscapePage({ embedded = false }: { embedded?: bo
           <Ww360Section
             tourId="county-pressure"
             title="Compliance pressure by county"
-            eyebrow="Targeting view · live SDWIS"
+            eyebrow="Targeting view · live SDWIS · click a county for utilities"
             dataMode="live"
             sources={['sdwis']}
           >
@@ -360,26 +503,91 @@ export default function SdwisLandscapePage({ embedded = false }: { embedded?: bo
                 </p>
               ) : (
                 <p className="text-[0.875rem] leading-relaxed text-slate-600">
-                  Showing top 25 counties by compliance pressure. Pick an economic region to see
-                  every county in that REDC geography.
+                  Showing top 25 counties by compliance pressure. Click a row to open that
+                  county&apos;s utilities. Pick an economic region to see every county in that
+                  REDC geography.
                 </p>
               )}
             </div>
+            <TableSearchFilter
+              id="county-pressure-filter"
+              className="mb-3"
+              value={countyTable.filter}
+              onChange={countyTable.setFilter}
+              placeholder="Filter counties or regions…"
+              resultCount={countyTable.resultCount}
+              totalCount={countyTable.totalCount}
+            />
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>County</TableHead>
-                    <TableHead>Region</TableHead>
-                    <TableHead className="text-right">Systems</TableHead>
-                    <TableHead className="text-right">Health violations</TableHead>
-                    <TableHead className="text-right">SNC</TableHead>
+                    <SortableTableHead
+                      column="county"
+                      label="County"
+                      sortKey={countyTable.sortKey}
+                      sortDir={countyTable.sortDir}
+                      onSort={countyTable.toggleSort}
+                    />
+                    <SortableTableHead
+                      column="region"
+                      label="Region"
+                      sortKey={countyTable.sortKey}
+                      sortDir={countyTable.sortDir}
+                      onSort={countyTable.toggleSort}
+                    />
+                    <SortableTableHead
+                      column="systems"
+                      label="Systems"
+                      align="right"
+                      sortKey={countyTable.sortKey}
+                      sortDir={countyTable.sortDir}
+                      onSort={countyTable.toggleSort}
+                    />
+                    <SortableTableHead
+                      column="health"
+                      label="Health violations"
+                      align="right"
+                      sortKey={countyTable.sortKey}
+                      sortDir={countyTable.sortDir}
+                      onSort={countyTable.toggleSort}
+                    />
+                    <SortableTableHead
+                      column="snc"
+                      label="SNC"
+                      align="right"
+                      sortKey={countyTable.sortKey}
+                      sortDir={countyTable.sortDir}
+                      onSort={countyTable.toggleSort}
+                    />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {counties.map((row, idx) => (
-                    <TableRow key={String(row.county || idx)}>
-                      <TableCell className="font-medium">{String(row.county || '—')}</TableCell>
+                  {countyTable.rows.map((row, idx) => {
+                    const countyName = String(row.county || '').trim();
+                    return (
+                    <TableRow
+                      key={countyName || String(idx)}
+                      className="cursor-pointer hover:bg-slate-50 focus-within:bg-slate-50"
+                      tabIndex={countyName ? 0 : undefined}
+                      role={countyName ? 'link' : undefined}
+                      aria-label={
+                        countyName ? `Open utilities for ${countyName} County` : undefined
+                      }
+                      onClick={() => {
+                        if (countyName) openCounty(countyName);
+                      }}
+                      onKeyDown={e => {
+                        if (!countyName) return;
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          openCounty(countyName);
+                        }
+                      }}
+                    >
+                      <TableCell className="font-medium text-sky-900 underline-offset-2 hover:underline">
+                        {countyName || '—'}
+                      </TableCell>
                       <TableCell className="text-[1rem] text-slate-600">
                         {String(row.economic_region_label || '—')}
                       </TableCell>
@@ -400,8 +608,9 @@ export default function SdwisLandscapePage({ embedded = false }: { embedded?: bo
                         {String(row.snc_count ?? row.snc ?? '—')}
                       </TableCell>
                     </TableRow>
-                  ))}
-                  {!counties.length && (
+                    );
+                  })}
+                  {!countyTable.rows.length && (
                     <TableRow>
                       <TableCell colSpan={5} className="text-[1rem] text-slate-500">
                         {`No county pressure rows yet — refresh the ${activeState} landscape from Settings.`}
@@ -412,6 +621,8 @@ export default function SdwisLandscapePage({ embedded = false }: { embedded?: bo
               </Table>
             </div>
           </Ww360Section>
+            </>
+          )}
         </>
       ) : null}
     </>

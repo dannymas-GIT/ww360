@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
 import { Ww360Section } from '@/components/ww360/Ww360Section';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { SortableTableHead } from '@/components/ui/sortable-table-head';
+import { TableSearchFilter } from '@/components/ui/table-search-filter';
+import { useTableControls } from '@/hooks/useTableControls';
 import { useAuth } from '@/context/AuthContext';
 import {
   fetchAdminJurisdictions,
@@ -73,6 +76,59 @@ export default function AdminJurisdictionsPage() {
     }
   };
 
+  const orgGetValue = useCallback((org: AdminJurisdiction, key: string) => {
+    switch (key) {
+      case 'state':
+        return org.state_code;
+      case 'organization':
+        return org.name;
+      case 'status':
+        return org.is_active ? 'active' : 'inactive';
+      default:
+        return null;
+    }
+  }, []);
+
+  const orgGetSearchText = useCallback(
+    (org: AdminJurisdiction) =>
+      [org.state_code, org.name, org.org_code, org.is_active ? 'active' : 'inactive']
+        .filter(v => v != null && v !== '')
+        .join(' '),
+    []
+  );
+
+  const orgTable = useTableControls({
+    rows,
+    getValue: orgGetValue,
+    getSearchText: orgGetSearchText,
+    initialSortKey: 'state',
+    initialSortDir: 'asc',
+  });
+
+  const memberGetValue = useCallback((member: OrgMember, key: string) => {
+    switch (key) {
+      case 'user':
+        return member.username;
+      case 'role':
+        return member.role;
+      default:
+        return null;
+    }
+  }, []);
+
+  const memberGetSearchText = useCallback(
+    (member: OrgMember) => [member.username, member.role].filter(v => v != null && v !== '').join(' '),
+    []
+  );
+
+  const memberTable = useTableControls({
+    rows: members,
+    getValue: memberGetValue,
+    getSearchText: memberGetSearchText,
+    initialSortKey: 'user',
+    initialSortDir: 'asc',
+  });
+
   const assignStateAdmin = async (userId: number) => {
     if (!selectedOrg) return;
     setBusy(true);
@@ -120,17 +176,44 @@ export default function AdminJurisdictionsPage() {
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">
           <Ww360Section tourId="jurisdictions-list" title="Program organizations">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>State</TableHead>
-                  <TableHead>Organization</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map(org => (
+            <div className="space-y-3">
+              <TableSearchFilter
+                id="jurisdictions-filter"
+                value={orgTable.filter}
+                onChange={orgTable.setFilter}
+                placeholder="Filter organizations…"
+                resultCount={orgTable.resultCount}
+                totalCount={orgTable.totalCount}
+              />
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <SortableTableHead
+                      column="state"
+                      label="State"
+                      sortKey={orgTable.sortKey}
+                      sortDir={orgTable.sortDir}
+                      onSort={orgTable.toggleSort}
+                    />
+                    <SortableTableHead
+                      column="organization"
+                      label="Organization"
+                      sortKey={orgTable.sortKey}
+                      sortDir={orgTable.sortDir}
+                      onSort={orgTable.toggleSort}
+                    />
+                    <SortableTableHead
+                      column="status"
+                      label="Status"
+                      sortKey={orgTable.sortKey}
+                      sortDir={orgTable.sortDir}
+                      onSort={orgTable.toggleSort}
+                    />
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {orgTable.rows.map(org => (
                   <TableRow
                     key={org.org_code}
                     className={selectedOrg === org.org_code ? 'bg-slate-50' : undefined}
@@ -158,9 +241,17 @@ export default function AdminJurisdictionsPage() {
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                  ))}
+                  {!orgTable.rows.length && (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-sm text-slate-500">
+                        No organizations match your filter.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </Ww360Section>
 
           <Ww360Section tourId="jurisdiction-members" title="State admin assignments">
@@ -170,29 +261,53 @@ export default function AdminJurisdictionsPage() {
                   {selected.name} ({selected.state_code}) · pack {selected.content_pack_key} ·{' '}
                   {selected.district_count} districts · {selected.member_count} admins
                 </p>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>User</TableHead>
-                      <TableHead>Role</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {members.map(m => (
+                <div className="space-y-3">
+                  <TableSearchFilter
+                    id="jurisdiction-members-filter"
+                    value={memberTable.filter}
+                    onChange={memberTable.setFilter}
+                    placeholder="Filter members…"
+                    resultCount={memberTable.resultCount}
+                    totalCount={memberTable.totalCount}
+                  />
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <SortableTableHead
+                          column="user"
+                          label="User"
+                          sortKey={memberTable.sortKey}
+                          sortDir={memberTable.sortDir}
+                          onSort={memberTable.toggleSort}
+                        />
+                        <SortableTableHead
+                          column="role"
+                          label="Role"
+                          sortKey={memberTable.sortKey}
+                          sortDir={memberTable.sortDir}
+                          onSort={memberTable.toggleSort}
+                        />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {memberTable.rows.map(m => (
                       <TableRow key={m.id}>
                         <TableCell>{m.username}</TableCell>
                         <TableCell>{m.role}</TableCell>
                       </TableRow>
                     ))}
-                    {!members.length && (
-                      <TableRow>
-                        <TableCell colSpan={2} className="text-slate-500 text-sm">
-                          No org memberships yet.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                      {!memberTable.rows.length && (
+                        <TableRow>
+                          <TableCell colSpan={2} className="text-slate-500 text-sm">
+                            {members.length
+                              ? 'No members match your filter.'
+                              : 'No org memberships yet.'}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
                 <div className="mt-4 space-y-2">
                   <p className="text-xs uppercase tracking-wide text-slate-500">Assign state admin</p>
                   <div className="flex flex-wrap gap-2">

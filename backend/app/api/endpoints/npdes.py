@@ -12,6 +12,8 @@ from app.api import deps
 from app.models.npdes_state_facility import NpdesStateFacility
 from app.models.sync import ExtFacility
 from app.services.national.npdes_bulk_ingest import refresh_all_states, refresh_state_landscape
+from app.services.npdes_client import NPDESClientError
+from app.services.npdes_preview_service import build_npdes_preview
 from app.tenant_auth import TenantContext
 
 logger = logging.getLogger(__name__)
@@ -105,6 +107,23 @@ def npdes_facility_detail(
     if not row:
         raise HTTPException(status_code=404, detail="NPDES facility not found")
     return _serialize_npdes(row)
+
+
+@router.get("/preview/{npdes_id}")
+def npdes_preview(
+    npdes_id: str,
+    state: Optional[str] = Query(None, min_length=2, max_length=2),
+    db: Session = Depends(deps.get_db),
+    context: TenantContext = Depends(deps.get_current_tenant_user),
+):
+    """In-app EPA DFR preview for one NPDES permit (no district link written)."""
+    _ = context
+    try:
+        return build_npdes_preview(db, npdes_id, state=state)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except NPDESClientError as e:
+        raise HTTPException(status_code=502, detail=f"EPA API error: {e}") from e
 
 
 @router.post("/refresh")

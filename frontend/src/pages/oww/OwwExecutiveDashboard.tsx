@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Area,
@@ -80,6 +80,17 @@ import { ww360PersonalizedTitle } from '@/components/ww360/ww360Greeting';
 import type { Ww360SourceId } from '@/components/ww360/ww360SourceTokens';
 import type { Ww360DataMode } from '@/components/ww360/Ww360DataModeBadge';
 import { AlertTriangle, Droplets } from 'lucide-react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { SortableTableHead } from '@/components/ui/sortable-table-head';
+import { TableSearchFilter } from '@/components/ui/table-search-filter';
+import { useTableControls } from '@/hooks/useTableControls';
+import type { RegionDemandRow } from './owwMockData';
 
 /* ------------------------------------------------------------------ */
 /* Palette (WW360 chrome: deep navy, electric blue, sky accent)         */
@@ -122,6 +133,477 @@ interface SourceStatusCard {
 }
 
 const tooltipStyle = ww360ChartTooltipStyle;
+
+type WatchlistRow = Record<string, unknown>;
+type CountyPressureRow = Record<string, unknown>;
+
+function MemberWatchlistTable({ rows }: { rows: WatchlistRow[] }) {
+  const getValue = useCallback((row: WatchlistRow, key: string) => {
+    switch (key) {
+      case 'utility':
+        return String(row.pws_name || row.district_code || '');
+      case 'pwsid':
+        return String(row.pwsid || '');
+      case 'violations':
+        return Number(row.open_violations ?? 0);
+      case 'training':
+        return ((row.suggested_training_topics as string[]) || []).join(' · ');
+      default:
+        return null;
+    }
+  }, []);
+
+  const getSearchText = useCallback(
+    (row: WatchlistRow) =>
+      [
+        row.pws_name,
+        row.district_code,
+        row.pwsid,
+        row.open_violations,
+        ...((row.suggested_training_topics as string[]) || []),
+      ]
+        .filter(v => v != null && v !== '')
+        .join(' '),
+    []
+  );
+
+  const table = useTableControls({
+    rows,
+    getValue,
+    getSearchText,
+    initialSortKey: 'violations',
+    initialSortDir: 'desc',
+  });
+
+  return (
+    <div className="space-y-3">
+      <TableSearchFilter
+        id="oww-watchlist-filter"
+        value={table.filter}
+        onChange={table.setFilter}
+        placeholder="Filter watchlist…"
+        resultCount={table.resultCount}
+        totalCount={table.totalCount}
+      />
+      <div className="overflow-x-auto rounded-lg border">
+        <Table className="min-w-full text-sm">
+          <TableHeader>
+            <TableRow className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+              <SortableTableHead
+                column="utility"
+                label="Utility"
+                sortKey={table.sortKey}
+                sortDir={table.sortDir}
+                onSort={table.toggleSort}
+              />
+              <SortableTableHead
+                column="pwsid"
+                label="PWSID"
+                sortKey={table.sortKey}
+                sortDir={table.sortDir}
+                onSort={table.toggleSort}
+              />
+              <SortableTableHead
+                column="violations"
+                label="Open violations"
+                sortKey={table.sortKey}
+                sortDir={table.sortDir}
+                onSort={table.toggleSort}
+              />
+              <SortableTableHead
+                column="training"
+                label="Suggested training"
+                sortKey={table.sortKey}
+                sortDir={table.sortDir}
+                onSort={table.toggleSort}
+              />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {table.rows.map(row => (
+              <TableRow key={String(row.pwsid)} className="border-t">
+                <TableCell className="px-3 py-2 font-medium">
+                  {String(row.pws_name || row.district_code)}
+                </TableCell>
+                <TableCell className="px-3 py-2 font-mono text-xs">{String(row.pwsid)}</TableCell>
+                <TableCell className="px-3 py-2">{String(row.open_violations)}</TableCell>
+                <TableCell className="px-3 py-2 text-slate-600">
+                  {((row.suggested_training_topics as string[]) || []).join(' · ') || '—'}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
+function CountyPressureTable({ rows }: { rows: CountyPressureRow[] }) {
+  const getValue = useCallback((row: CountyPressureRow, key: string) => {
+    switch (key) {
+      case 'county':
+        return row.county;
+      case 'systems':
+        return row.linked_systems_count;
+      case 'population':
+        return row.population_served_total;
+      case 'health':
+        return row.health_flag_count;
+      case 'snc':
+        return row.snc_count;
+      case 'serious':
+        return row.serious_violator_count;
+      case 'pressure':
+        return row.pressure_score;
+      default:
+        return null;
+    }
+  }, []);
+
+  const getSearchText = useCallback(
+    (row: CountyPressureRow) =>
+      Object.values(row)
+        .filter(v => v != null && v !== '')
+        .join(' '),
+    []
+  );
+
+  const table = useTableControls({
+    rows,
+    getValue,
+    getSearchText,
+    initialSortKey: 'pressure',
+    initialSortDir: 'desc',
+  });
+
+  return (
+    <div className="space-y-3">
+      <TableSearchFilter
+        id="oww-county-pressure-filter"
+        value={table.filter}
+        onChange={table.setFilter}
+        placeholder="Filter counties…"
+        resultCount={table.resultCount}
+        totalCount={table.totalCount}
+      />
+      <div className="overflow-x-auto">
+        <Table className="w-full min-w-[720px] text-sm">
+          <TableHeader>
+            <TableRow className="border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+              <SortableTableHead
+                column="county"
+                label="County"
+                sortKey={table.sortKey}
+                sortDir={table.sortDir}
+                onSort={table.toggleSort}
+              />
+              <SortableTableHead
+                column="systems"
+                label="Systems"
+                align="right"
+                sortKey={table.sortKey}
+                sortDir={table.sortDir}
+                onSort={table.toggleSort}
+              />
+              <SortableTableHead
+                column="population"
+                label="Population"
+                align="right"
+                sortKey={table.sortKey}
+                sortDir={table.sortDir}
+                onSort={table.toggleSort}
+              />
+              <SortableTableHead
+                column="health"
+                label="Health flags"
+                align="right"
+                sortKey={table.sortKey}
+                sortDir={table.sortDir}
+                onSort={table.toggleSort}
+              />
+              <SortableTableHead
+                column="snc"
+                label="SNC"
+                align="right"
+                sortKey={table.sortKey}
+                sortDir={table.sortDir}
+                onSort={table.toggleSort}
+              />
+              <SortableTableHead
+                column="serious"
+                label="Serious"
+                align="right"
+                sortKey={table.sortKey}
+                sortDir={table.sortDir}
+                onSort={table.toggleSort}
+              />
+              <SortableTableHead
+                column="pressure"
+                label="Pressure"
+                align="right"
+                sortKey={table.sortKey}
+                sortDir={table.sortDir}
+                onSort={table.toggleSort}
+              />
+            </TableRow>
+          </TableHeader>
+          <TableBody className="divide-y divide-slate-100">
+            {table.rows.map(row => {
+              const countyName = String(row.county || '').trim();
+              return (
+                <TableRow key={countyName || String(row.county)}>
+                  <TableCell className="py-2 pr-3 font-medium text-slate-900">
+                    {countyName ? (
+                      <Link
+                        to={`/water-systems?county=${encodeURIComponent(countyName)}`}
+                        className="text-sky-900 underline-offset-2 hover:underline"
+                      >
+                        {countyName}
+                      </Link>
+                    ) : (
+                      '—'
+                    )}
+                  </TableCell>
+                  <TableCell className="py-2 pr-3 text-right tabular-nums text-slate-700">
+                    {Number(row.linked_systems_count || 0).toLocaleString()}
+                  </TableCell>
+                  <TableCell className="py-2 pr-3 text-right tabular-nums text-slate-700">
+                    {formatCompact(Number(row.population_served_total || 0))}
+                  </TableCell>
+                  <TableCell className="py-2 pr-3 text-right tabular-nums text-slate-700">
+                    {Number(row.health_flag_count || 0).toLocaleString()}
+                  </TableCell>
+                  <TableCell className="py-2 pr-3 text-right tabular-nums text-slate-700">
+                    {Number(row.snc_count || 0).toLocaleString()}
+                  </TableCell>
+                  <TableCell className="py-2 pr-3 text-right tabular-nums text-slate-700">
+                    {Number(row.serious_violator_count || 0).toLocaleString()}
+                  </TableCell>
+                  <TableCell className="py-2 text-right">
+                    <span
+                      className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold tabular-nums ${
+                        Number(row.pressure_score || 0) >= 80
+                          ? 'border-red-200 bg-red-50 text-red-700'
+                          : Number(row.pressure_score || 0) >= 50
+                            ? 'border-amber-200 bg-amber-50 text-amber-800'
+                            : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                      }`}
+                    >
+                      {Number(row.pressure_score || 0).toFixed(0)}
+                    </span>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
+function RegionRiskTable({ rows }: { rows: RegionDemandRow[] }) {
+  const getValue = useCallback((row: RegionDemandRow, key: string) => {
+    switch (key) {
+      case 'region':
+        return row.region;
+      case 'utilities':
+        return row.utilities;
+      case 'staff':
+        return row.staff;
+      case 'vacancies':
+        return row.vacancies;
+      case 'retirements':
+        return row.retirements24mo;
+      case 'critical':
+        return row.criticalNoSuccessor;
+      case 'candidates':
+        return row.candidates;
+      case 'gap':
+        return regionGap(row);
+      case 'risk':
+        return regionRisk(row);
+      default:
+        return null;
+    }
+  }, []);
+
+  const getSearchText = useCallback(
+    (row: RegionDemandRow) =>
+      [
+        row.region,
+        row.utilities,
+        row.staff,
+        row.vacancies,
+        row.retirements24mo,
+        row.criticalNoSuccessor,
+        row.candidates,
+        regionGap(row),
+        regionRisk(row),
+      ]
+        .filter(v => v != null)
+        .join(' '),
+    []
+  );
+
+  const table = useTableControls({
+    rows,
+    getValue,
+    getSearchText,
+    initialSortKey: 'gap',
+    initialSortDir: 'desc',
+  });
+
+  return (
+    <div className="space-y-3">
+      <TableSearchFilter
+        id="oww-region-risk-filter"
+        value={table.filter}
+        onChange={table.setFilter}
+        placeholder="Filter regions…"
+        resultCount={table.resultCount}
+        totalCount={table.totalCount}
+      />
+      <div className="overflow-x-auto">
+        <Table className="w-full min-w-[820px] text-sm">
+          <TableHeader>
+            <TableRow className="border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
+              <SortableTableHead
+                column="region"
+                label="Region"
+                sortKey={table.sortKey}
+                sortDir={table.sortDir}
+                onSort={table.toggleSort}
+              />
+              <SortableTableHead
+                column="utilities"
+                label="Utilities"
+                align="right"
+                sortKey={table.sortKey}
+                sortDir={table.sortDir}
+                onSort={table.toggleSort}
+              />
+              <SortableTableHead
+                column="staff"
+                label="Staff"
+                align="right"
+                sortKey={table.sortKey}
+                sortDir={table.sortDir}
+                onSort={table.toggleSort}
+              />
+              <SortableTableHead
+                column="vacancies"
+                label="Vacancies"
+                align="right"
+                sortKey={table.sortKey}
+                sortDir={table.sortDir}
+                onSort={table.toggleSort}
+              />
+              <SortableTableHead
+                column="retirements"
+                label="Retirements 24 mo"
+                align="right"
+                sortKey={table.sortKey}
+                sortDir={table.sortDir}
+                onSort={table.toggleSort}
+              />
+              <SortableTableHead
+                column="critical"
+                label="Critical · no successor"
+                align="right"
+                sortKey={table.sortKey}
+                sortDir={table.sortDir}
+                onSort={table.toggleSort}
+              />
+              <SortableTableHead
+                column="candidates"
+                label="Candidates"
+                align="right"
+                sortKey={table.sortKey}
+                sortDir={table.sortDir}
+                onSort={table.toggleSort}
+              />
+              <SortableTableHead
+                column="gap"
+                label="Gap"
+                align="right"
+                sortKey={table.sortKey}
+                sortDir={table.sortDir}
+                onSort={table.toggleSort}
+              />
+              <SortableTableHead
+                column="risk"
+                label="Risk"
+                sortKey={table.sortKey}
+                sortDir={table.sortDir}
+                onSort={table.toggleSort}
+              />
+            </TableRow>
+          </TableHeader>
+          <TableBody className="divide-y divide-slate-100">
+            {table.rows.map(r => {
+              const gap = regionGap(r);
+              const risk = regionRisk(r);
+              const tone =
+                risk === 'critical'
+                  ? 'bg-red-50 text-red-700 border-red-200'
+                  : risk === 'elevated'
+                    ? 'bg-amber-50 text-amber-800 border-amber-200'
+                    : risk === 'watch'
+                      ? 'bg-sky-50 text-sky-800 border-sky-200'
+                      : 'bg-emerald-50 text-emerald-800 border-emerald-200';
+              return (
+                <TableRow key={r.region} className="hover:bg-slate-50/70">
+                  <TableCell className="py-2.5 pr-3 font-medium text-slate-800">
+                    {r.region}
+                    {r.staff / r.utilities < 40 ? (
+                      <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                        small systems
+                      </span>
+                    ) : null}
+                  </TableCell>
+                  <TableCell className="py-2.5 pr-3 text-right tabular-nums text-slate-700">
+                    {r.utilities}
+                  </TableCell>
+                  <TableCell className="py-2.5 pr-3 text-right tabular-nums text-slate-700">
+                    {r.staff}
+                  </TableCell>
+                  <TableCell className="py-2.5 pr-3 text-right tabular-nums text-slate-700">
+                    {r.vacancies}
+                  </TableCell>
+                  <TableCell className="py-2.5 pr-3 text-right tabular-nums text-slate-700">
+                    {r.retirements24mo}
+                  </TableCell>
+                  <TableCell className="py-2.5 pr-3 text-right tabular-nums text-slate-700">
+                    {r.criticalNoSuccessor}
+                  </TableCell>
+                  <TableCell className="py-2.5 pr-3 text-right tabular-nums text-slate-700">
+                    {r.candidates}
+                  </TableCell>
+                  <TableCell
+                    className={`py-2.5 pr-3 text-right tabular-nums font-semibold ${
+                      gap > 0 ? 'text-red-600' : 'text-emerald-700'
+                    }`}
+                  >
+                    {gap > 0 ? `−${gap}` : `+${Math.abs(gap)}`}
+                  </TableCell>
+                  <TableCell className="py-2.5">
+                    <span
+                      className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium capitalize ${tone}`}
+                    >
+                      {risk}
+                    </span>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
 
 export default function OwwExecutiveDashboard() {
   const { userRoles, user } = useAuth();
@@ -624,30 +1106,7 @@ export default function OwwExecutiveDashboard() {
                 <p className="mb-2 text-sm font-medium text-slate-800 flex items-center gap-2">
                   <Droplets className="h-4 w-4 text-sky-600" /> Member utility watchlist
                 </p>
-                <div className="overflow-x-auto rounded-lg border">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
-                      <tr>
-                        <th className="px-3 py-2">Utility</th>
-                        <th className="px-3 py-2">PWSID</th>
-                        <th className="px-3 py-2">Open violations</th>
-                        <th className="px-3 py-2">Suggested training</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sdwisInsights.member_watchlist.slice(0, 8).map(row => (
-                        <tr key={String(row.pwsid)} className="border-t">
-                          <td className="px-3 py-2 font-medium">{String(row.pws_name || row.district_code)}</td>
-                          <td className="px-3 py-2 font-mono text-xs">{String(row.pwsid)}</td>
-                          <td className="px-3 py-2">{String(row.open_violations)}</td>
-                          <td className="px-3 py-2 text-slate-600">
-                            {((row.suggested_training_topics as string[]) || []).join(' · ') || '—'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <MemberWatchlistTable rows={sdwisInsights.member_watchlist.slice(0, 8)} />
               </div>
             )}
             <p className="text-xs text-slate-500">
@@ -1152,56 +1611,7 @@ export default function OwwExecutiveDashboard() {
             {sdwisLoading ? 'Loading county pressure…' : 'No county pressure rows yet — refresh SDWIS.'}
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
-                  <th className="py-2 pr-3 font-semibold">County</th>
-                  <th className="py-2 pr-3 text-right font-semibold">Systems</th>
-                  <th className="py-2 pr-3 text-right font-semibold">Population</th>
-                  <th className="py-2 pr-3 text-right font-semibold">Health flags</th>
-                  <th className="py-2 pr-3 text-right font-semibold">SNC</th>
-                  <th className="py-2 pr-3 text-right font-semibold">Serious</th>
-                  <th className="py-2 text-right font-semibold">Pressure</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {countyPressure.map(row => (
-                  <tr key={String(row.county)}>
-                    <td className="py-2 pr-3 font-medium text-slate-900">{String(row.county)}</td>
-                    <td className="py-2 pr-3 text-right tabular-nums text-slate-700">
-                      {Number(row.linked_systems_count || 0).toLocaleString()}
-                    </td>
-                    <td className="py-2 pr-3 text-right tabular-nums text-slate-700">
-                      {formatCompact(Number(row.population_served_total || 0))}
-                    </td>
-                    <td className="py-2 pr-3 text-right tabular-nums text-slate-700">
-                      {Number(row.health_flag_count || 0).toLocaleString()}
-                    </td>
-                    <td className="py-2 pr-3 text-right tabular-nums text-slate-700">
-                      {Number(row.snc_count || 0).toLocaleString()}
-                    </td>
-                    <td className="py-2 pr-3 text-right tabular-nums text-slate-700">
-                      {Number(row.serious_violator_count || 0).toLocaleString()}
-                    </td>
-                    <td className="py-2 text-right">
-                      <span
-                        className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold tabular-nums ${
-                          Number(row.pressure_score || 0) >= 80
-                            ? 'border-red-200 bg-red-50 text-red-700'
-                            : Number(row.pressure_score || 0) >= 50
-                              ? 'border-amber-200 bg-amber-50 text-amber-800'
-                              : 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                        }`}
-                      >
-                        {Number(row.pressure_score || 0).toFixed(0)}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <CountyPressureTable rows={countyPressure} />
         )}
       </Ww360Section>
 
@@ -1237,81 +1647,7 @@ export default function OwwExecutiveDashboard() {
           </div>
         }
       >
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-500">
-                <th className="py-2 pr-3 font-semibold">Region</th>
-                <th className="py-2 pr-3 text-right font-semibold">Utilities</th>
-                <th className="py-2 pr-3 text-right font-semibold">Staff</th>
-                <th className="py-2 pr-3 text-right font-semibold">Vacancies</th>
-                <th className="py-2 pr-3 text-right font-semibold">Retirements 24 mo</th>
-                <th className="py-2 pr-3 text-right font-semibold">Critical · no successor</th>
-                <th className="py-2 pr-3 text-right font-semibold">Candidates</th>
-                <th className="py-2 pr-3 text-right font-semibold">Gap</th>
-                <th className="py-2 font-semibold">Risk</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {regionRows.map(r => {
-                const gap = regionGap(r);
-                const risk = regionRisk(r);
-                const tone =
-                  risk === 'critical'
-                    ? 'bg-red-50 text-red-700 border-red-200'
-                    : risk === 'elevated'
-                      ? 'bg-amber-50 text-amber-800 border-amber-200'
-                      : risk === 'watch'
-                        ? 'bg-sky-50 text-sky-800 border-sky-200'
-                        : 'bg-emerald-50 text-emerald-800 border-emerald-200';
-                return (
-                  <tr key={r.region} className="hover:bg-slate-50/70">
-                    <td className="py-2.5 pr-3 font-medium text-slate-800">
-                      {r.region}
-                      {r.staff / r.utilities < 40 ? (
-                        <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
-                          small systems
-                        </span>
-                      ) : null}
-                    </td>
-                    <td className="py-2.5 pr-3 text-right tabular-nums text-slate-700">
-                      {r.utilities}
-                    </td>
-                    <td className="py-2.5 pr-3 text-right tabular-nums text-slate-700">
-                      {r.staff}
-                    </td>
-                    <td className="py-2.5 pr-3 text-right tabular-nums text-slate-700">
-                      {r.vacancies}
-                    </td>
-                    <td className="py-2.5 pr-3 text-right tabular-nums text-slate-700">
-                      {r.retirements24mo}
-                    </td>
-                    <td className="py-2.5 pr-3 text-right tabular-nums text-slate-700">
-                      {r.criticalNoSuccessor}
-                    </td>
-                    <td className="py-2.5 pr-3 text-right tabular-nums text-slate-700">
-                      {r.candidates}
-                    </td>
-                    <td
-                      className={`py-2.5 pr-3 text-right tabular-nums font-semibold ${
-                        gap > 0 ? 'text-red-600' : 'text-emerald-700'
-                      }`}
-                    >
-                      {gap > 0 ? `−${gap}` : `+${Math.abs(gap)}`}
-                    </td>
-                    <td className="py-2.5">
-                      <span
-                        className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium capitalize ${tone}`}
-                      >
-                        {risk}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <RegionRiskTable rows={regionRows} />
         <p className="mt-3 text-xs text-slate-500">
           Gap = vacancies + anticipated 24-month retirements − OWW candidates in training or
           exam-ready in the same region. Utility-level drill-down is available for the{' '}

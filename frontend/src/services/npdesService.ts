@@ -78,6 +78,89 @@ export async function fetchNpdesFacility(npdesId: string): Promise<NpdesFacility
   return data;
 }
 
+export interface NpdesPreviewQuarter {
+  label: string;
+  period?: string | null;
+  status?: string | null;
+}
+
+export interface NpdesPreviewEffluentQuarter {
+  label: string;
+  status?: string | null;
+  value?: string | null;
+}
+
+export interface NpdesPreviewEffluentParameter {
+  name?: string | null;
+  discharge_point?: string | null;
+  monitoring_location?: string | null;
+  measurement_type?: string | null;
+  quarters: NpdesPreviewEffluentQuarter[];
+}
+
+export interface NpdesPreviewFormalAction {
+  action_id?: string | null;
+  action_date?: string | null;
+  action_type?: string | null;
+  description?: string | null;
+  agency?: string | null;
+  penalty?: string | null;
+}
+
+export interface NpdesPreviewNotice {
+  notice_date?: string | null;
+  notice_type?: string | null;
+  description?: string | null;
+  agency?: string | null;
+}
+
+export interface NpdesPreview {
+  npdes_id: string;
+  facility_name?: string | null;
+  address?: string | null;
+  county?: string | null;
+  state_code?: string | null;
+  epa_region?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  major_minor?: string | null;
+  design_flow_mgd?: number | null;
+  total_design_flow?: number | null;
+  snc?: string | null;
+  qtrs_with_nc?: number | null;
+  plant_class?: string | null;
+  permit_type?: string | null;
+  facility_type_code?: string | null;
+  sic_code?: string | null;
+  owner_type?: string | null;
+  permit_effective?: string | null;
+  permit_expiration?: string | null;
+  dfr_url?: string | null;
+  rnc_quarters: NpdesPreviewQuarter[];
+  effluent_parameters: NpdesPreviewEffluentParameter[];
+  formal_actions: NpdesPreviewFormalAction[];
+  notices: NpdesPreviewNotice[];
+  sections_present: string[];
+  source: string;
+  preview_only: boolean;
+}
+
+/** Live EPA DFR preview for one NPDES permit (session only — nothing is linked). */
+export async function fetchNpdesPreview(
+  npdesId: string,
+  state?: string
+): Promise<NpdesPreview> {
+  const { data } = await axios.get<NpdesPreview>(
+    `${npdesBase}/preview/${encodeURIComponent(npdesId)}`,
+    {
+      headers: headers(),
+      params: state ? { state: state.toUpperCase().slice(0, 2) } : undefined,
+      timeout: 45000,
+    }
+  );
+  return data;
+}
+
 export async function fetchFacilitiesList(params?: {
   district_code?: string;
   facility_type?: string;

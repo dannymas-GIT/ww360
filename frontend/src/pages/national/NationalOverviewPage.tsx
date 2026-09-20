@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Droplets, Factory, Users } from 'lucide-react';
 import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
@@ -11,6 +11,19 @@ import { useAuth } from '@/context/AuthContext';
 import { personaKeyFromUser, resolveWorkspaceProfile } from '@/utils/workspaceProfile';
 import { SimplifiedWorkspaceDashboard } from '@/pages/workspaces/SimplifiedWorkspaceDashboard';
 import { UsajobsJobListingsPanel } from '@/pages/workspaces/UsajobsJobListingsPanel';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { SortableTableHead } from '@/components/ui/sortable-table-head';
+import { TableSearchFilter } from '@/components/ui/table-search-filter';
+import { useTableControls } from '@/hooks/useTableControls';
+
+type StateRow = NationalOverview['states'][number];
 
 export default function NationalOverviewPage() {
   const { user } = useAuth();
@@ -42,11 +55,6 @@ function NationalOverviewFull() {
 
   const headline = data?.headline_kpis;
 
-  const sortedStates = useMemo(
-    () => [...(data?.states || [])].sort((a, b) => b.active_cws - a.active_cws),
-    [data]
-  );
-
   const potwTotals = useMemo(() => {
     const rows = data?.states || [];
     const hasPotw = rows.some(s => s.active_potws != null);
@@ -59,6 +67,51 @@ function NationalOverviewFull() {
       { active: 0, major: 0 }
     );
   }, [data]);
+
+  const getValue = useCallback((row: StateRow, key: string) => {
+    switch (key) {
+      case 'state':
+        return row.state_code;
+      case 'cws':
+        return row.active_cws;
+      case 'potws':
+        return row.active_potws;
+      case 'major_potws':
+        return row.major_potws;
+      case 'health':
+        return row.health_violations;
+      case 'operators':
+        return row.certified_operators;
+      case 'dwsrf':
+        return row.dwsrf_allotment_usd;
+      default:
+        return null;
+    }
+  }, []);
+
+  const getSearchText = useCallback(
+    (row: StateRow) =>
+      [
+        row.state_code,
+        row.active_cws,
+        row.active_potws,
+        row.major_potws,
+        row.health_violations,
+        row.certified_operators,
+        row.dwsrf_allotment_usd,
+      ]
+        .filter(v => v != null && v !== '')
+        .join(' '),
+    []
+  );
+
+  const stateTable = useTableControls({
+    rows: data?.states ?? [],
+    getValue,
+    getSearchText,
+    initialSortKey: 'cws',
+    initialSortDir: 'desc',
+  });
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6">
@@ -149,47 +202,116 @@ function NationalOverviewFull() {
       )}
 
       <Ww360Section title="State comparison" dataMode="mixed">
-        <div className="overflow-x-auto px-5 pb-5">
-          <table className="w-full min-w-[720px] text-base">
-            <thead>
-              <tr className="border-b text-left text-sm uppercase text-slate-500">
-                <th className="py-2">State</th>
-                <th className="py-2 text-right">CWS</th>
-                <th className="py-2 text-right">POTWs</th>
-                <th className="py-2 text-right">Major POTWs</th>
-                <th className="py-2 text-right">Health violations</th>
-                <th className="py-2 text-right">Certified ops</th>
-                <th className="py-2 text-right">DWSRF allotment</th>
-                <th className="py-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {sortedStates.map(s => (
-                <tr key={s.state_code} className="border-b border-slate-100">
-                  <td className="py-2 font-medium">{s.state_code}</td>
-                  <td className="py-2 text-right tabular-nums">{formatCompact(s.active_cws)}</td>
-                  <td className="py-2 text-right tabular-nums">
-                    {s.active_potws != null ? formatCompact(s.active_potws) : '—'}
-                  </td>
-                  <td className="py-2 text-right tabular-nums">
-                    {s.major_potws != null ? formatCompact(s.major_potws) : '—'}
-                  </td>
-                  <td className="py-2 text-right tabular-nums">{formatCompact(s.health_violations)}</td>
-                  <td className="py-2 text-right tabular-nums">
-                    {s.certified_operators != null ? formatCompact(s.certified_operators) : '—'}
-                  </td>
-                  <td className="py-2 text-right tabular-nums">
-                    {s.dwsrf_allotment_usd ? formatUsd(s.dwsrf_allotment_usd) : '—'}
-                  </td>
-                  <td className="py-2 text-right">
-                    <Link className="text-sky-700 underline" to={`/national/states/${s.state_code}`}>
-                      Scorecard
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="space-y-3 px-5 pb-5">
+          <TableSearchFilter
+            id="national-states-filter"
+            value={stateTable.filter}
+            onChange={stateTable.setFilter}
+            placeholder="Filter states…"
+            resultCount={stateTable.resultCount}
+            totalCount={stateTable.totalCount}
+          />
+          <div className="overflow-x-auto">
+            <Table className="min-w-[720px] text-base">
+              <TableHeader>
+                <TableRow>
+                  <SortableTableHead
+                    column="state"
+                    label="State"
+                    sortKey={stateTable.sortKey}
+                    sortDir={stateTable.sortDir}
+                    onSort={stateTable.toggleSort}
+                  />
+                  <SortableTableHead
+                    column="cws"
+                    label="CWS"
+                    align="right"
+                    sortKey={stateTable.sortKey}
+                    sortDir={stateTable.sortDir}
+                    onSort={stateTable.toggleSort}
+                  />
+                  <SortableTableHead
+                    column="potws"
+                    label="POTWs"
+                    align="right"
+                    sortKey={stateTable.sortKey}
+                    sortDir={stateTable.sortDir}
+                    onSort={stateTable.toggleSort}
+                  />
+                  <SortableTableHead
+                    column="major_potws"
+                    label="Major POTWs"
+                    align="right"
+                    sortKey={stateTable.sortKey}
+                    sortDir={stateTable.sortDir}
+                    onSort={stateTable.toggleSort}
+                  />
+                  <SortableTableHead
+                    column="health"
+                    label="Health violations"
+                    align="right"
+                    sortKey={stateTable.sortKey}
+                    sortDir={stateTable.sortDir}
+                    onSort={stateTable.toggleSort}
+                  />
+                  <SortableTableHead
+                    column="operators"
+                    label="Certified ops"
+                    align="right"
+                    sortKey={stateTable.sortKey}
+                    sortDir={stateTable.sortDir}
+                    onSort={stateTable.toggleSort}
+                  />
+                  <SortableTableHead
+                    column="dwsrf"
+                    label="DWSRF allotment"
+                    align="right"
+                    sortKey={stateTable.sortKey}
+                    sortDir={stateTable.sortDir}
+                    onSort={stateTable.toggleSort}
+                  />
+                  <TableHead className="w-[6rem]"> </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {stateTable.rows.map(s => (
+                  <TableRow key={s.state_code}>
+                    <TableCell className="font-medium">{s.state_code}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatCompact(s.active_cws)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {s.active_potws != null ? formatCompact(s.active_potws) : '—'}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {s.major_potws != null ? formatCompact(s.major_potws) : '—'}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatCompact(s.health_violations)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {s.certified_operators != null ? formatCompact(s.certified_operators) : '—'}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {s.dwsrf_allotment_usd ? formatUsd(s.dwsrf_allotment_usd) : '—'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Link className="text-sky-700 underline" to={`/national/states/${s.state_code}`}>
+                        Scorecard
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {!stateTable.rows.length && (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-base text-slate-500">
+                      No states match your filter.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       </Ww360Section>
 

@@ -155,6 +155,25 @@ class SDWISPreviewEnforcement(BaseModel):
     agency: Optional[str] = None
 
 
+class SDWISPreviewComplianceQuarter(BaseModel):
+    label: str
+    period: Optional[str] = None
+    status: Optional[str] = None
+
+
+class SDWISPreviewSanitarySurvey(BaseModel):
+    survey_date: Optional[str] = None
+    survey_type: Optional[str] = None
+    result: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class SDWISPreviewSiteVisit(BaseModel):
+    visit_date: Optional[str] = None
+    reason: Optional[str] = None
+    agency: Optional[str] = None
+
+
 class SDWISPreviewOut(BaseModel):
     pwsid: str
     pws_name: Optional[str] = None
@@ -167,11 +186,20 @@ class SDWISPreviewOut(BaseModel):
     serious_violator: Optional[str] = None
     qtrs_with_vio: Optional[int] = None
     qtrs_with_snc: Optional[int] = None
+    facility_street: Optional[str] = None
+    facility_city: Optional[str] = None
+    facility_zip: Optional[str] = None
+    facility_county: Optional[str] = None
+    universe_summary: Optional[str] = None
+    dfr_url: Optional[str] = None
     violation_count: int = 0
     open_violation_count: int = 0
     enforcement_count: int = 0
     violations: List[SDWISPreviewViolation] = Field(default_factory=list)
     enforcement_actions: List[SDWISPreviewEnforcement] = Field(default_factory=list)
+    compliance_quarters: List[SDWISPreviewComplianceQuarter] = Field(default_factory=list)
+    sanitary_surveys: List[SDWISPreviewSanitarySurvey] = Field(default_factory=list)
+    site_visits: List[SDWISPreviewSiteVisit] = Field(default_factory=list)
     source: str = "landscape"
     preview_only: bool = True
     is_linked: bool = False
@@ -232,3 +260,22 @@ class SDWISWorkforceInsightsOut(BaseModel):
     member_watchlist: List[dict[str, Any]]
     coverage: dict[str, Any]
     last_refreshed: Optional[datetime] = None
+
+
+class SDWISStateSystemOut(BaseModel):
+    """Cached EPA landscape row (state inventory — not a district link)."""
+
+    pwsid: str
+    pws_name: Optional[str] = None
+    state_code: str
+    county: Optional[str] = None
+    pws_type: Optional[str] = None
+    population_served: Optional[int] = None
+    health_flag: Optional[str] = None
+    serious_violator: Optional[str] = None
+    snc: Optional[str] = None
+    qtrs_with_vio: Optional[int] = None
+    qtrs_with_snc: Optional[int] = None
+
+    class Config:
+        from_attributes = True

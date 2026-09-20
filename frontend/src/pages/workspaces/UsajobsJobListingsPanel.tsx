@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { ExternalLink, Briefcase } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ExternalLink, Briefcase, RefreshCw } from 'lucide-react';
 import { Ww360Section } from '@/components/ww360/Ww360Section';
 import { Ww360SourceChip } from '@/components/ww360/Ww360SourceChip';
 import { fetchFederalJobOpenings, type FederalJobsResponse } from '@/services/jobsService';
 import { useJurisdiction } from '@/context/JurisdictionContext';
+import { Button } from '@/components/ui/button';
 
 interface UsajobsJobListingsPanelProps {
   tourId?: string;
@@ -15,26 +16,72 @@ export const UsajobsJobListingsPanel: React.FC<UsajobsJobListingsPanelProps> = (
   const { activeState } = useJurisdiction();
   const [data, setData] = useState<FederalJobsResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
+
+  const reload = useCallback(() => {
+    setReloadToken(t => t + 1);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    void fetchFederalJobOpenings(activeState, 12)
-      .then(res => {
-        if (!cancelled) setData(res);
-      })
-      .catch(() => {
-        if (!cancelled) setData(null);
-      })
-      .finally(() => {
+    setError(null);
+    void (async () => {
+      try {
+        let res = await fetchFederalJobOpenings(activeState, 12);
+        // Staging may still lack server-side statewide fallback — broaden here so
+        // NY (and other empty states) do not look like a connectivity outage.
+        if (
+          res.configured &&
+          res.data_mode !== 'error' &&
+          (!res.jobs || res.jobs.length === 0) &&
+          activeState &&
+          !res.state_filter_relaxed
+        ) {
+          const nationwide = await fetchFederalJobOpenings(null, 12);
+          if (nationwide.jobs?.length) {
+            res = {
+              ...nationwide,
+              state_filter: activeState,
+              state_filter_relaxed: true,
+              message:
+                nationwide.message ||
+                `No federal water/wastewater operator postings currently list ${activeState} as the duty location — showing nationwide openings instead.`,
+            };
+          }
+        }
+        if (cancelled) return;
+        setData(res);
+        if (res.data_mode === 'error') {
+          setError(res.message || 'USAJOBS request failed');
+        }
+      } catch (err) {
+        if (cancelled) return;
+        setData(null);
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Could not reach the federal jobs service'
+        );
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    })();
     return () => {
       cancelled = true;
     };
-  }, [activeState]);
+  }, [activeState, reloadToken]);
 
-  const dataMode = data?.data_mode === 'live' && data.jobs.length > 0 ? 'live' : 'sample';
+  const hasJobs = Boolean(data?.jobs?.length);
+  const dataMode =
+    data?.data_mode === 'live' && hasJobs
+      ? 'live'
+      : data?.data_mode === 'error' || error
+        ? 'sample'
+        : data?.configured === false
+          ? 'sample'
+          : 'sample';
 
   return (
     <Ww360Section
@@ -48,26 +95,66 @@ export const UsajobsJobListingsPanel: React.FC<UsajobsJobListingsPanelProps> = (
           <Ww360SourceChip id="usajobs" />
           {activeState && (
             <span className="text-[0.875rem] text-slate-500">
-              Filtered to {activeState} when location matches
+              Prefers {activeState} duty locations when postings exist
             </span>
           )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="ml-auto min-h-[44px] text-base"
+            onClick={reload}
+            disabled={loading}
+          >
+            <RefreshCw className={`mr-1.5 h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden />
+            Refresh
+          </Button>
         </div>
 
         {loading && (
           <p className="text-[1.125rem] text-slate-500">Loading federal job postings…</p>
         )}
 
-        {!loading && data && !data.configured && (
+        {!loading && error && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-[1.125rem] leading-relaxed text-amber-950">
+            <p className="font-medium">Federal listings unavailable right now</p>
+            <p className="mt-1 text-base text-amber-900">{error}</p>
+            <div className="mt-3 flex flex-wrap gap-3">
+              <Button type="button" variant="outline" className="min-h-[44px] text-base" onClick={reload}>
+                Try again
+              </Button>
+              <a
+                className="inline-flex min-h-[44px] items-center font-medium text-sky-800 underline"
+                href="https://www.usajobs.gov/Search/Results?k=water%20treatment%20operator"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Search USAJOBS directly
+              </a>
+            </div>
+          </div>
+        )}
+
+        {!loading && !error && data && !data.configured && (
           <p className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-[1.125rem] leading-relaxed text-amber-900">
             USAJOBS API is not configured on this server. Set <code>USAJOBS_API_KEY</code> and{' '}
             <code>USAJOBS_USER_AGENT</code> in the environment to show live federal listings.
           </p>
         )}
 
-        {!loading && data?.configured && data.jobs.length === 0 && (
+        {!loading && !error && data?.configured && data.state_filter_relaxed && hasJobs && (
+          <p className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-[1rem] leading-relaxed text-sky-950">
+            {data.message ||
+              `No federal postings currently list ${data.state_filter || activeState} as the duty location — showing nationwide openings.`}
+          </p>
+        )}
+
+        {!loading && !error && data?.configured && !hasJobs && (
           <p className="text-[1.125rem] text-slate-600">
-            No matching federal postings right now
-            {data.state_filter ? ` for ${data.state_filter}` : ''}.{' '}
+            {data.message ||
+              `No matching federal postings right now${
+                data.state_filter ? ` for ${data.state_filter}` : ''
+              }.`}{' '}
             <a
               className="font-medium text-sky-700 underline"
               href="https://www.usajobs.gov/Search/Results?k=water%20treatment%20operator"
@@ -79,7 +166,7 @@ export const UsajobsJobListingsPanel: React.FC<UsajobsJobListingsPanelProps> = (
           </p>
         )}
 
-        {!loading && data && data.jobs.length > 0 && (
+        {!loading && !error && data && hasJobs && (
           <>
             <p className="text-[1rem] text-slate-600">
               {data.total.toLocaleString()} federal matches · synced{' '}

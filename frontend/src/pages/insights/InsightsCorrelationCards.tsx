@@ -32,10 +32,12 @@ export function InsightsCorrelationCards({
   return (
     <ul
       className={`grid gap-3 ${compact ? 'sm:grid-cols-1' : 'sm:grid-cols-2 lg:grid-cols-3'}`}
+      data-tour="insights-card-grid"
     >
       {visible.map(card => (
         <li
           key={card.id}
+          data-tour={`insights-card-${card.id}`}
           className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
         >
           <div className="flex items-start gap-2">

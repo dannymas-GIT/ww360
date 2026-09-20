@@ -12,6 +12,7 @@ router = APIRouter()
 
 
 @router.get("/federal")
+@router.get("/usajobs")  # legacy alias — older clients still request this path
 def federal_job_openings(
     state: str | None = Query(default=None, max_length=2, description="Optional US state filter"),
     limit: int = Query(default=12, ge=1, le=50),

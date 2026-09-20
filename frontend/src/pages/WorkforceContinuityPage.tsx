@@ -736,7 +736,11 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
   const workspace = workspaceProp ?? getWorkspaceForPath(location.pathname);
   const workspaceMeta = WORKFORCE_WORKSPACE_META[workspace];
   const { data: districts, isLoading: loadingDistricts } = useDistricts();
-  const [districtCode, setDistrictCode] = useState<string>('');
+  const [districtCode, setDistrictCode] = useState<string>(() => {
+    const fromUrl = new URLSearchParams(window.location.search).get('district');
+    return (fromUrl || '').trim();
+  });
+  const ALL_UTILITIES_VALUE = '__all__';
   const [showSampleTemplates, setShowSampleTemplates] = useState(false);
   const [alertSettings, setAlertSettings] = useState<WorkforceAlertSettings | null>(null);
   const [trainingSettings, setTrainingSettings] = useState<WorkforceTrainingSettings | null>(null);
@@ -778,6 +782,14 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
 
   useEffect(() => {
     if (!districts || districts.length === 0) return;
+    // Section / OWW oversight: stay on statewide master view until a utility is chosen.
+    if (isWorkforceOversight && !districtLocked) {
+      const fromUrl = (searchParams.get('district') || '').trim();
+      if (fromUrl && districts.some(d => d.district_code === fromUrl) && fromUrl !== districtCode) {
+        setDistrictCode(fromUrl);
+      }
+      return;
+    }
     const next = resolveWorkforceDistrictCode(districts, {
       actingDistrictCode,
       currentDistrictCode: districtLocked ? undefined : districtCode,
@@ -785,8 +797,44 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
     if (next && next !== districtCode) {
       setDistrictCode(next);
     }
-  }, [districts, actingDistrictCode, districtLocked, districtCode]);
+  }, [
+    districts,
+    actingDistrictCode,
+    districtLocked,
+    districtCode,
+    isWorkforceOversight,
+    searchParams,
+  ]);
 
+  // Keep ?district= in sync for oversight deep-links / back button.
+  useEffect(() => {
+    if (!isWorkforceOversight || workspace !== 'continuity') return;
+    const current = (searchParams.get('district') || '').trim();
+    if ((districtCode || '') === current) return;
+    const next = new URLSearchParams(searchParams);
+    if (districtCode) next.set('district', districtCode);
+    else next.delete('district');
+    setSearchParams(next, { replace: true });
+  }, [districtCode, isWorkforceOversight, workspace, searchParams, setSearchParams]);
+
+  const districtNameByCode = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const d of visibleDistricts) {
+      if (d.district_name) map[d.district_code] = d.district_name;
+    }
+    return map;
+  }, [visibleDistricts]);
+
+  const onDistrictFilterChange = useCallback(
+    (value: string) => {
+      if (value === ALL_UTILITIES_VALUE) {
+        setDistrictCode('');
+        return;
+      }
+      setDistrictCode(value);
+    },
+    [ALL_UTILITIES_VALUE]
+  );
   useEffect(() => {
     if (!districtCode) return;
     setShowSampleTemplates(loadShowSampleTemplates(districtCode));
@@ -1252,8 +1300,9 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
           >
             <p className="font-semibold">Section oversight</p>
             <p className="mt-0.5">
-              Pick a member utility to review scorecards and open binders read-only. Utility
-              superintendents and managers author Succession Binders — use{' '}
+              Statewide utility scorecards load below. Filter by district to open one utility’s
+              continuity detail and Succession Binder (read-only). Utility superintendents and
+              managers author binders — use{' '}
               <strong className="font-semibold">View as role</strong> to walk those perspectives.
             </p>
           </div>
@@ -1264,16 +1313,37 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
           <CardContent className="flex flex-col gap-4 pt-6">
             <div className="flex flex-wrap items-end gap-3">
               <div className="min-w-[16rem] flex-1">
-                <label className="text-[1rem] font-medium text-gray-700">District</label>
+                <label className="text-[1rem] font-medium text-gray-700">
+                  {isWorkforceOversight ? 'Filter by district' : 'District'}
+                </label>
                 <Select
-                  value={districtCode}
-                  onValueChange={setDistrictCode}
+                  value={
+                    districtCode
+                      ? districtCode
+                      : isWorkforceOversight
+                        ? ALL_UTILITIES_VALUE
+                        : undefined
+                  }
+                  onValueChange={onDistrictFilterChange}
                   disabled={loadingDistricts || !visibleDistricts.length || districtLocked}
                 >
                   <SelectTrigger className="mt-1 min-h-[44px] text-[1rem]">
-                    <SelectValue placeholder="Select a district" />
+                    <SelectValue
+                      placeholder={
+                        loadingDistricts
+                          ? 'Loading utilities…'
+                          : isWorkforceOversight
+                            ? 'All utilities'
+                            : 'Select a district'
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
+                    {isWorkforceOversight ? (
+                      <SelectItem value={ALL_UTILITIES_VALUE}>
+                        All utilities ({visibleDistricts.length})
+                      </SelectItem>
+                    ) : null}
                     {visibleDistricts.map(d => (
                       <SelectItem key={d.district_code} value={d.district_code}>
                         {d.district_name || d.district_code}
@@ -1284,6 +1354,12 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
                 {districtLocked ? (
                   <p className="mt-1 text-[0.875rem] text-gray-500">
                     Scoped to your Working-in district. Change it from the header to view another.
+                  </p>
+                ) : isWorkforceOversight ? (
+                  <p className="mt-1 text-[0.875rem] text-gray-500">
+                    {districtCode
+                      ? 'Showing one utility — choose All utilities to return to the statewide list.'
+                      : 'Showing every accessible utility. Choose a district to drill into its scorecard.'}
                   </p>
                 ) : null}
               </div>
@@ -1461,9 +1537,39 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
         ) : null}
 
         {!districtCode ? (
-          <p className="text-sm text-gray-500">
-            Select a district to load the continuity scorecard.
-          </p>
+          isWorkforceOversight && workspace === 'continuity' ? (
+            <Card data-tour="continuity-statewide-utilities">
+              <CardHeader>
+                <CardTitle className="text-[1.125rem]">
+                  Statewide utilities ({scorecardsQuery.data?.length ?? visibleDistricts.length})
+                </CardTitle>
+                <p className="text-[1rem] font-normal leading-relaxed text-slate-600">
+                  Master view of member utility continuity. Click a row or use the district filter
+                  above to open one utility’s scorecard and binder.
+                </p>
+              </CardHeader>
+              <CardContent>
+                {scorecardsQuery.isLoading ? (
+                  <p className="text-[1.125rem] text-slate-500">Loading statewide scorecards…</p>
+                ) : scorecardsQuery.isError ? (
+                  <p className="text-[1.125rem] text-red-600">
+                    Could not load statewide scorecards:{' '}
+                    {(scorecardsQuery.error as Error).message}
+                  </p>
+                ) : (
+                  <MultiDistrictOverviewTable
+                    scorecards={scorecardsQuery.data ?? []}
+                    districtNames={districtNameByCode}
+                    onRowClick={setDistrictCode}
+                  />
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <p className="text-[1.125rem] text-gray-500">
+              Select a district to load the continuity scorecard.
+            </p>
+          )
         ) : continuity.isLoading ? (
           <p className="text-sm text-gray-500">Loading workforce continuity…</p>
         ) : continuity.isError ? (
@@ -1598,6 +1704,8 @@ const WorkforceContinuityPage: React.FC<{ workspace?: WorkforceWorkspace }> = ({
                       <CardContent>
                         <MultiDistrictOverviewTable
                           scorecards={scorecardsQuery.data}
+                          districtNames={districtNameByCode}
+                          selectedDistrictCode={districtCode}
                           onRowClick={setDistrictCode}
                         />
                       </CardContent>

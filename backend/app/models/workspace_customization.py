@@ -34,8 +34,9 @@ class WorkspaceCustomization(Base):
     workspace_profile = Column(String(40), nullable=False, default="state_partner", index=True)
     # Empty string when not impersonating / no persona key
     persona_key = Column(String(80), nullable=False, default="", index=True)
-    # Ordered list of { "module_id": str, "visible": bool, "size": "full"|"half" }
-    layout = Column(JSONB, nullable=False, default=list)
+    # Layout v2: { "version": 2, "rows": [{ "id", "blocks": [{ id, type, module_id, columnSpan, rowSpan, config }] }] }
+    # Legacy v1 list [{ module_id, visible, size }] is migrated on read via validate_layout.
+    layout = Column(JSONB, nullable=False, default=dict)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

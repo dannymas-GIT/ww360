@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Download, FileUp, Search } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Download, FileUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { WorkforceFieldLabel } from '@/components/workforce/WorkforceFormControls';
@@ -11,6 +11,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { SortableTableHead } from '@/components/ui/sortable-table-head';
+import { TableSearchFilter } from '@/components/ui/table-search-filter';
+import { useTableControls } from '@/hooks/useTableControls';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -73,7 +76,6 @@ export function WorkforceCeuArea({
   const { toast } = useToast();
   const { canManageWorkforce } = useAuth();
   const canManage = canManageWorkforce;
-  const [nameFilter, setNameFilter] = useState('');
   const [selectedOperator, setSelectedOperator] = useState<WorkforceCeuOperatorSummary | null>(
     null
   );
@@ -104,16 +106,47 @@ export function WorkforceCeuArea({
     queueMicrotask(() => onCreateDialogHandled?.());
   }, [openCreateDialog, prefillForm, onCreateDialogHandled, summaryQuery.data?.operators]);
 
-  const filteredOperators = useMemo(() => {
-    const ops = summaryQuery.data?.operators ?? [];
-    const needle = nameFilter.trim().toLowerCase();
-    if (!needle) return ops;
-    return ops.filter(
-      o =>
-        o.employee_name.toLowerCase().includes(needle) ||
-        o.employee_code.toLowerCase().includes(needle)
-    );
-  }, [summaryQuery.data?.operators, nameFilter]);
+  const getValue = useCallback((op: WorkforceCeuOperatorSummary, key: string) => {
+    switch (key) {
+      case 'operator':
+        return op.employee_name;
+      case 'grade':
+        return op.certification_grade;
+      case 'progress':
+        return op.percent_complete;
+      case 'vouchers':
+        return op.records_missing_vouchers;
+      case 'cycle_end':
+        return op.renewal_cycle_end;
+      default:
+        return null;
+    }
+  }, []);
+
+  const getSearchText = useCallback(
+    (op: WorkforceCeuOperatorSummary) =>
+      [op.employee_name, op.employee_code, op.certification_grade, op.renewal_cycle_end]
+        .filter(v => v != null && v !== '')
+        .join(' '),
+    []
+  );
+
+  const {
+    rows: tableRows,
+    sortKey,
+    sortDir,
+    toggleSort,
+    filter,
+    setFilter,
+    resultCount,
+    totalCount,
+  } = useTableControls({
+    rows: summaryQuery.data?.operators ?? [],
+    getValue,
+    getSearchText,
+    initialSortKey: 'operator',
+    initialSortDir: 'asc',
+  });
 
   const openEmployeeDialog = (
     op: WorkforceCeuOperatorSummary,
@@ -225,31 +258,61 @@ export function WorkforceCeuArea({
         </div>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
-        <Input
-          className="pl-8"
-          placeholder="Filter by operator name…"
-          value={nameFilter}
-          onChange={e => setNameFilter(e.target.value)}
-        />
-      </div>
+      <TableSearchFilter
+        id="ceu-operators-filter"
+        value={filter}
+        onChange={setFilter}
+        placeholder="Filter by operator name…"
+        resultCount={resultCount}
+        totalCount={totalCount}
+        className="max-w-md"
+      />
 
-      {filteredOperators.length ? (
+      {tableRows.length || (summaryQuery.data?.operators?.length ?? 0) > 0 ? (
         <div className="overflow-x-auto rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Operator</TableHead>
-                <TableHead>Grade</TableHead>
-                <TableHead>Progress</TableHead>
-                <TableHead>Vouchers</TableHead>
-                <TableHead>Cycle end</TableHead>
+                <SortableTableHead
+                  column="operator"
+                  label="Operator"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={toggleSort}
+                />
+                <SortableTableHead
+                  column="grade"
+                  label="Grade"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={toggleSort}
+                />
+                <SortableTableHead
+                  column="progress"
+                  label="Progress"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={toggleSort}
+                />
+                <SortableTableHead
+                  column="vouchers"
+                  label="Vouchers"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={toggleSort}
+                />
+                <SortableTableHead
+                  column="cycle_end"
+                  label="Cycle end"
+                  sortKey={sortKey}
+                  sortDir={sortDir}
+                  onSort={toggleSort}
+                />
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredOperators.map(op => {
+              {tableRows.map(op => {
                 const missingVouchers = (op.records_missing_vouchers ?? 0) > 0;
                 return (
                   <TableRow key={op.employee_code}>
@@ -348,6 +411,13 @@ export function WorkforceCeuArea({
                   </TableRow>
                 );
               })}
+              {!tableRows.length && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-sm text-gray-500">
+                    No operators match your filter.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>

@@ -324,6 +324,42 @@ export async function fetchWorkforceInsights(state = 'NY'): Promise<SDWISWorkfor
   return data;
 }
 
+export interface SDWISStateSystem {
+  pwsid: string;
+  pws_name?: string | null;
+  state_code: string;
+  county?: string | null;
+  pws_type?: string | null;
+  population_served?: number | null;
+  health_flag?: string | null;
+  serious_violator?: string | null;
+  snc?: string | null;
+  qtrs_with_vio?: number | null;
+  qtrs_with_snc?: number | null;
+}
+
+/** Cached EPA landscape systems for one county (utilities data card). */
+export async function fetchStateSystemsByCounty(
+  county: string,
+  state = 'NY',
+  limit = 2000
+): Promise<{ systems: SDWISStateSystem[]; total: number; limit: number }> {
+  const { data, headers: resHeaders } = await axios.get<SDWISStateSystem[]>(
+    `${base}/state-systems`,
+    {
+      headers: headers(),
+      params: { county, state, limit },
+    }
+  );
+  const totalHeader = Number(resHeaders['x-total-count']);
+  const limitHeader = Number(resHeaders['x-result-limit']);
+  return {
+    systems: data,
+    total: Number.isFinite(totalHeader) ? totalHeader : data.length,
+    limit: Number.isFinite(limitHeader) ? limitHeader : limit,
+  };
+}
+
 export async function refreshSdwisState(
   state = 'NY'
 ): Promise<{ success: boolean; state: string; systems_refreshed: number }> {
@@ -360,6 +396,25 @@ export interface SDWISPreviewEnforcement {
   agency?: string | null;
 }
 
+export interface SDWISPreviewComplianceQuarter {
+  label: string;
+  period?: string | null;
+  status?: string | null;
+}
+
+export interface SDWISPreviewSanitarySurvey {
+  survey_date?: string | null;
+  survey_type?: string | null;
+  result?: string | null;
+  notes?: string | null;
+}
+
+export interface SDWISPreviewSiteVisit {
+  visit_date?: string | null;
+  reason?: string | null;
+  agency?: string | null;
+}
+
 export interface SDWISPreview {
   pwsid: string;
   pws_name?: string | null;
@@ -372,11 +427,20 @@ export interface SDWISPreview {
   serious_violator?: string | null;
   qtrs_with_vio?: number | null;
   qtrs_with_snc?: number | null;
+  facility_street?: string | null;
+  facility_city?: string | null;
+  facility_zip?: string | null;
+  facility_county?: string | null;
+  universe_summary?: string | null;
+  dfr_url?: string | null;
   violation_count: number;
   open_violation_count: number;
   enforcement_count: number;
   violations: SDWISPreviewViolation[];
   enforcement_actions: SDWISPreviewEnforcement[];
+  compliance_quarters?: SDWISPreviewComplianceQuarter[];
+  sanitary_surveys?: SDWISPreviewSanitarySurvey[];
+  site_visits?: SDWISPreviewSiteVisit[];
   source: string;
   preview_only: boolean;
   is_linked: boolean;

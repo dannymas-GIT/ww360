@@ -95,6 +95,7 @@
       "pathPatterns": [
         "frontend/src/App.tsx",
         "frontend/src/pages/sdwis/**",
+        "frontend/src/components/sdwis/**",
         "frontend/src/pages/admin/**",
         "frontend/src/pages/WorkforceContinuityPage.tsx",
         "frontend/src/components/workforce/workforceContinuityTabs.ts",

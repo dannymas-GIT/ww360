@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Set, Tuple
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -34,6 +34,7 @@ from app.schemas.sdwis import (
     SDWISViolationOut,
     SDWISWaterSystemOut,
     SDWISWorkforceInsightsOut,
+    SDWISStateSystemOut,
 )
 from app.services.district_security_service import DistrictSecurityService
 from app.services.sdwis_client import SDWISClient, SDWISClientError
@@ -123,6 +124,57 @@ def workforce_insights(
 ):
     _ = context
     return build_workforce_insights(db, state.upper())
+
+
+@router.get("/state-systems", response_model=List[SDWISStateSystemOut])
+def list_state_systems_by_county(
+    response: Response,
+    county: str = Query(..., min_length=1, description="County name from landscape pressure table"),
+    state: str = Query("NY", min_length=2, max_length=2),
+    limit: int = Query(2000, ge=1, le=5000),
+    db: Session = Depends(deps.get_db),
+    context: TenantContext = Depends(deps.get_current_tenant_user),
+):
+    """List cached EPA systems for a county (landscape → utilities data card)."""
+    _ = context
+    from app.models.sdwis_state_system import SDWISStateSystem
+    from app.services.jurisdiction_service import normalize_county_name
+
+    st = state.upper()[:2]
+    want = normalize_county_name(county)
+    if not want:
+        raise HTTPException(status_code=400, detail="county is required")
+
+    candidates = (
+        db.query(SDWISStateSystem)
+        .filter(SDWISStateSystem.state_code == st)
+        .order_by(SDWISStateSystem.pws_name.asc().nullslast(), SDWISStateSystem.pwsid.asc())
+        .all()
+    )
+
+    matched: list[SDWISStateSystem] = []
+    want_bare = want.removesuffix(" county").strip()
+    for row in candidates:
+        name = normalize_county_name(row.county)
+        if not name:
+            continue
+        bare = name.removesuffix(" county").strip()
+        if (
+            name == want
+            or name == want_bare
+            or bare == want
+            or bare == want_bare
+            or name == f"{want_bare} county"
+            or bare.startswith(f"{want_bare} ")
+            or want_bare.startswith(f"{bare} ")
+        ):
+            matched.append(row)
+
+    total = len(matched)
+    response.headers["X-Total-Count"] = str(total)
+    response.headers["X-Result-Limit"] = str(limit)
+    page = matched[:limit]
+    return [SDWISStateSystemOut.model_validate(r) for r in page]
 
 
 @router.post("/refresh-state")

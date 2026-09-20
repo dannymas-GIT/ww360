@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { KeyRound } from 'lucide-react';
 import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
 import { Ww360Section } from '@/components/ww360/Ww360Section';
@@ -14,6 +14,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { SortableTableHead } from '@/components/ui/sortable-table-head';
+import { TableSearchFilter } from '@/components/ui/table-search-filter';
+import { useTableControls } from '@/hooks/useTableControls';
 import {
   Dialog,
   DialogContent,
@@ -124,6 +127,77 @@ export default function AdminUsersPage() {
     setPasswordError(null);
   };
 
+  const userGetValue = useCallback((user: AdminUser, key: string) => {
+    switch (key) {
+      case 'user':
+        return user.full_name || user.username;
+      case 'roles':
+        return user.roles.join(' ');
+      case 'status':
+        return user.is_active ? 'active' : 'inactive';
+      default:
+        return null;
+    }
+  }, []);
+
+  const userGetSearchText = useCallback(
+    (user: AdminUser) =>
+      [user.full_name, user.username, user.email, ...user.roles, user.is_active ? 'active' : 'inactive']
+        .filter(v => v != null && v !== '')
+        .join(' '),
+    []
+  );
+
+  const usersTable = useTableControls({
+    rows: users,
+    getValue: userGetValue,
+    getSearchText: userGetSearchText,
+    initialSortKey: 'user',
+    initialSortDir: 'asc',
+  });
+
+  const auditGetValue = useCallback((session: ImpersonationSession, key: string) => {
+    switch (key) {
+      case 'started':
+        return session.started_at;
+      case 'actor':
+        return session.actor_user_id;
+      case 'target':
+        return session.target_user_id;
+      case 'mode':
+        return session.mode;
+      case 'persona':
+        return session.persona_key;
+      case 'reason':
+        return session.reason;
+      default:
+        return null;
+    }
+  }, []);
+
+  const auditGetSearchText = useCallback(
+    (session: ImpersonationSession) =>
+      [
+        session.started_at,
+        session.actor_user_id,
+        session.target_user_id,
+        session.mode,
+        session.persona_key,
+        session.reason,
+      ]
+        .filter(v => v != null && v !== '')
+        .join(' '),
+    []
+  );
+
+  const auditTable = useTableControls({
+    rows: auditSessions,
+    getValue: auditGetValue,
+    getSearchText: auditGetSearchText,
+    initialSortKey: 'started',
+    initialSortDir: 'desc',
+  });
+
   const submitPasswordReset = async () => {
     if (!passwordUser) return;
     const pwd = newPassword.trim();
@@ -197,18 +271,45 @@ export default function AdminUsersPage() {
             {loading ? (
               <p className="text-base text-slate-500">Loading…</p>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>User</TableHead>
-                      <TableHead>Roles</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {users.map(user => (
+              <div className="space-y-3">
+                <TableSearchFilter
+                  id="admin-users-filter"
+                  value={usersTable.filter}
+                  onChange={usersTable.setFilter}
+                  placeholder="Filter users…"
+                  resultCount={usersTable.resultCount}
+                  totalCount={usersTable.totalCount}
+                />
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <SortableTableHead
+                          column="user"
+                          label="User"
+                          sortKey={usersTable.sortKey}
+                          sortDir={usersTable.sortDir}
+                          onSort={usersTable.toggleSort}
+                        />
+                        <SortableTableHead
+                          column="roles"
+                          label="Roles"
+                          sortKey={usersTable.sortKey}
+                          sortDir={usersTable.sortDir}
+                          onSort={usersTable.toggleSort}
+                        />
+                        <SortableTableHead
+                          column="status"
+                          label="Status"
+                          sortKey={usersTable.sortKey}
+                          sortDir={usersTable.sortDir}
+                          onSort={usersTable.toggleSort}
+                        />
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {usersTable.rows.map(user => (
                       <TableRow key={user.id}>
                         <TableCell>
                           <div className="font-medium text-base">{user.full_name || user.username}</div>
@@ -274,15 +375,16 @@ export default function AdminUsersPage() {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {!users.length && !loading && (
-                      <TableRow>
-                        <TableCell colSpan={4} className="text-base text-slate-500">
-                          No users found.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                      {!usersTable.rows.length && !loading && (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-base text-slate-500">
+                            {users.length ? 'No users match your filter.' : 'No users found.'}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
             )}
           </Ww360Section>
@@ -292,20 +394,65 @@ export default function AdminUsersPage() {
             {auditLoading ? (
               <p className="text-base text-slate-500">Loading audit log…</p>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Started</TableHead>
-                      <TableHead>Actor</TableHead>
-                      <TableHead>Target</TableHead>
-                      <TableHead>Mode</TableHead>
-                      <TableHead>Persona</TableHead>
-                      <TableHead>Reason</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {auditSessions.map(s => (
+              <div className="space-y-3">
+                <TableSearchFilter
+                  id="impersonation-audit-filter"
+                  value={auditTable.filter}
+                  onChange={auditTable.setFilter}
+                  placeholder="Filter audit log…"
+                  resultCount={auditTable.resultCount}
+                  totalCount={auditTable.totalCount}
+                />
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <SortableTableHead
+                          column="started"
+                          label="Started"
+                          sortKey={auditTable.sortKey}
+                          sortDir={auditTable.sortDir}
+                          onSort={auditTable.toggleSort}
+                        />
+                        <SortableTableHead
+                          column="actor"
+                          label="Actor"
+                          sortKey={auditTable.sortKey}
+                          sortDir={auditTable.sortDir}
+                          onSort={auditTable.toggleSort}
+                        />
+                        <SortableTableHead
+                          column="target"
+                          label="Target"
+                          sortKey={auditTable.sortKey}
+                          sortDir={auditTable.sortDir}
+                          onSort={auditTable.toggleSort}
+                        />
+                        <SortableTableHead
+                          column="mode"
+                          label="Mode"
+                          sortKey={auditTable.sortKey}
+                          sortDir={auditTable.sortDir}
+                          onSort={auditTable.toggleSort}
+                        />
+                        <SortableTableHead
+                          column="persona"
+                          label="Persona"
+                          sortKey={auditTable.sortKey}
+                          sortDir={auditTable.sortDir}
+                          onSort={auditTable.toggleSort}
+                        />
+                        <SortableTableHead
+                          column="reason"
+                          label="Reason"
+                          sortKey={auditTable.sortKey}
+                          sortDir={auditTable.sortDir}
+                          onSort={auditTable.toggleSort}
+                        />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {auditTable.rows.map(s => (
                       <TableRow key={s.id}>
                         <TableCell className="text-base">{s.started_at}</TableCell>
                         <TableCell className="font-mono text-sm">#{s.actor_user_id}</TableCell>
@@ -315,15 +462,18 @@ export default function AdminUsersPage() {
                         <TableCell className="max-w-xs truncate">{s.reason || '—'}</TableCell>
                       </TableRow>
                     ))}
-                    {!auditSessions.length && (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-base text-slate-500">
-                          No impersonation sessions recorded yet.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                      {!auditTable.rows.length && (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-base text-slate-500">
+                            {auditSessions.length
+                              ? 'No sessions match your filter.'
+                              : 'No impersonation sessions recorded yet.'}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
             )}
           </Ww360Section>

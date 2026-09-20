@@ -82,10 +82,12 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { SortableTableHead } from '@/components/ui/sortable-table-head';
+import { TableSearchFilter } from '@/components/ui/table-search-filter';
+import { useTableControls } from '@/hooks/useTableControls';
 import { useToast } from '@/components/ui/use-toast';
 import {
   isWorkforceDistrictLocked,
@@ -248,26 +250,126 @@ function CoverageTable({
   employeeNameByCode: Map<string, string>;
   onRowClick?: (row: CriticalFunctionCoverage) => void;
 }) {
+  const getValue = useCallback(
+    (row: CriticalFunctionCoverage, key: string) => {
+      switch (key) {
+        case 'function':
+          return row.function_name;
+        case 'area':
+          return row.function_area;
+        case 'primary':
+          return labelsForCodes(row.primary_employee_codes, employeeNameByCode);
+        case 'backups':
+          return labelsForCodes(row.backup_employee_codes, employeeNameByCode);
+        case 'trainees':
+          return labelsForCodes(row.trainee_employee_codes, employeeNameByCode);
+        case 'risk':
+          return row.risk_level;
+        default:
+          return null;
+      }
+    },
+    [employeeNameByCode]
+  );
+
+  const getSearchText = useCallback(
+    (row: CriticalFunctionCoverage) =>
+      [
+        row.function_name,
+        row.function_area,
+        row.function_code,
+        row.risk_level,
+        labelsForCodes(row.primary_employee_codes, employeeNameByCode),
+        labelsForCodes(row.backup_employee_codes, employeeNameByCode),
+        labelsForCodes(row.trainee_employee_codes, employeeNameByCode),
+      ]
+        .filter(v => v != null && v !== '')
+        .join(' '),
+    [employeeNameByCode]
+  );
+
+  const {
+    rows: displayRows,
+    sortKey,
+    sortDir,
+    toggleSort,
+    filter,
+    setFilter,
+    resultCount,
+    totalCount,
+  } = useTableControls({
+    rows,
+    getValue,
+    getSearchText,
+    initialSortKey: 'function',
+    initialSortDir: 'asc',
+  });
+
   if (!rows.length) {
     return (
       <p className="text-sm text-gray-500">No critical functions defined yet for this district.</p>
     );
   }
   return (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Function</TableHead>
-            <TableHead>Area</TableHead>
-            <TableHead>Primary</TableHead>
-            <TableHead>Backups</TableHead>
-            <TableHead>Trainees</TableHead>
-            <TableHead>Risk</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map(r => (
+    <div className="space-y-3">
+      <TableSearchFilter
+        id="coverage-table-filter"
+        value={filter}
+        onChange={setFilter}
+        placeholder="Filter coverage rows…"
+        resultCount={resultCount}
+        totalCount={totalCount}
+      />
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <SortableTableHead
+                column="function"
+                label="Function"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
+              <SortableTableHead
+                column="area"
+                label="Area"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
+              <SortableTableHead
+                column="primary"
+                label="Primary"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
+              <SortableTableHead
+                column="backups"
+                label="Backups"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
+              <SortableTableHead
+                column="trainees"
+                label="Trainees"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
+              <SortableTableHead
+                column="risk"
+                label="Risk"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {displayRows.map(r => (
             <TableRow
               key={r.function_id}
               className={onRowClick ? 'cursor-pointer hover:bg-slate-50' : undefined}
@@ -286,9 +388,17 @@ function CoverageTable({
                 </span>
               </TableCell>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+            ))}
+            {!displayRows.length && (
+              <TableRow>
+                <TableCell colSpan={6} className="text-sm text-gray-500">
+                  No rows match your filter.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
@@ -300,23 +410,111 @@ function CertCliffTable({
   rows: CertificationCliffEntry[];
   onRowClick?: (row: CertificationCliffEntry) => void;
 }) {
+  const getValue = useCallback((row: CertificationCliffEntry, key: string) => {
+    switch (key) {
+      case 'employee':
+        return row.employee_name;
+      case 'certification':
+        return `${row.certification_type}${row.certification_grade ? ` (${row.certification_grade})` : ''}`;
+      case 'expires':
+        return row.expiration_date;
+      case 'days':
+        return row.days_until_expiration;
+      case 'required':
+        return row.is_required_for_role ? 1 : 0;
+      default:
+        return null;
+    }
+  }, []);
+
+  const getSearchText = useCallback(
+    (row: CertificationCliffEntry) =>
+      [
+        row.employee_name,
+        row.certification_type,
+        row.certification_grade,
+        row.expiration_date,
+        row.days_until_expiration,
+        row.is_required_for_role ? 'required' : 'optional',
+      ]
+        .filter(v => v != null && v !== '')
+        .join(' '),
+    []
+  );
+
+  const {
+    rows: displayRows,
+    sortKey,
+    sortDir,
+    toggleSort,
+    filter,
+    setFilter,
+    resultCount,
+    totalCount,
+  } = useTableControls({
+    rows,
+    getValue,
+    getSearchText,
+    initialSortKey: 'days',
+    initialSortDir: 'asc',
+  });
+
   if (!rows.length) {
     return <p className="text-sm text-gray-500">No certifications expiring within 12 months.</p>;
   }
   return (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Employee</TableHead>
-            <TableHead>Certification</TableHead>
-            <TableHead>Expires</TableHead>
-            <TableHead>Days</TableHead>
-            <TableHead>Required</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map(r => (
+    <div className="space-y-3">
+      <TableSearchFilter
+        id="cert-cliff-table-filter"
+        value={filter}
+        onChange={setFilter}
+        placeholder="Filter certifications…"
+        resultCount={resultCount}
+        totalCount={totalCount}
+      />
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <SortableTableHead
+                column="employee"
+                label="Employee"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
+              <SortableTableHead
+                column="certification"
+                label="Certification"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
+              <SortableTableHead
+                column="expires"
+                label="Expires"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
+              <SortableTableHead
+                column="days"
+                label="Days"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
+              <SortableTableHead
+                column="required"
+                label="Required"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {displayRows.map(r => (
             <TableRow
               key={r.certification_id}
               className={onRowClick ? 'cursor-pointer hover:bg-slate-50' : undefined}
@@ -339,9 +537,17 @@ function CertCliffTable({
               </TableCell>
               <TableCell>{r.is_required_for_role ? 'Yes' : 'No'}</TableCell>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+            ))}
+            {!displayRows.length && (
+              <TableRow>
+                <TableCell colSpan={5} className="text-sm text-gray-500">
+                  No rows match your filter.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
@@ -355,6 +561,58 @@ function RetirementTable({
   positionTitleByCode: Map<string, string>;
   onRowClick?: (row: RetirementHorizonEntry) => void;
 }) {
+  const getValue = useCallback(
+    (row: RetirementHorizonEntry, key: string) => {
+      switch (key) {
+        case 'employee':
+          return row.employee_name;
+        case 'position':
+          return row.position_code
+            ? (positionTitleByCode.get(row.position_code) ?? row.position_code)
+            : null;
+        case 'eligible':
+          return row.retirement_eligible_date;
+        case 'months':
+          return row.months_until_eligible;
+        default:
+          return null;
+      }
+    },
+    [positionTitleByCode]
+  );
+
+  const getSearchText = useCallback(
+    (row: RetirementHorizonEntry) =>
+      [
+        row.employee_name,
+        row.employee_code,
+        row.position_code,
+        positionTitleByCode.get(row.position_code ?? '') ?? '',
+        row.retirement_eligible_date,
+        row.months_until_eligible,
+      ]
+        .filter(v => v != null && v !== '')
+        .join(' '),
+    [positionTitleByCode]
+  );
+
+  const {
+    rows: displayRows,
+    sortKey,
+    sortDir,
+    toggleSort,
+    filter,
+    setFilter,
+    resultCount,
+    totalCount,
+  } = useTableControls({
+    rows,
+    getValue,
+    getSearchText,
+    initialSortKey: 'months',
+    initialSortDir: 'asc',
+  });
+
   if (!rows.length) {
     return (
       <p className="text-sm text-gray-500">
@@ -363,18 +621,51 @@ function RetirementTable({
     );
   }
   return (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Employee</TableHead>
-            <TableHead>Position</TableHead>
-            <TableHead>Eligible</TableHead>
-            <TableHead>Months out</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map(r => (
+    <div className="space-y-3">
+      <TableSearchFilter
+        id="retirement-table-filter"
+        value={filter}
+        onChange={setFilter}
+        placeholder="Filter retirement horizon…"
+        resultCount={resultCount}
+        totalCount={totalCount}
+      />
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <SortableTableHead
+                column="employee"
+                label="Employee"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
+              <SortableTableHead
+                column="position"
+                label="Position"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
+              <SortableTableHead
+                column="eligible"
+                label="Eligible"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
+              <SortableTableHead
+                column="months"
+                label="Months out"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {displayRows.map(r => (
             <TableRow
               key={r.employee_id}
               className={onRowClick ? 'cursor-pointer hover:bg-slate-50' : undefined}
@@ -397,9 +688,17 @@ function RetirementTable({
                 {r.months_until_eligible ?? '—'}
               </TableCell>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+            ))}
+            {!displayRows.length && (
+              <TableRow>
+                <TableCell colSpan={4} className="text-sm text-gray-500">
+                  No rows match your filter.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
@@ -413,23 +712,116 @@ function MilestonesTable({
   positionTitleByCode: Map<string, string>;
   onRowClick?: (row: TransitionMilestoneSummary) => void;
 }) {
+  const getValue = useCallback(
+    (row: TransitionMilestoneSummary, key: string) => {
+      switch (key) {
+        case 'position':
+          return positionTitleByCode.get(row.position_code) ?? row.position_code;
+        case 'milestone':
+          return row.title;
+        case 'phase':
+          return row.toolkit_phase;
+        case 'target':
+          return row.target_date;
+        case 'status':
+          return row.status;
+        default:
+          return null;
+      }
+    },
+    [positionTitleByCode]
+  );
+
+  const getSearchText = useCallback(
+    (row: TransitionMilestoneSummary) =>
+      [
+        positionTitleByCode.get(row.position_code) ?? row.position_code,
+        row.position_code,
+        row.title,
+        row.milestone_type,
+        row.toolkit_phase,
+        row.target_date,
+        row.status,
+        row.is_overdue ? 'overdue' : '',
+      ]
+        .filter(v => v != null && v !== '')
+        .join(' '),
+    [positionTitleByCode]
+  );
+
+  const {
+    rows: displayRows,
+    sortKey,
+    sortDir,
+    toggleSort,
+    filter,
+    setFilter,
+    resultCount,
+    totalCount,
+  } = useTableControls({
+    rows,
+    getValue,
+    getSearchText,
+    initialSortKey: 'target',
+    initialSortDir: 'asc',
+  });
+
   if (!rows.length) {
     return <p className="text-sm text-gray-500">No upcoming transition milestones.</p>;
   }
   return (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Position</TableHead>
-            <TableHead>Milestone</TableHead>
-            <TableHead>Phase</TableHead>
-            <TableHead>Target</TableHead>
-            <TableHead>Status</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map(r => (
+    <div className="space-y-3">
+      <TableSearchFilter
+        id="milestones-table-filter"
+        value={filter}
+        onChange={setFilter}
+        placeholder="Filter milestones…"
+        resultCount={resultCount}
+        totalCount={totalCount}
+      />
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <SortableTableHead
+                column="position"
+                label="Position"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
+              <SortableTableHead
+                column="milestone"
+                label="Milestone"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
+              <SortableTableHead
+                column="phase"
+                label="Phase"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
+              <SortableTableHead
+                column="target"
+                label="Target"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
+              <SortableTableHead
+                column="status"
+                label="Status"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+              />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {displayRows.map(r => (
             <TableRow
               key={r.milestone_id}
               className={onRowClick ? 'cursor-pointer hover:bg-slate-50' : undefined}
@@ -449,9 +841,17 @@ function MilestonesTable({
               </TableCell>
               <TableCell className="capitalize">{r.status}</TableCell>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+            ))}
+            {!displayRows.length && (
+              <TableRow>
+                <TableCell colSpan={5} className="text-sm text-gray-500">
+                  No rows match your filter.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
@@ -476,6 +876,47 @@ function ImportPanel({
   const downloadMutation = useDownloadCsvTemplate();
 
   const batchesQuery = useWorkforceImportBatches(districtCode);
+
+  const batchGetValue = useCallback((row: WorkforceImportBatch, key: string) => {
+    switch (key) {
+      case 'when':
+        return row.created_at;
+      case 'entity':
+        return row.entity_type;
+      case 'file':
+        return row.original_filename;
+      case 'status':
+        return row.status;
+      case 'rows':
+        return row.rows_promoted;
+      default:
+        return null;
+    }
+  }, []);
+
+  const batchGetSearchText = useCallback(
+    (row: WorkforceImportBatch) =>
+      [
+        row.created_at,
+        row.entity_type,
+        row.original_filename,
+        row.status,
+        row.rows_valid,
+        row.rows_invalid,
+        row.rows_promoted,
+      ]
+        .filter(v => v != null && v !== '')
+        .join(' '),
+    []
+  );
+
+  const batchTable = useTableControls({
+    rows: batchesQuery.data ?? [],
+    getValue: batchGetValue,
+    getSearchText: batchGetSearchText,
+    initialSortKey: 'when',
+    initialSortDir: 'desc',
+  });
 
   const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -668,19 +1109,58 @@ function ImportPanel({
           {batchesQuery.isLoading ? (
             <p className="text-sm text-gray-500">Loading…</p>
           ) : batchesQuery.data?.length ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>When</TableHead>
-                    <TableHead>Entity</TableHead>
-                    <TableHead>File</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Rows (valid / invalid / promoted)</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {batchesQuery.data.map((b: WorkforceImportBatch) => (
+            <div className="space-y-3">
+              <TableSearchFilter
+                id="import-batches-filter"
+                value={batchTable.filter}
+                onChange={batchTable.setFilter}
+                placeholder="Filter import batches…"
+                resultCount={batchTable.resultCount}
+                totalCount={batchTable.totalCount}
+              />
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <SortableTableHead
+                        column="when"
+                        label="When"
+                        sortKey={batchTable.sortKey}
+                        sortDir={batchTable.sortDir}
+                        onSort={batchTable.toggleSort}
+                      />
+                      <SortableTableHead
+                        column="entity"
+                        label="Entity"
+                        sortKey={batchTable.sortKey}
+                        sortDir={batchTable.sortDir}
+                        onSort={batchTable.toggleSort}
+                      />
+                      <SortableTableHead
+                        column="file"
+                        label="File"
+                        sortKey={batchTable.sortKey}
+                        sortDir={batchTable.sortDir}
+                        onSort={batchTable.toggleSort}
+                      />
+                      <SortableTableHead
+                        column="status"
+                        label="Status"
+                        sortKey={batchTable.sortKey}
+                        sortDir={batchTable.sortDir}
+                        onSort={batchTable.toggleSort}
+                      />
+                      <SortableTableHead
+                        column="rows"
+                        label="Rows (valid / invalid / promoted)"
+                        sortKey={batchTable.sortKey}
+                        sortDir={batchTable.sortDir}
+                        onSort={batchTable.toggleSort}
+                      />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {batchTable.rows.map((b: WorkforceImportBatch) => (
                     <TableRow key={b.id}>
                       <TableCell>{new Date(b.created_at).toLocaleString()}</TableCell>
                       <TableCell>{b.entity_type}</TableCell>
@@ -695,9 +1175,17 @@ function ImportPanel({
                         {b.rows_valid} / {b.rows_invalid} / {b.rows_promoted}
                       </TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                    ))}
+                    {!batchTable.rows.length && (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-sm text-gray-500">
+                          No batches match your filter.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           ) : (
             <p className="text-sm text-gray-500">No imports yet.</p>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Bar,
@@ -22,6 +22,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { SortableTableHead } from '@/components/ui/sortable-table-head';
+import { TableSearchFilter } from '@/components/ui/table-search-filter';
+import { useTableControls } from '@/hooks/useTableControls';
+import type { SDWISAnalysisSetItem } from '@/services/sdwisService';
 import {
   useCreateAnalysisSet,
   useDeleteAnalysisSet,
@@ -88,6 +92,49 @@ export default function SdwisAnalysisPage() {
       })),
     [activeSet]
   );
+
+  const getValue = useCallback((row: SDWISAnalysisSetItem, key: string) => {
+    switch (key) {
+      case 'pwsid':
+        return row.pwsid;
+      case 'name':
+        return row.pws_name;
+      case 'population':
+        return row.population_served;
+      case 'snc':
+        return row.snc;
+      case 'violations':
+        return row.open_violation_count;
+      case 'enforcement':
+        return row.enforcement_count;
+      default:
+        return null;
+    }
+  }, []);
+
+  const getSearchText = useCallback(
+    (row: SDWISAnalysisSetItem) =>
+      [
+        row.pwsid,
+        row.pws_name,
+        row.state_code,
+        row.population_served,
+        row.snc,
+        row.open_violation_count,
+        row.enforcement_count,
+      ]
+        .filter(v => v != null && v !== '')
+        .join(' '),
+    []
+  );
+
+  const itemTable = useTableControls({
+    rows: activeSet?.items ?? [],
+    getValue,
+    getSearchText,
+    initialSortKey: 'population',
+    initialSortDir: 'desc',
+  });
 
   return (
     <div className="ww360-app-shell mx-auto w-full max-w-[1440px] space-y-6 p-4 md:p-6">
@@ -281,21 +328,66 @@ export default function SdwisAnalysisPage() {
             ) : !activeSet.items.length ? (
               <p className="text-base text-slate-600">This set is empty. Add systems from lookup.</p>
             ) : (
-              <div className="overflow-x-auto rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>PWSID</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Population</TableHead>
-                      <TableHead>SNC</TableHead>
-                      <TableHead>Open violations</TableHead>
-                      <TableHead>Enforcement</TableHead>
-                      <TableHead />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {activeSet.items.map(item => (
+              <div className="space-y-3">
+                <TableSearchFilter
+                  id="analysis-items-filter"
+                  value={itemTable.filter}
+                  onChange={itemTable.setFilter}
+                  placeholder="Filter systems in this review…"
+                  resultCount={itemTable.resultCount}
+                  totalCount={itemTable.totalCount}
+                />
+                <div className="overflow-x-auto rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <SortableTableHead
+                          column="pwsid"
+                          label="PWSID"
+                          sortKey={itemTable.sortKey}
+                          sortDir={itemTable.sortDir}
+                          onSort={itemTable.toggleSort}
+                        />
+                        <SortableTableHead
+                          column="name"
+                          label="Name"
+                          sortKey={itemTable.sortKey}
+                          sortDir={itemTable.sortDir}
+                          onSort={itemTable.toggleSort}
+                        />
+                        <SortableTableHead
+                          column="population"
+                          label="Population"
+                          sortKey={itemTable.sortKey}
+                          sortDir={itemTable.sortDir}
+                          onSort={itemTable.toggleSort}
+                        />
+                        <SortableTableHead
+                          column="snc"
+                          label="SNC"
+                          sortKey={itemTable.sortKey}
+                          sortDir={itemTable.sortDir}
+                          onSort={itemTable.toggleSort}
+                        />
+                        <SortableTableHead
+                          column="violations"
+                          label="Open violations"
+                          sortKey={itemTable.sortKey}
+                          sortDir={itemTable.sortDir}
+                          onSort={itemTable.toggleSort}
+                        />
+                        <SortableTableHead
+                          column="enforcement"
+                          label="Enforcement"
+                          sortKey={itemTable.sortKey}
+                          sortDir={itemTable.sortDir}
+                          onSort={itemTable.toggleSort}
+                        />
+                        <TableHead className="w-[6rem]">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {itemTable.rows.map(item => (
                       <TableRow key={item.pwsid}>
                         <TableCell className="font-mono text-base">{item.pwsid}</TableCell>
                         <TableCell className="text-base">{item.pws_name || '—'}</TableCell>
@@ -322,9 +414,17 @@ export default function SdwisAnalysisPage() {
                           </Button>
                         </TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                      ))}
+                      {!itemTable.rows.length && (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-base text-slate-500">
+                            No systems match your filter.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
             )}
           </Ww360Section>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { DistrictPwsLinkConfigSection } from '@/components/admin/DistrictPwsLinkConfigSection';
 import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
@@ -9,10 +9,13 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { SortableTableHead } from '@/components/ui/sortable-table-head';
+import { TableSearchFilter } from '@/components/ui/table-search-filter';
+import { useTableControls } from '@/hooks/useTableControls';
+import type { SDWISEnforcement, SDWISViolation } from '@/services/sdwisService';
 import { useAuth } from '@/context/AuthContext';
 import {
   useSDWISEnforcement,
@@ -22,6 +25,208 @@ import {
   useSyncSDWISSystem,
 } from '@/hooks/useSDWIS';
 import { RefreshCw } from 'lucide-react';
+
+function ComplianceViolationsTable({ rows }: { rows: SDWISViolation[] }) {
+  const getValue = useCallback((row: SDWISViolation, key: string) => {
+    switch (key) {
+      case 'rule':
+        return row.contaminant_name || row.rule_name;
+      case 'category':
+        return row.category_desc || row.category_code;
+      case 'status':
+        return row.status;
+      default:
+        return null;
+    }
+  }, []);
+
+  const getSearchText = useCallback(
+    (row: SDWISViolation) =>
+      [row.contaminant_name, row.rule_name, row.category_desc, row.category_code, row.status]
+        .filter(v => v != null && v !== '')
+        .join(' '),
+    []
+  );
+
+  const {
+    rows: displayRows,
+    sortKey,
+    sortDir,
+    toggleSort,
+    filter,
+    setFilter,
+    resultCount,
+    totalCount,
+  } = useTableControls({
+    rows: rows.slice(0, 100),
+    getValue,
+    getSearchText,
+    initialSortKey: 'rule',
+    initialSortDir: 'asc',
+  });
+
+  return (
+    <div className="space-y-3">
+      <TableSearchFilter
+        id="compliance-violations-filter"
+        value={filter}
+        onChange={setFilter}
+        placeholder="Filter violations…"
+        resultCount={resultCount}
+        totalCount={totalCount}
+      />
+      <div className="overflow-x-auto">
+        <Table className="w-full min-w-[32rem] table-fixed">
+          <TableHeader>
+            <TableRow>
+              <SortableTableHead
+                column="rule"
+                label="Contaminant / rule"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+                className="w-[44%]"
+              />
+              <SortableTableHead
+                column="category"
+                label="Category"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+                className="hidden w-[34%] md:table-cell"
+              />
+              <SortableTableHead
+                column="status"
+                label="Status"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+                className="w-[22%]"
+              />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {displayRows.map(v => (
+              <TableRow key={v.id}>
+                <TableCell className="align-top break-words text-base">
+                  <div className="font-medium">
+                    {v.contaminant_name || v.rule_name || '—'}
+                  </div>
+                </TableCell>
+                <TableCell className="hidden align-top break-words text-base md:table-cell">
+                  {v.category_desc || v.category_code || '—'}
+                </TableCell>
+                <TableCell className="align-top break-words text-base">
+                  {v.status || '—'}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
+function ComplianceEnforcementTable({ rows }: { rows: SDWISEnforcement[] }) {
+  const getValue = useCallback((row: SDWISEnforcement, key: string) => {
+    switch (key) {
+      case 'date':
+        return row.action_date;
+      case 'type':
+        return row.enforcement_type;
+      case 'description':
+        return row.action_description;
+      default:
+        return null;
+    }
+  }, []);
+
+  const getSearchText = useCallback(
+    (row: SDWISEnforcement) =>
+      [row.action_date, row.enforcement_type, row.action_description, row.agency]
+        .filter(v => v != null && v !== '')
+        .join(' '),
+    []
+  );
+
+  const {
+    rows: displayRows,
+    sortKey,
+    sortDir,
+    toggleSort,
+    filter,
+    setFilter,
+    resultCount,
+    totalCount,
+  } = useTableControls({
+    rows: rows.slice(0, 100),
+    getValue,
+    getSearchText,
+    initialSortKey: 'date',
+    initialSortDir: 'desc',
+  });
+
+  return (
+    <div className="space-y-3">
+      <TableSearchFilter
+        id="compliance-enforcement-filter"
+        value={filter}
+        onChange={setFilter}
+        placeholder="Filter enforcement…"
+        resultCount={resultCount}
+        totalCount={totalCount}
+      />
+      <div className="overflow-x-auto">
+        <Table className="w-full min-w-[32rem] table-fixed">
+          <TableHeader>
+            <TableRow>
+              <SortableTableHead
+                column="date"
+                label="Date"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+                className="w-[20%]"
+              />
+              <SortableTableHead
+                column="type"
+                label="Type"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+                className="w-[26%]"
+              />
+              <SortableTableHead
+                column="description"
+                label="Description"
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={toggleSort}
+                className="w-[54%]"
+              />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {displayRows.map(e => (
+              <TableRow key={e.id}>
+                <TableCell className="align-top whitespace-nowrap text-base">
+                  {e.action_date || '—'}
+                </TableCell>
+                <TableCell className="align-top break-words text-base">
+                  {e.enforcement_type || '—'}
+                </TableCell>
+                <TableCell className="align-top break-words text-base">
+                  {e.action_description || '—'}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
 
 export default function SdwisCompliancePage() {
   const { isDistrictManager, actingDistrictCode, user } = useAuth();
@@ -169,30 +374,7 @@ export default function SdwisCompliancePage() {
               {vLoading ? (
                 <p className="text-base text-slate-600">Loading…</p>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="min-w-[120px]">Contaminant / rule</TableHead>
-                      <TableHead className="hidden md:table-cell">Category</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(violations || []).slice(0, 100).map(v => (
-                      <TableRow key={v.id}>
-                        <TableCell className="max-w-[220px] align-top text-base">
-                          <div className="font-medium">
-                            {v.contaminant_name || v.rule_name || '—'}
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden text-base md:table-cell">
-                          {v.category_desc || v.category_code || '—'}
-                        </TableCell>
-                        <TableCell className="text-base">{v.status || '—'}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <ComplianceViolationsTable rows={violations || []} />
               )}
             </div>
           </Ww360Section>
@@ -202,28 +384,7 @@ export default function SdwisCompliancePage() {
               {eLoading ? (
                 <p className="text-base text-slate-600">Loading…</p>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Description</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(enforcement || []).slice(0, 100).map(e => (
-                      <TableRow key={e.id}>
-                        <TableCell className="whitespace-nowrap text-base">
-                          {e.action_date || '—'}
-                        </TableCell>
-                        <TableCell className="text-base">{e.enforcement_type || '—'}</TableCell>
-                        <TableCell className="max-w-[220px] text-base">
-                          {e.action_description || '—'}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <ComplianceEnforcementTable rows={enforcement || []} />
               )}
             </div>
           </Ww360Section>

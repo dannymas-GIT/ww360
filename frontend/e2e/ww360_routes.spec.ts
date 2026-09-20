@@ -38,6 +38,56 @@ test.describe('WW360 routes', () => {
     });
   });
 
+  test('county pressure opens utilities card', async ({ page }) => {
+    await page.goto('/water-systems');
+    await expect(page.getByRole('heading', { name: /water system landscape/i })).toBeVisible({
+      timeout: 20_000,
+    });
+    const countyRow = page.getByRole('link', { name: /open utilities for .+ county/i }).first();
+    const hasRows = await countyRow.isVisible().catch(() => false);
+    test.skip(!hasRows, 'No county pressure rows in landscape cache');
+    await countyRow.click();
+    await expect(page).toHaveURL(/[?&]county=/);
+    await expect(page.getByRole('button', { name: /back to counties/i })).toBeVisible({
+      timeout: 15_000,
+    });
+    await page.getByRole('button', { name: /back to counties/i }).click();
+    await expect(page).not.toHaveURL(/[?&]county=/);
+    await expect(page.getByText(/compliance pressure by county/i })).toBeVisible();
+  });
+
+  test('county utilities PWSID returns via back link', async ({ page }) => {
+    await page.goto('/water-systems');
+    await expect(page.getByRole('heading', { name: /water system landscape/i })).toBeVisible({
+      timeout: 20_000,
+    });
+    const countyRow = page.getByRole('link', { name: /open utilities for .+ county/i }).first();
+    const hasRows = await countyRow.isVisible().catch(() => false);
+    test.skip(!hasRows, 'No county pressure rows in landscape cache');
+    await countyRow.click();
+    await expect(page).toHaveURL(/[?&]county=/);
+    await expect(page.getByRole('button', { name: /back to counties/i })).toBeVisible({
+      timeout: 15_000,
+    });
+
+    const pwsidLink = page.locator('a[href*="/water-systems/lookup?pwsid="]').first();
+    const hasPwsid = await pwsidLink.isVisible().catch(() => false);
+    test.skip(!hasPwsid, 'No county utility PWSID rows loaded');
+    const href = (await pwsidLink.getAttribute('href')) || '';
+    expect(href).toMatch(/[?&]county=/);
+
+    await pwsidLink.click();
+    await expect(page).toHaveURL(/\/water-systems\/lookup\?.*pwsid=/);
+    await expect(page).toHaveURL(/[?&]county=/);
+    const backLink = page.getByRole('link', { name: /back to .+ utilities/i }).first();
+    await expect(backLink).toBeVisible({ timeout: 15_000 });
+    await backLink.click();
+    await expect(page).toHaveURL(/\/water-systems\?.*county=/);
+    await expect(page.getByRole('button', { name: /back to counties/i })).toBeVisible({
+      timeout: 15_000,
+    });
+  });
+
   test('watchlist page loads', async ({ page }) => {
     await page.goto('/water-systems/watchlist');
     await expect(page.getByRole('heading', { name: /member utility watchlist/i })).toBeVisible({

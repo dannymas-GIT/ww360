@@ -34,7 +34,7 @@ import {
   suggestedAnalysisSetName,
   type SDWISLookupRow,
 } from '@/services/sdwisService';
-import { Check, Link2, Search } from 'lucide-react';
+import { ArrowLeft, Check, Link2, Search } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
@@ -60,6 +60,10 @@ export interface DistrictPwsLinkConfigSectionProps {
    * `link`: utility district_admin/manager — Link & sync to their district.
    */
   mode?: 'select' | 'link';
+  /** Deep-link from county inventory (`/water-systems/lookup?pwsid=`). Auto-selects and opens preview. */
+  initialPwsid?: string;
+  /** County name when arriving from county utilities — enables return navigation. */
+  returnCounty?: string;
 }
 
 export function DistrictPwsLinkConfigSection({
@@ -70,6 +74,8 @@ export function DistrictPwsLinkConfigSection({
   stateCode,
   autoSuggestPws = false,
   mode = 'select',
+  initialPwsid,
+  returnCounty,
 }: DistrictPwsLinkConfigSectionProps) {
   const { isDistrictManager, isStateAdmin, isPlatformAdmin, hasAnyRole } = useAuth();
   const isReviewer =
@@ -181,6 +187,34 @@ export function DistrictPwsLinkConfigSection({
       persistRememberedPwsid(effectiveDistrictCode, pid);
     }
   };
+
+  /** Honor ?pwsid= deep links (e.g. county utilities table). */
+  const initialPwsidAppliedRef = useRef<string | null>(null);
+  useEffect(() => {
+    const pid = (initialPwsid || '').trim().toUpperCase();
+    if (!pid || pid.length < 7) return;
+    if (initialPwsidAppliedRef.current === pid) return;
+    initialPwsidAppliedRef.current = pid;
+    const stateFromPwsid = pid.slice(0, 2);
+    if (/^[A-Z]{2}$/.test(stateFromPwsid)) {
+      setLookupState(stateFromPwsid);
+    } else if (resolvedStateCode.length === 2) {
+      setLookupState(resolvedStateCode);
+    }
+    setLookupQ(pid);
+    setManualSearch(true);
+    setLookupOpen(true);
+    applySelection(pid);
+  }, [initialPwsid, resolvedStateCode]);
+
+  /** When EPA lookup returns, attach the matching row for the deep-linked PWSID. */
+  useEffect(() => {
+    const pid = linkPwsid.trim().toUpperCase();
+    if (!pid || !hasChosen) return;
+    if (selectedRow?.pwsid?.toUpperCase() === pid && selectedRow.pws_name) return;
+    const match = rankedLookupRows.find(r => r.pwsid.toUpperCase() === pid);
+    if (match) setSelectedRow(match);
+  }, [rankedLookupRows, linkPwsid, hasChosen, selectedRow]);
 
   /** Pre-fill PWSID when district is selected and field empty: linked system, then remembered. */
   useEffect(() => {
@@ -319,8 +353,31 @@ export function DistrictPwsLinkConfigSection({
     });
   };
 
+  const countyBackHref = returnCounty?.trim()
+    ? `/water-systems?county=${encodeURIComponent(returnCounty.trim())}`
+    : null;
+
   return (
     <div className="space-y-6">
+      {countyBackHref ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            className="min-h-[44px] gap-2 text-base md:min-h-9"
+            asChild
+          >
+            <Link to={countyBackHref}>
+              <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden />
+              Back to {returnCounty!.trim()} utilities
+            </Link>
+          </Button>
+          <p className="text-base text-slate-600">
+            Previewing a system from {returnCounty!.trim()} County — return anytime without
+            restarting from the county list.
+          </p>
+        </div>
+      ) : null}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Public water system (PWS)</CardTitle>
@@ -437,9 +494,9 @@ export function DistrictPwsLinkConfigSection({
               </p>
             )}
             {isReviewer && showPreview && (
-              <div className="space-y-3 pt-2 border-t">
+              <div className="space-y-3 border-t pt-2">
                 <Label htmlFor="analysis-set">Save to a named review (optional)</Label>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-col gap-2">
                   <Select
                     value={analysisSetId}
                     onValueChange={value => {
@@ -451,7 +508,7 @@ export function DistrictPwsLinkConfigSection({
                       }
                     }}
                   >
-                    <SelectTrigger id="analysis-set" className="min-h-[44px] min-w-[12rem] text-base">
+                    <SelectTrigger id="analysis-set" className="min-h-[44px] w-full text-base">
                       <SelectValue placeholder="Add to existing or new review" />
                     </SelectTrigger>
                     <SelectContent>
@@ -466,7 +523,7 @@ export function DistrictPwsLinkConfigSection({
                   {analysisSetId === ANALYSIS_SET_NEW && (
                     <Input
                       id="review-name"
-                      className="min-h-[44px] min-w-[12rem] flex-1 text-base"
+                      className="min-h-[44px] w-full text-base"
                       value={newReviewName}
                       onChange={e => setNewReviewName(e.target.value)}
                       placeholder="e.g. West Hempstead comparison"
@@ -476,7 +533,7 @@ export function DistrictPwsLinkConfigSection({
                   <Button
                     type="button"
                     variant="secondary"
-                    className="min-h-[44px] text-base shrink-0"
+                    className="min-h-[44px] w-full text-base sm:w-auto"
                     disabled={
                       addItemMut.isPending ||
                       createSetMut.isPending ||
@@ -552,8 +609,11 @@ export function DistrictPwsLinkConfigSection({
               </Button>
             </div>
             <p className="text-sm leading-relaxed text-slate-600">
-              Results are ranked by similarity. Click Use to preview compliance data in WW360
-              {allowLinkSync ? ', then Link & sync to your district' : ''}.
+              Search by town name or acronym when you do not know the PWSID. Each PWS has one federal
+              ID — the same system will not appear under two different PWSIDs. Click Use to load that
+              system into Chosen PWS
+              {allowLinkSync ? ', then Link & sync to your district' : ' and open the preview below'}
+              .
             </p>
             {showLookupResults && (
               <div className="max-h-48 overflow-auto rounded-md border text-base">
@@ -570,34 +630,50 @@ export function DistrictPwsLinkConfigSection({
                   </p>
                 ) : (
                   <ul className="divide-y">
-                    {rankedLookupRows.map(r => (
-                      <li
-                        key={r.pwsid}
-                        className="flex cursor-pointer justify-between gap-2 p-3 hover:bg-muted/50"
-                        onClick={() => applySelection(r.pwsid, r)}
-                      >
-                        <span className="min-w-0">
-                          <span className="font-mono font-medium">{r.pwsid}</span>
-                          <span className="ml-2 text-slate-600">{r.pws_name}</span>
-                          {r.match_reason ? (
-                            <span className="mt-1 block text-sm text-slate-500">
-                              {r.match_reason}
-                              {typeof r.match_score === 'number'
-                                ? ` · ${Math.round(r.match_score)}% similar`
-                                : ''}
-                            </span>
-                          ) : null}
-                        </span>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          type="button"
-                          className="min-h-[44px] shrink-0 text-base"
+                    {rankedLookupRows.map(r => {
+                      const isActive =
+                        hasChosen && selectedPwsid === String(r.pwsid || '').trim().toUpperCase();
+                      return (
+                        <li
+                          key={r.pwsid}
+                          className={`flex items-center justify-between gap-2 p-3 ${
+                            isActive ? 'bg-sky-50' : 'hover:bg-muted/50'
+                          }`}
                         >
-                          Use
-                        </Button>
-                      </li>
-                    ))}
+                          <button
+                            type="button"
+                            className="min-h-[44px] min-w-0 flex-1 cursor-pointer text-left"
+                            onClick={() => applySelection(r.pwsid, r)}
+                          >
+                            <span className="font-mono font-medium">{r.pwsid}</span>
+                            <span className="ml-2 text-slate-600">{r.pws_name}</span>
+                            {r.match_reason ? (
+                              <span className="mt-1 block text-sm text-slate-500">
+                                {r.match_reason}
+                                {typeof r.match_score === 'number'
+                                  ? ` · ${Math.round(r.match_score)}% similar`
+                                  : ''}
+                              </span>
+                            ) : null}
+                            {isActive ? (
+                              <span className="mt-1 block text-sm font-medium text-sky-800">
+                                Currently chosen — preview is below
+                              </span>
+                            ) : null}
+                          </button>
+                          <Button
+                            size="sm"
+                            variant={isActive ? 'secondary' : 'ghost'}
+                            type="button"
+                            className="min-h-[44px] shrink-0 text-base"
+                            disabled={isActive}
+                            onClick={() => applySelection(r.pwsid, r)}
+                          >
+                            {isActive ? 'Chosen' : 'Use'}
+                          </Button>
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </div>
@@ -614,7 +690,8 @@ export function DistrictPwsLinkConfigSection({
           <CardHeader>
             <CardTitle className="text-base">Preview in WW360</CardTitle>
             <CardDescription className="text-base">
-              Violations and enforcement from EPA — session only unless saved to an analysis set.
+              Summary KPIs, then EPA detail below: universe, compliance quarters, sanitary surveys,
+              site visits, and full violation / enforcement tables (measure, MCL, period, agency).
             </CardDescription>
           </CardHeader>
           <CardContent>

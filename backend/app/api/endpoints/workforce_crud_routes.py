@@ -109,12 +109,16 @@ WORKFORCE_ADMIN_ROLES = [
 WORKFORCE_MANAGER_ROLES = WORKFORCE_ADMIN_ROLES + [
     "ceu_manager",
 ]
-# Viewer tier: read-only access
+# Viewer tier: read-only access (includes section/state oversight for statewide Continuity)
 WORKFORCE_VIEWER_ROLES = WORKFORCE_MANAGER_ROLES + [
     "district_operator",
     "lead_engineer",
     "field_engineer",
     "ceu_user",
+    "oww_partner",
+    "state_admin",
+    "platform_admin",
+    "national_observer",
 ]
 
 require_workforce_admin = deps.require_tenant_roles(

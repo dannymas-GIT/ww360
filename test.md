@@ -56,15 +56,17 @@ Playwright: `frontend/e2e/impersonation.spec.ts`.
 
 Playwright: `frontend/e2e/national_overview.spec.ts`.
 
-### Test: Customize home panels
-**Credentials:** any authenticated user (Jenny / platform admin).
+### Test: Customize home dashboard
+**Credentials:** any authenticated user with Kitchen Sink **off** (simplified home).
 **Steps:**
-1. Sidebar → **Customize home**
-2. Confirm panel library lists Headline numbers, Charts, Federal jobs, Document Studio, etc.
-3. Start customize tour — slides cover identify KPIs and match to panels
-4. Toggle a panel off, Save layout
-5. Reload `/dashboard` — panel stays off
-6. Reset to defaults — panels restore
+1. Sidebar → **Customize home** (or **Enter Edit Mode** on `/dashboard`)
+2. Click **Add Row** — a new row with a chart appears
+3. On a row, **Add Chart** (if capacity) or **Add Widget** — pick a categorized panel
+4. Adjust Col / Row spans on a block; Save Changes
+5. Reload `/dashboard` — layout persists
+6. Reset — default layout for the role restores
+
+Playwright: `frontend/e2e/customize_home_dashboard.spec.ts`.
 
 ## Smoke Tests (Required)
 

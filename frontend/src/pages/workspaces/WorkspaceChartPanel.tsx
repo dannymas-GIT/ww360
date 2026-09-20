@@ -16,25 +16,26 @@ interface WorkspaceChartPanelProps {
   chart: ResolvedChart;
   color?: string;
   tourId?: string;
+  /** Taller chart for rowSpan 2 blocks */
+  tall?: boolean;
 }
 
 export const WorkspaceChartPanel: React.FC<WorkspaceChartPanelProps> = ({
   chart,
   color = '#2563eb',
-  tourId,
+  tourId = 'workspace-chart',
+  tall = false,
 }) => {
   const data = chart.points.map(p => ({ name: p.label, value: p.value }));
 
   return (
-    <Ww360Section
-      title={chart.title}
-      description={chart.subtitle}
-      dataMode={chart.resolvedMode}
-      tourId={tourId}
-    >
+    <Ww360Section title={chart.title} dataMode={chart.resolvedMode} tourId={tourId}>
+      {chart.subtitle ? (
+        <p className="mb-3 text-[1rem] text-slate-600">{chart.subtitle}</p>
+      ) : null}
       <p className="mb-3 text-[0.875rem] text-slate-500">{chart.sourceNote}</p>
       <p className="mb-2 text-[0.875rem] font-medium text-slate-600">Source: {chart.source}</p>
-      <div className="h-64 w-full" data-tour={tourId ? `${tourId}-chart` : undefined}>
+      <div className={`w-full ${tall ? 'h-[28rem]' : 'h-64'}`} data-tour={`${tourId}-chart`}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />

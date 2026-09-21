@@ -106,8 +106,8 @@ export function buildApplicationStepsTourSlides(): ApplicationStepsTourSlide[] {
     {
       id: 'open-studio',
       title: 'You are in Document Studio',
-      body: 'Open Document Studio from Content. You are already here — folders, documents, and the editor make up your district library workspace.',
-      tip: 'Operators and managers open Content → Document Studio before recording.',
+      body: 'Open Document Studio from Content. You are already here — binders, folders, documents, and the editor make up your district library workspace.',
+      tip: 'Operators and managers open Content → Document Studio before recording. Use Binders for ordered packets (like a printed 3-ring binder).',
       cueStart: 7.89,
       scriptQuote: 'Open Document Studio from Content',
       highlight: '[data-tour="studio-workspace"]',

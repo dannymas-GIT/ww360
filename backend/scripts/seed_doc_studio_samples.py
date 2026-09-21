@@ -25,6 +25,7 @@ from app.models.doc_document import (
 )
 from app.models.user import User
 from app.schemas.doc_studio import DocContentSave, DocDocumentCreate
+from app.services.doc_studio_seeds import LIBRARY_SEED_TAG
 from app.services.doc_studio_service import DocStudioService
 
 # State-keyed program library (legacy ``program`` migrated to program:NY).
@@ -587,7 +588,7 @@ def seed(dry_run: bool = False) -> None:
                     doc_type=sample.get("doc_type", "document"),
                     content_markdown=sample["markdown"],
                     tutorial_data=sample.get("tutorial_data"),
-                    tags=["sample", sample["template_id"]],
+                    tags=[LIBRARY_SEED_TAG, "sample", f"template:{sample['template_id']}"],
                     summary=f"Filled sample of the {sample['template_id']} template",
                 ),
                 user_id,

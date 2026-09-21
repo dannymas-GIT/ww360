@@ -57,6 +57,13 @@ class DocFolderRead(BaseModel):
 # ── Documents ────────────────────────────────────────────────────────────────
 
 
+class DocDuplicateRequest(BaseModel):
+    """Optional Save As target when duplicating an existing document."""
+
+    title: str | None = Field(default=None, min_length=1, max_length=500)
+    folder_id: str | None = None
+
+
 class DocDocumentCreate(BaseModel):
     title: str = Field(min_length=1, max_length=500)
     folder_id: str | None = None
@@ -77,6 +84,13 @@ class DocDocumentUpdate(BaseModel):
     status: DocStatus | None = None
     review_state: str | None = None
     tutorial_data: dict[str, Any] | None = None
+    sort_order: int | None = None
+
+
+class DocReorderRequest(BaseModel):
+    """Explicit page order for the documents in one folder/binder."""
+
+    document_ids: list[str] = Field(..., min_length=1)
 
 
 class DocContentSave(BaseModel):
@@ -106,6 +120,7 @@ class DocDocumentRead(BaseModel):
     template_id: str | None = None
     version_no: int = 1
     word_count: int = 0
+    sort_order: int = 0
     source_filename: str | None = None
     created_by: int | None = None
     updated_by: int | None = None

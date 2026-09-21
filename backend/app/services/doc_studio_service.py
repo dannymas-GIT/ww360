@@ -217,7 +217,7 @@ class DocStudioService:
                 title=seed["title"],
                 doc_type=seed.get("doc_type") or "document",
                 status="draft",
-                summary="Starter sample — edit or duplicate for your utility.",
+                summary="Starter sample — Save As to edit (original is read-only).",
                 tags=[LIBRARY_SEED_TAG, f"template:{seed['template_id']}"],
                 template_id=seed["template_id"],
                 content_markdown=md,
@@ -338,6 +338,21 @@ class DocStudioService:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Document not found")
         return d
 
+    def _assert_mutable(self, d: DocDocument) -> None:
+        """Library seed samples are read-only originals — use Save As / duplicate."""
+        tags = d.tags if isinstance(d.tags, list) else []
+        title = (d.title or "").strip()
+        is_sample = (
+            LIBRARY_SEED_TAG in tags
+            or "sample" in tags
+            or title.startswith("Sample —")
+        )
+        if is_sample:
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                "Sample documents are read-only. Use Save As to create an editable copy.",
+            )
+
     def list_documents(
         self,
         scope: str,
@@ -368,8 +383,57 @@ class DocStudioService:
                     DocDocument.content_markdown.ilike(like),
                 )
             )
-        rows = query.order_by(DocDocument.updated_at.desc()).limit(limit).all()
+        if folder_id and folder_id != "__root__":
+            # Inside a concrete folder/binder, respect the explicit page order.
+            rows = (
+                query.order_by(DocDocument.sort_order.asc(), DocDocument.updated_at.desc())
+                .limit(limit)
+                .all()
+            )
+        else:
+            rows = query.order_by(DocDocument.updated_at.desc()).limit(limit).all()
         return [DocDocumentRead.model_validate(r) for r in rows]
+
+    def _next_sort_order(self, scope: str, folder_id: str | None) -> int:
+        """Append position for a new/moved document in a folder (0 when unfiled)."""
+        if not folder_id:
+            return 0
+        current_max = (
+            self.db.query(func.max(DocDocument.sort_order))
+            .filter(DocDocument.scope == scope, DocDocument.folder_id == folder_id)
+            .scalar()
+        )
+        return int(current_max) + 1 if current_max is not None else 0
+
+    def reorder_documents(
+        self, scope: str, folder_id: str, document_ids: list[str]
+    ) -> list[DocDocumentRead]:
+        """Set the page order of a folder/binder to the given id sequence."""
+        self._get_folder(scope, folder_id)
+        rows = (
+            self.db.query(DocDocument)
+            .filter(DocDocument.scope == scope, DocDocument.folder_id == folder_id)
+            .all()
+        )
+        by_id = {r.id: r for r in rows}
+        unknown = [i for i in document_ids if i not in by_id]
+        if unknown:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "All documents must belong to this folder",
+            )
+        for idx, doc_id in enumerate(document_ids):
+            by_id[doc_id].sort_order = idx
+        # Docs not mentioned keep their relative order after the listed ones.
+        ordered_ids = set(document_ids)
+        tail = sorted(
+            (r for r in rows if r.id not in ordered_ids),
+            key=lambda r: (r.sort_order, r.id),
+        )
+        for offset, row in enumerate(tail):
+            row.sort_order = len(document_ids) + offset
+        self.db.commit()
+        return self.list_documents(scope, folder_id=folder_id)
 
     def require_custody_transfer(self, context: TenantContext, scope: str) -> None:
         if not self.access(context, scope).can_custody_transfer:
@@ -410,6 +474,7 @@ class DocStudioService:
             tutorial_data=payload.tutorial_data,
             version_no=1,
             word_count=_word_count(md),
+            sort_order=self._next_sort_order(scope, payload.folder_id),
             created_by=user_id,
             updated_by=user_id,
         )
@@ -454,6 +519,7 @@ class DocStudioService:
             content_markdown=markdown,
             version_no=1,
             word_count=_word_count(markdown),
+            sort_order=self._next_sort_order(scope, folder_id),
             source_filename=source_filename,
             created_by=user_id,
             updated_by=user_id,
@@ -479,9 +545,15 @@ class DocStudioService:
         self, scope: str, document_id: str, payload: DocDocumentUpdate, user_id: int | None
     ) -> DocDocumentDetail:
         d = self._get_document_row(scope, document_id)
+        self._assert_mutable(d)
         data = payload.model_dump(exclude_unset=True)
         if "folder_id" in data and data["folder_id"]:
             self._get_folder(scope, data["folder_id"])
+        # Moving to a different folder appends at the end of that binder's page order.
+        if "folder_id" in data and "sort_order" not in data:
+            new_folder = data["folder_id"] or None
+            if new_folder != (d.folder_id or None):
+                data["sort_order"] = self._next_sort_order(scope, new_folder)
         for k, v in data.items():
             setattr(d, k, v.strip() if isinstance(v, str) and k == "title" else v)
         if data.get("status") == "published" and not d.published_at:
@@ -495,6 +567,7 @@ class DocStudioService:
         self, scope: str, document_id: str, payload: DocContentSave, user_id: int | None
     ) -> DocDocumentDetail:
         d = self._get_document_row(scope, document_id)
+        self._assert_mutable(d)
         incoming = payload.content_markdown or ""
         if payload.autosave:
             # Autosave only updates the working copy; compare against it.
@@ -543,6 +616,7 @@ class DocStudioService:
         self, scope: str, document_id: str, review_state: str, user_id: int | None
     ) -> DocDocumentDetail:
         d = self._get_document_row(scope, document_id)
+        self._assert_mutable(d)
         d.review_state = review_state
         d.updated_by = user_id
         self.db.commit()
@@ -551,6 +625,7 @@ class DocStudioService:
 
     def publish(self, scope: str, document_id: str, user_id: int | None) -> DocDocumentDetail:
         d = self._get_document_row(scope, document_id)
+        self._assert_mutable(d)
         d.status = "published"
         d.review_state = "approved"
         d.published_at = datetime.utcnow()
@@ -573,23 +648,51 @@ class DocStudioService:
         self.db.refresh(d)
         return DocDocumentDetail.model_validate(d)
 
-    def duplicate(self, scope: str, document_id: str, user_id: int | None) -> DocDocumentDetail:
+    def duplicate(
+        self,
+        scope: str,
+        document_id: str,
+        user_id: int | None,
+        *,
+        title: str | None = None,
+        folder_id: str | None = None,
+        folder_id_set: bool = False,
+    ) -> DocDocumentDetail:
         src = self._get_document_row(scope, document_id)
+        if folder_id_set:
+            if folder_id:
+                self._get_folder(scope, folder_id)
+                target_folder = folder_id
+            else:
+                target_folder = None
+        else:
+            target_folder = src.folder_id
+        src_tags = src.tags if isinstance(src.tags, list) else []
+        # Copies must not inherit sample markers — originals stay read-only.
+        skip_tags = {LIBRARY_SEED_TAG, "sample"}
+        copy_tags = [t for t in src_tags if t not in skip_tags] or None
+        if title and title.strip():
+            new_title = title.strip()
+        else:
+            base = re.sub(r"^Sample —\s*", "", src.title or "").strip() or (src.title or "Document")
+            base = re.sub(r"\s*\(copy\)\s*$", "", base).strip()
+            new_title = f"{base} (copy)"
         payload = DocDocumentCreate(
-            title=f"{src.title} (copy)",
-            folder_id=src.folder_id,
+            title=new_title,
+            folder_id=target_folder,
             doc_type=src.doc_type or "document",
             template_id=src.template_id,
             content_markdown=src.content_markdown or "",
             content_json=src.content_json,
             tutorial_data=src.tutorial_data,
             summary=src.summary,
-            tags=src.tags,
+            tags=copy_tags,
         )
         return self.create_document(scope, payload, user_id)
 
     def delete_document(self, scope: str, document_id: str) -> None:
         d = self._get_document_row(scope, document_id)
+        self._assert_mutable(d)
         self.db.delete(d)
         self.db.commit()
 
@@ -633,6 +736,7 @@ class DocStudioService:
         self, scope: str, document_id: str, version_no: int, user_id: int | None
     ) -> DocDocumentDetail:
         d = self._get_document_row(scope, document_id)
+        self._assert_mutable(d)
         v = self.get_version(scope, document_id, version_no)
         d.content_markdown = v.content_markdown or ""
         d.content_json = v.content_json

@@ -1,7 +1,7 @@
 import type { DragEvent } from 'react';
 import { FileText, FileUp, Search } from 'lucide-react';
 import type { DocSummary } from '@/services/docStudioService';
-import { DOC_STUDIO_DRAG_MIME } from '@/services/docStudioService';
+import { DOC_STUDIO_DRAG_MIME, isLibrarySampleDocument } from '@/services/docStudioService';
 import { Input } from '@/components/ui/input';
 
 export interface DocumentListProps {
@@ -81,14 +81,16 @@ export function DocumentList({
       <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto px-2 pb-2" aria-busy={loading}>
         {documents.map(doc => {
           const active = doc.id === selectedId;
+          const isSample = isLibrarySampleDocument(doc);
+          const canRowDrag = canDrag && !isSample;
           return (
             <li key={doc.id}>
               <button
                 type="button"
-                draggable={canDrag}
-                onDragStart={canDrag ? e => startDocDrag(e, doc) : undefined}
+                draggable={canRowDrag}
+                onDragStart={canRowDrag ? e => startDocDrag(e, doc) : undefined}
                 onClick={() => onSelect(doc)}
-                title={canDrag ? 'Drag to a folder to move' : undefined}
+                title={canRowDrag ? 'Drag to a folder to move' : isSample ? 'Sample · Save As to edit' : undefined}
                 aria-current={active ? 'true' : undefined}
                 className={`w-full rounded-lg border px-3 py-2 text-left transition ${
                   canDrag ? 'cursor-grab active:cursor-grabbing' : ''
@@ -107,12 +109,18 @@ export function DocumentList({
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-slate-900">{doc.title || 'Untitled'}</p>
                     <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-slate-500">
-                      <span className={`rounded-full px-1.5 py-px font-medium ring-1 ${statusTone(doc.status)}`}>
-                        {doc.status}
-                      </span>
-                      <span>v{doc.version_no}</span>
-                      <span>{doc.word_count.toLocaleString()} words</span>
-                      <span>{relativeTime(doc.updated_at)}</span>
+                      {isSample ? (
+                        <span className="rounded-full bg-amber-50 px-1.5 py-px font-medium text-amber-900 ring-1 ring-amber-200">
+                          Sample · Save As
+                        </span>
+                      ) : (
+                        <span className={`rounded-full px-1.5 py-px font-medium ring-1 ${statusTone(doc.status)}`}>
+                          {doc.status}
+                        </span>
+                      )}
+                      {!isSample ? <span>v{doc.version_no}</span> : null}
+                      {!isSample ? <span>{doc.word_count.toLocaleString()} words</span> : null}
+                      {!isSample ? <span>{relativeTime(doc.updated_at)}</span> : null}
                     </p>
                   </div>
                 </div>

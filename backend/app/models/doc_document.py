@@ -95,6 +95,8 @@ class DocDocument(Base):
     template_id = Column(String(64), nullable=True)
     version_no = Column(Integer, nullable=False, default=1)
     word_count = Column(Integer, nullable=False, default=0)
+    # Page order within a folder/binder (0-based; reorder via document-order API).
+    sort_order = Column(Integer, nullable=False, default=0)
     source_filename = Column(String(300), nullable=True)
     created_by = Column(Integer, nullable=True)
     updated_by = Column(Integer, nullable=True)
@@ -335,6 +337,8 @@ def ensure_doc_studio_schema(engine) -> None:
         "ALTER TABLE doc_documents ADD COLUMN IF NOT EXISTS template_id VARCHAR(64)",
         "ALTER TABLE doc_documents ADD COLUMN IF NOT EXISTS version_no INTEGER NOT NULL DEFAULT 1",
         "ALTER TABLE doc_documents ADD COLUMN IF NOT EXISTS word_count INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE doc_documents ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0",
+        "CREATE INDEX IF NOT EXISTS ix_doc_documents_folder_sort ON doc_documents (folder_id, sort_order)",
         "ALTER TABLE doc_documents ADD COLUMN IF NOT EXISTS source_filename VARCHAR(300)",
         "ALTER TABLE doc_documents ADD COLUMN IF NOT EXISTS created_by INTEGER",
         "ALTER TABLE doc_documents ADD COLUMN IF NOT EXISTS updated_by INTEGER",

@@ -23,6 +23,7 @@ from app.schemas.doc_studio import (
     DocAssetRead,
     DocContentSave,
     DocDocumentCreate,
+    DocDuplicateRequest,
     DocDocumentDetail,
     DocDocumentRead,
     DocDocumentUpdate,
@@ -31,6 +32,7 @@ from app.schemas.doc_studio import (
     DocFolderUpdate,
     DocLibraryConnectionRead,
     DocLibraryConnectionUpdate,
+    DocReorderRequest,
     DocStudioAccess,
     DocStudioStats,
     DocVersionDetail,
@@ -168,6 +170,20 @@ def update_folder(
     svc = DocStudioService(db)
     svc.require_author(context, scope)
     return svc.update_folder(scope, folder_id, payload)
+
+
+@router.put("/folders/{folder_id}/document-order", response_model=list[DocDocumentRead])
+def reorder_folder_documents(
+    folder_id: str,
+    payload: DocReorderRequest,
+    pair=Depends(_ctx),
+    db: Session = Depends(deps.get_db),
+):
+    """Set the page order of documents inside a folder/binder."""
+    context, scope = pair
+    svc = DocStudioService(db)
+    svc.require_author(context, scope)
+    return svc.reorder_documents(scope, folder_id, payload.document_ids)
 
 
 @router.delete("/folders/{folder_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -313,11 +329,25 @@ def set_review_state(
 @router.post(
     "/documents/{document_id}/duplicate", response_model=DocDocumentDetail, status_code=201
 )
-def duplicate_document(document_id: str, pair=Depends(_ctx), db: Session = Depends(deps.get_db)):
+def duplicate_document(
+    document_id: str,
+    pair=Depends(_ctx),
+    db: Session = Depends(deps.get_db),
+    payload: DocDuplicateRequest | None = None,
+):
     context, scope = pair
     svc = DocStudioService(db)
     svc.require_author(context, scope)
-    return svc.duplicate(scope, document_id, context.user_id)
+    body = payload or DocDuplicateRequest()
+    folder_id_set = payload is not None and "folder_id" in body.model_fields_set
+    return svc.duplicate(
+        scope,
+        document_id,
+        context.user_id,
+        title=body.title,
+        folder_id=body.folder_id,
+        folder_id_set=folder_id_set,
+    )
 
 
 @router.delete("/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)

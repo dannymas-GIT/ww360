@@ -204,6 +204,70 @@ test.describe('Document Studio', () => {
     }
   });
 
+  test('library samples are Save As only — cannot overwrite originals', async ({ page, request }) => {
+    await request.get(`${api}/api/v1/doc-studio/folders`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const docsRes = await request.get(`${api}/api/v1/doc-studio/documents?limit=200`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(docsRes.ok()).toBeTruthy();
+    const docs = (await docsRes.json()) as Array<{ id: string; title: string; tags?: string[] }>;
+    const sample = docs.find(
+      d =>
+        (d.tags ?? []).includes('library_seed') ||
+        (d.tags ?? []).includes('sample') ||
+        (d.title ?? '').startsWith('Sample —')
+    );
+    test.skip(!sample, 'No sample documents in this environment');
+
+    const saveRes = await request.put(`${api}/api/v1/doc-studio/documents/${sample!.id}/content`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data: { content_markdown: 'overwrite attempt', autosave: false },
+    });
+    expect(saveRes.status()).toBe(403);
+
+    const pubRes = await request.post(`${api}/api/v1/doc-studio/documents/${sample!.id}/publish`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(pubRes.status()).toBe(403);
+
+    await page.goto(`/studio?doc=${sample!.id}`);
+    await expect(page.locator('[data-tour="studio-workspace"]')).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('[data-tour="studio-sample-readonly-banner"]')).toBeVisible();
+    await expect(page.locator('[data-tour="studio-save"]')).toHaveCount(0);
+    await expect(page.locator('[data-tour="studio-publish"]')).toHaveCount(0);
+    await expect(page.locator('[data-tour="studio-save-as"]').first()).toBeVisible();
+
+    await page.locator('[data-tour="studio-save-as"]').first().click();
+    const saveAs = page.locator('[data-tour="studio-save-as-dialog"]');
+    await expect(saveAs).toBeVisible();
+    await saveAs.getByRole('radio', { name: /new binder/i }).click();
+    const binderName = `E2E Sample Binder ${Date.now()}`;
+    await saveAs.getByLabel(/binder name/i).fill(binderName);
+    await saveAs.locator('[data-tour="studio-save-as-confirm"]').click();
+
+    await expect(page.locator('[data-tour="studio-sample-readonly-banner"]')).toHaveCount(0, {
+      timeout: 20_000,
+    });
+    await expect(page.locator('[data-tour="studio-save"]')).toBeVisible();
+
+    const copyId = new URL(page.url()).searchParams.get('doc');
+    expect(copyId).toBeTruthy();
+    expect(copyId).not.toBe(sample!.id);
+    createdIds.push(copyId as string);
+
+    const copyRes = await request.get(`${api}/api/v1/doc-studio/documents/${copyId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(copyRes.ok()).toBeTruthy();
+    const copy = await copyRes.json();
+    expect(copy.tags ?? []).not.toContain('library_seed');
+    expect(copy.tags ?? []).not.toContain('sample');
+    expect(copy.title ?? '').not.toMatch(/^Sample —/);
+    expect(copy.folder_id).toBeTruthy();
+  });
+
   test('grant template deep-link autofills applicant and state placeholders', async ({ page, request }) => {
     await page.goto('/studio?template=epa-iwiwd-2026-sam-gov');
     await expect(page.locator('[data-tour="studio-workspace"]')).toBeVisible({ timeout: 20_000 });

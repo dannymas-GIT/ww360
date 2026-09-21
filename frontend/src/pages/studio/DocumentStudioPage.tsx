@@ -46,8 +46,15 @@ import { Ww360TourOverlay, requestOpenTour } from '@/components/ww360/Ww360TourO
 import { StudioEditor, type StudioEditorHandle } from '@/components/doc-studio/StudioEditor';
 import { ALL_DOCS, FolderTree, UNFILED } from '@/components/doc-studio/FolderTree';
 import { DocumentList, relativeTime, statusTone } from '@/components/doc-studio/DocumentList';
+import { BinderIcon } from '@/components/doc-studio/BinderIcon';
+import { BinderToc } from '@/components/doc-studio/BinderToc';
 import { VersionHistoryPanel } from '@/components/doc-studio/VersionHistoryPanel';
 import { NewDocumentDialog } from '@/components/doc-studio/NewDocumentDialog';
+import {
+  SaveAsDialog,
+  type SaveAsIntent,
+  type SaveAsPayload,
+} from '@/components/doc-studio/SaveAsDialog';
 import { ExternalLibraryDialog } from '@/components/doc-studio/ExternalLibraryDialog';
 import { CustodyTransferDialog } from '@/components/doc-studio/CustodyTransferDialog';
 import { ApplicationStepsOverviewDialog } from '@/components/doc-studio/ApplicationStepsOverviewDialog';
@@ -57,7 +64,13 @@ import { TutorialPlayer } from '@/components/doc-studio/TutorialPlayer';
 import { useTutorialRecorder } from '@/context/TutorialRecorderContext';
 import * as api from '@/services/docStudioService';
 import type { DocDetail, DocFolder, DocSummary } from '@/services/docStudioService';
-import { templateById, templateAudienceFromTour, tourSampleTemplateId } from '@/config/studioTemplates';
+import {
+  isBinderFolder,
+  isBindersRootFolder,
+  isLibrarySampleDocument,
+  sampleSaveAsTitle,
+} from '@/services/docStudioService';
+import { templateById, templateAudienceFromTour, tourSampleTemplateId, type StudioTemplate } from '@/config/studioTemplates';
 import {
   buildStudioTourConfig,
   resolveStudioTourAudience,
@@ -72,6 +85,18 @@ import { fillStudioTemplateMarkdown } from '@/lib/studioTemplateFill';
 const AUTOSAVE_MS = 2500;
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
+
+/** Working-binder name for a grant/template deep-link (kept within folder name limits). */
+function binderNameForTemplate(tpl: StudioTemplate): string {
+  if (tpl.id.startsWith('epa-iwiwd-2026')) return 'EPA IWIWD 2026 binder';
+  return `${tpl.name.slice(0, 60).trim()} binder`;
+}
+
+/** Ensure a user-entered binder name reads like one (matches the /binder/i heuristic). */
+function normalizeBinderName(name: string): string {
+  const trimmed = name.trim();
+  return /binder/i.test(trimmed) ? trimmed : `${trimmed} binder`;
+}
 
 function errMessage(err: unknown): string {
   if (typeof err === 'object' && err && 'response' in err) {
@@ -101,6 +126,10 @@ export default function DocumentStudioPage() {
   const [selectedId, setSelectedId] = useState<string | null>(params.get('doc'));
   const [showVersions, setShowVersions] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
+  const [saveAsOpen, setSaveAsOpen] = useState(false);
+  const [saveAsTitle, setSaveAsTitle] = useState('');
+  const [saveAsBusy, setSaveAsBusy] = useState(false);
+  const [saveAsIntent, setSaveAsIntent] = useState<SaveAsIntent>('saveAs');
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [custodyOpen, setCustodyOpen] = useState(params.get('custody') === 'open');
   const [overviewOpen, setOverviewOpen] = useState(false);
@@ -173,6 +202,27 @@ export default function DocumentStudioPage() {
     enabled: !!selectedId && accessQ.isSuccess,
   });
   const doc: DocDetail | undefined = docQ.data;
+  /** Seeded library samples are read-only originals — Save As only (no overwrite). */
+  const isSampleDoc = isLibrarySampleDocument(doc);
+  const canEditDoc = canAuthor && !isSampleDoc;
+
+  const openSaveAs = () => {
+    if (!doc) return;
+    setSaveAsIntent('saveAs');
+    setSaveAsTitle(sampleSaveAsTitle(doc.title));
+    setSaveAsOpen(true);
+  };
+
+  /** Move (not copy) the open document into a binder. */
+  const openFileInBinder = () => {
+    if (!doc) return;
+    setSaveAsIntent('file');
+    setSaveAsTitle(doc.title);
+    setSaveAsOpen(true);
+  };
+
+
+
 
   const versionsQ = useQuery({
     queryKey: ['studio', 'versions', studioScope, selectedId],
@@ -306,7 +356,7 @@ export default function DocumentStudioPage() {
       window.clearTimeout(autosaveTimer.current);
       autosaveTimer.current = null;
     }
-    if (!selectedId || pendingMarkdown.current === null || !canAuthor) return;
+    if (!selectedId || pendingMarkdown.current === null || !canEditDoc) return;
     const markdown = pendingMarkdown.current;
     pendingMarkdown.current = null;
     setSaveState('saving');
@@ -315,23 +365,23 @@ export default function DocumentStudioPage() {
     } catch {
       /* toast handled in onError */
     }
-  }, [canAuthor, saveContentAsync, selectedId]);
+  }, [canEditDoc, saveContentAsync, selectedId]);
   const flushAutosaveRef = useRef(flushAutosave);
   flushAutosaveRef.current = flushAutosave;
 
   const handleEditorChange = useCallback(
     (markdown: string) => {
-      if (!canAuthor) return;
+      if (!canEditDoc) return;
       pendingMarkdown.current = markdown;
       setSaveState('dirty');
       if (autosaveTimer.current) window.clearTimeout(autosaveTimer.current);
       autosaveTimer.current = window.setTimeout(() => void flushAutosave(), AUTOSAVE_MS);
     },
-    [canAuthor, flushAutosave]
+    [canEditDoc, flushAutosave]
   );
 
   const handleExplicitSave = useCallback(async () => {
-    if (!selectedId || !canAuthor) return;
+    if (!selectedId || !canEditDoc) return;
     if (autosaveTimer.current) window.clearTimeout(autosaveTimer.current);
     pendingMarkdown.current = null;
     const markdown = editorRef.current?.getMarkdown() ?? doc?.content_markdown ?? '';
@@ -344,7 +394,7 @@ export default function DocumentStudioPage() {
       title: titleDraft.trim() || undefined,
       note: 'Manual save',
     }).catch(() => undefined);
-  }, [canAuthor, doc?.content_markdown, saveContentAsync, selectedId, titleDraft]);
+  }, [canEditDoc, doc?.content_markdown, saveContentAsync, selectedId, titleDraft]);
 
   // Ctrl/Cmd+S
   useEffect(() => {
@@ -404,7 +454,7 @@ export default function DocumentStudioPage() {
   });
 
   const commitTitle = () => {
-    if (!doc || !canAuthor) return;
+    if (!doc || !canEditDoc) return;
     const t = titleDraft.trim();
     if (!t || t === doc.title) {
       setTitleDraft(doc.title);
@@ -435,19 +485,44 @@ export default function DocumentStudioPage() {
 
   // Grants / readiness "Open in Studio" (?template=…) → create that template immediately
   // with jurisdiction / EPA autofill applied when {{placeholders}} are present.
+  // New docs are auto-filed into a per-template binder instead of landing in Unfiled.
   useEffect(() => {
     if (templateDeepLinkHandled.current) return;
     if (!deepLinkTemplateId) return;
     const tpl = templateById(deepLinkTemplateId);
     if (!tpl) return;
     if (!accessQ.isSuccess || !canAuthor) return;
+    // Wait for folders so we can resolve/create the destination binder.
+    if (!foldersQ.isSuccess) return;
     templateDeepLinkHandled.current = true;
-    const folder_id =
-      folderSel !== ALL_DOCS && folderSel !== UNFILED ? folderSel : null;
     const districtCode =
       studioScope && studioScope !== 'program' ? studioScope : null;
     let cancelled = false;
     void (async () => {
+      // Keep an explicitly selected folder; otherwise file into the template's binder.
+      let folder_id: string | null =
+        folderSel !== ALL_DOCS && folderSel !== UNFILED ? folderSel : null;
+      if (!folder_id) {
+        const binderName = binderNameForTemplate(tpl);
+        const existing = folders.find(
+          f => f.name.trim().toLowerCase() === binderName.toLowerCase()
+        );
+        if (existing) {
+          folder_id = existing.id;
+        } else {
+          try {
+            const bindersRoot = folders.find(isBindersRootFolder) ?? null;
+            const created = await api.createFolder(
+              { name: binderName, parent_id: bindersRoot?.id ?? null },
+              studioScope
+            );
+            qc.invalidateQueries({ queryKey: ['studio', 'folders'] });
+            folder_id = created.id;
+          } catch {
+            folder_id = null; // fall back to Unfiled rather than block creation
+          }
+        }
+      }
       const markdown = await fillStudioTemplateMarkdown(tpl.markdown, {
         templateId: tpl.id,
         stateCode: activeState,
@@ -463,6 +538,9 @@ export default function DocumentStudioPage() {
           markdown,
         },
         {
+          onSuccess: data => {
+            if (data.folder_id) setFolderSel(data.folder_id);
+          },
           onSettled: () => {
             const next = new URLSearchParams(params);
             next.delete('template');
@@ -481,6 +559,9 @@ export default function DocumentStudioPage() {
   }, [
     deepLinkTemplateId,
     accessQ.isSuccess,
+    foldersQ.isSuccess,
+    folders,
+    qc,
     canAuthor,
     folderSel,
     studioScope,
@@ -555,14 +636,90 @@ export default function DocumentStudioPage() {
   );
 
   const duplicateMut = useMutation({
-    mutationFn: (id: string) => api.duplicateDocument(id),
-    onSuccess: async data => {
-      invalidateLists();
-      await selectDocument(data.id);
-      toast({ title: 'Duplicated', description: data.title });
+    mutationFn: (vars: string | { id: string; title?: string; folder_id?: string | null }) => {
+      if (typeof vars === 'string') {
+        return api.duplicateDocument(vars, studioScope);
+      }
+      // Object form is Save As — sanitize so library samples become editable copies.
+      return api.saveAsDocument(vars.id, {
+        title: vars.title,
+        folder_id: vars.folder_id,
+        scope: studioScope,
+      });
     },
-    onError: err => toast({ title: 'Duplicate failed', description: errMessage(err), variant: 'destructive' }),
+    onSuccess: async (data, vars) => {
+      invalidateLists();
+      if (data.folder_id) setFolderSel(data.folder_id);
+      await selectDocument(data.id);
+      toast({
+        title: typeof vars === 'string' ? 'Duplicated' : 'Saved as new document',
+        description: data.title,
+      });
+    },
+    onError: err =>
+      toast({ title: 'Save As / duplicate failed', description: errMessage(err), variant: 'destructive' }),
   });
+
+
+  const handleSaveAsConfirm = async (payload: SaveAsPayload) => {
+    if (!doc) return;
+    setSaveAsBusy(true);
+    try {
+      let folderId: string | null = null;
+      if (payload.mode === 'folder') {
+        folderId = payload.folderId ?? null;
+      } else if (payload.mode === 'new_binder' || payload.mode === 'new_folder') {
+        const name =
+          payload.mode === 'new_binder'
+            ? normalizeBinderName(payload.newName || 'Binder')
+            : (payload.newName || 'Folder');
+        // Nest new binders under the Binders root when present.
+        const bindersRoot = folders.find(isBindersRootFolder) ?? null;
+        const parentId =
+          payload.mode === 'new_binder' && bindersRoot ? bindersRoot.id : null;
+        const created = await folderCreateMut.mutateAsync({
+          name,
+          parent_id: parentId,
+        });
+        folderId = created.id;
+      } else {
+        folderId = null;
+      }
+
+      if (saveAsIntent === 'file') {
+        // File in binder — move the existing document, no copy.
+        const moved = await api.updateDocument(doc.id, { folder_id: folderId }, studioScope);
+        setSaveAsOpen(false);
+        qc.setQueryData(['studio', 'document', studioScope, doc.id], moved);
+        invalidateLists();
+        if (folderId) setFolderSel(folderId);
+        else setFolderSel(UNFILED);
+        const dest = folderId ? folders.find(f => f.id === folderId)?.name ?? 'binder' : 'Unfiled';
+        toast({ title: `Filed in ${dest}`, description: moved.title });
+        return;
+      }
+
+      const createdDoc = await api.saveAsDocument(doc.id, {
+        title: payload.title,
+        folder_id: folderId,
+        scope: studioScope,
+      });
+      setSaveAsOpen(false);
+      invalidateLists();
+      if (folderId) setFolderSel(folderId);
+      else setFolderSel(UNFILED);
+      await selectDocument(createdDoc.id);
+      toast({ title: 'Saved as new document', description: createdDoc.title });
+    } catch (err) {
+      toast({
+        title: saveAsIntent === 'file' ? 'File in binder failed' : 'Save As failed',
+        description: errMessage(err),
+        variant: 'destructive',
+      });
+    } finally {
+      setSaveAsBusy(false);
+    }
+  };
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => api.deleteDocument(id),
@@ -590,7 +747,8 @@ export default function DocumentStudioPage() {
 
   // ── Folders ────────────────────────────────────────────────────────────
   const folderCreateMut = useMutation({
-    mutationFn: (vars: { name: string; parent_id: string | null }) => api.createFolder(vars),
+    mutationFn: (vars: { name: string; parent_id: string | null }) =>
+      api.createFolder(vars, studioScope),
     onSuccess: f => {
       qc.invalidateQueries({ queryKey: ['studio', 'folders'] });
       setFolderSel(f.id);
@@ -610,6 +768,29 @@ export default function DocumentStudioPage() {
       setFolderSel(ALL_DOCS);
     },
     onError: err => toast({ title: 'Delete failed', description: errMessage(err), variant: 'destructive' }),
+  });
+  const folderDescriptionMut = useMutation({
+    mutationFn: (vars: { id: string; description: string }) =>
+      api.updateFolder(vars.id, { description: vars.description }, studioScope),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['studio', 'folders'] }),
+    onError: err => toast({ title: 'Could not update description', description: errMessage(err), variant: 'destructive' }),
+  });
+
+  // ── Binder page order ──────────────────────────────────────────────────
+  const reorderMut = useMutation({
+    mutationFn: (vars: { folderId: string; documentIds: string[] }) =>
+      api.reorderFolderDocuments(vars.folderId, vars.documentIds, studioScope),
+    onSuccess: (data, vars) => {
+      qc.setQueryData(
+        ['studio', 'documents', studioScope, vars.folderId, query],
+        data
+      );
+      qc.invalidateQueries({ queryKey: ['studio', 'documents'] });
+    },
+    onError: err => {
+      toast({ title: 'Reorder failed', description: errMessage(err), variant: 'destructive' });
+      qc.invalidateQueries({ queryKey: ['studio', 'documents'] });
+    },
   });
 
   // ── Export ─────────────────────────────────────────────────────────────
@@ -649,6 +830,7 @@ export default function DocumentStudioPage() {
               title: `Sample — ${tpl?.name ?? 'Document'}`,
               template_id: tourSampleId,
               content_markdown: tpl?.markdown ?? '',
+              tags: ['library_seed', `template:${tourSampleId}`],
             });
             invalidateLists();
             await selectDocument(created.id);
@@ -685,6 +867,7 @@ export default function DocumentStudioPage() {
                 const created = await api.createDocument({
                   title: `Sample — ${tpl?.name ?? 'Document'}`,
                   template_id: tourSampleId,
+                  tags: ['library_seed', `template:${tourSampleId}`],
                   content_markdown: tpl?.markdown ?? '',
                 });
                 invalidateLists();
@@ -746,6 +929,19 @@ export default function DocumentStudioPage() {
 
   // ── Render ─────────────────────────────────────────────────────────────
   const selectedFolder = folders.find(f => f.id === folderSel);
+  const bindersRoot = folders.find(isBindersRootFolder) ?? null;
+  /** Selected folder behaves like a physical binder: TOC + page order. */
+  const selectedFolderIsBinder =
+    !!selectedFolder &&
+    !isBindersRootFolder(selectedFolder) &&
+    (isBinderFolder(selectedFolder) ||
+      (bindersRoot ? selectedFolder.parent_id === bindersRoot.id : false));
+  /** True when the open document already lives in a binder (hide the File CTA). */
+  const docFolder = doc?.folder_id ? folders.find(f => f.id === doc.folder_id) : null;
+  const docIsInBinder =
+    !!docFolder &&
+    !isBindersRootFolder(docFolder) &&
+    (isBinderFolder(docFolder) || (bindersRoot ? docFolder.parent_id === bindersRoot.id : false));
   const defaultFolderForNew = folderSel !== ALL_DOCS && folderSel !== UNFILED ? folderSel : null;
   const busy = createMut.isPending || importMut.isPending;
   const custodyDocs: DocSummary[] = doc
@@ -900,8 +1096,23 @@ export default function DocumentStudioPage() {
               totalCount={totalCount}
               unfiledCount={unfiledCount}
               canManage={canAuthor}
-              onSelect={setFolderSel}
+              onSelect={id => {
+                setFolderSel(id);
+                // Binder view shows the TOC (no search box) — drop any stale filter.
+                const f = folders.find(x => x.id === id);
+                if (f && (isBinderFolder(f) || (bindersRoot && f.parent_id === bindersRoot.id))) {
+                  setQuery('');
+                }
+              }}
               onDropDocument={canAuthor ? handleDropDocument : undefined}
+              onCreateBinder={() => {
+                const name = window.prompt('New binder name');
+                if (!name?.trim()) return;
+                folderCreateMut.mutate({
+                  name: normalizeBinderName(name),
+                  parent_id: bindersRoot?.id ?? null,
+                });
+              }}
               onCreate={parentId => {
                 const name = window.prompt(parentId ? 'New subfolder name' : 'New folder name');
                 if (name?.trim()) folderCreateMut.mutate({ name: name.trim(), parent_id: parentId });
@@ -941,29 +1152,79 @@ export default function DocumentStudioPage() {
           className="flex min-h-0 flex-col rounded-xl border border-slate-200 bg-white pt-2 shadow-sm"
           aria-label="Documents"
         >
-          <div className="flex items-center justify-between px-3 pb-1">
-            <p className="truncate text-sm font-semibold text-slate-800">
-              {folderSel === ALL_DOCS ? 'All documents' : folderSel === UNFILED ? 'Unfiled' : selectedFolder?.name ?? 'Folder'}
-            </p>
-            <span className="text-[11px] text-slate-500">{documents.length}</span>
-          </div>
-          {selectedFolder?.description ? (
-            <p className="px-3 pb-2 text-[11px] leading-snug text-slate-500">{selectedFolder.description}</p>
-          ) : null}
-          <DocumentList
-            documents={documents}
-            selectedId={selectedId}
-            query={query}
-            loading={docsQ.isLoading}
-            onQueryChange={setQuery}
-            onSelect={d => void selectDocument(d.id)}
-            canDrag={canAuthor}
-            emptyHint={
-              canAuthor && !query
-                ? 'Nothing here yet — create a document from a template or import a file.'
-                : undefined
-            }
-          />
+          {selectedFolderIsBinder && selectedFolder ? (
+            <>
+              {/* Binder header — name, editable description, table of contents */}
+              <div className="flex items-center gap-2 px-3 pb-1">
+                <BinderIcon className="h-4 w-4 shrink-0 text-sky-700" />
+                <p className="min-w-0 flex-1 truncate text-base font-semibold text-slate-900">
+                  {selectedFolder.name}
+                </p>
+                <span className="text-[11px] text-slate-500">
+                  {documents.length} page{documents.length === 1 ? '' : 's'}
+                </span>
+              </div>
+              <div className="flex items-start gap-2 px-3 pb-2">
+                <p className="min-w-0 flex-1 text-sm leading-snug text-slate-500">
+                  {selectedFolder.description || (canAuthor ? 'No description yet.' : '')}
+                </p>
+                {canAuthor ? (
+                  <button
+                    type="button"
+                    className="shrink-0 rounded px-1.5 py-0.5 text-sm font-medium text-sky-700 hover:bg-sky-50"
+                    onClick={() => {
+                      const next = window.prompt(
+                        `Describe binder "${selectedFolder.name}"`,
+                        selectedFolder.description ?? ''
+                      );
+                      if (next !== null && next.trim() !== (selectedFolder.description ?? '')) {
+                        folderDescriptionMut.mutate({ id: selectedFolder.id, description: next.trim() });
+                      }
+                    }}
+                  >
+                    Edit
+                  </button>
+                ) : null}
+              </div>
+              <p className="border-t border-slate-100 px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                Table of contents
+              </p>
+              <BinderToc
+                documents={documents}
+                selectedId={selectedId}
+                loading={docsQ.isLoading}
+                canReorder={canAuthor && !query}
+                onSelect={d => void selectDocument(d.id)}
+                onReorder={ids => reorderMut.mutate({ folderId: selectedFolder.id, documentIds: ids })}
+              />
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-between px-3 pb-1">
+                <p className="truncate text-sm font-semibold text-slate-800">
+                  {folderSel === ALL_DOCS ? 'All documents' : folderSel === UNFILED ? 'Unfiled' : selectedFolder?.name ?? 'Folder'}
+                </p>
+                <span className="text-[11px] text-slate-500">{documents.length}</span>
+              </div>
+              {selectedFolder?.description ? (
+                <p className="px-3 pb-2 text-[11px] leading-snug text-slate-500">{selectedFolder.description}</p>
+              ) : null}
+              <DocumentList
+                documents={documents}
+                selectedId={selectedId}
+                query={query}
+                loading={docsQ.isLoading}
+                onQueryChange={setQuery}
+                onSelect={d => void selectDocument(d.id)}
+                canDrag={canAuthor}
+                emptyHint={
+                  canAuthor && !query
+                    ? 'Nothing here yet — create a document from a template or import a file.'
+                    : undefined
+                }
+              />
+            </>
+          )}
         </section>
 
         {/* Editor */}
@@ -1009,7 +1270,7 @@ export default function DocumentStudioPage() {
                     if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                     if (e.key === 'Escape') setTitleDraft(doc.title);
                   }}
-                  readOnly={!canAuthor}
+                  readOnly={!canEditDoc}
                   aria-label="Document title"
                   className="h-9 min-w-[200px] flex-1 border-transparent bg-transparent px-2 text-base font-semibold text-slate-900 shadow-none hover:border-slate-200 focus:border-sky-300"
                 />
@@ -1041,9 +1302,15 @@ export default function DocumentStudioPage() {
                       {doc.custody_status.replace(/_/g, ' ')}
                     </span>
                   ) : null}
-                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ${statusTone(doc.status)}`}>{doc.status}</span>
+                  {isSampleDoc ? (
+                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-900 ring-1 ring-amber-200">
+                      Sample · Save As
+                    </span>
+                  ) : (
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ${statusTone(doc.status)}`}>{doc.status}</span>
+                  )}
                   <span className="text-[11px] text-slate-500">v{doc.version_no}</span>
-                  <SaveIndicator state={saveState} updatedAt={doc.updated_at} />
+                  {!isSampleDoc ? <SaveIndicator state={saveState} updatedAt={doc.updated_at} /> : null}
                 </div>
                 <div className="ml-auto flex items-center gap-1">
                   <Button
@@ -1059,7 +1326,7 @@ export default function DocumentStudioPage() {
                     {editorFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                     <span className="ml-1 hidden sm:inline">{editorFullscreen ? 'Exit' : 'Fullscreen'}</span>
                   </Button>
-                  {canAuthor && doc.doc_type === 'tutorial' ? (
+                  {canEditDoc && doc.doc_type === 'tutorial' ? (
                     <Button
                       type="button"
                       size="sm"
@@ -1071,12 +1338,56 @@ export default function DocumentStudioPage() {
                       <Video className="mr-1 h-4 w-4" /> Re-record
                     </Button>
                   ) : null}
-                  {canAuthor ? (
+                  {canEditDoc ? (
                     <Button type="button" size="sm" variant="outline" className="h-9" onClick={() => void handleExplicitSave()} disabled={saveMut.isPending} data-tour="studio-save">
                       {saveMut.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Save className="mr-1 h-4 w-4" />} Save
                     </Button>
                   ) : null}
-                  {canPublish && doc.status !== 'published' ? (
+                  {isSampleDoc && canAuthor ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-9 min-h-[44px] bg-[#07111f] text-base text-white hover:bg-slate-800"
+                      data-tour="studio-save-as"
+                      disabled={saveAsBusy}
+                      onClick={() => openSaveAs()}
+                    >
+                      {duplicateMut.isPending ? (
+                        <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Copy className="mr-1 h-4 w-4" />
+                      )}{' '}
+                      Save As…
+                    </Button>
+                  ) : null}
+                  {!isSampleDoc && canAuthor ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-9"
+                      data-tour="studio-save-as"
+                      disabled={saveAsBusy}
+                      onClick={() => openSaveAs()}
+                    >
+                      <Copy className="mr-1 h-4 w-4" /> Save As…
+                    </Button>
+                  ) : null}
+                  {canEditDoc && !docIsInBinder ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-9"
+                      data-tour="studio-file-in-binder"
+                      disabled={saveAsBusy}
+                      title="Move this document into a binder"
+                      onClick={() => openFileInBinder()}
+                    >
+                      <BinderIcon className="mr-1 h-4 w-4" /> File in binder…
+                    </Button>
+                  ) : null}
+                  {canEditDoc && canPublish && doc.status !== 'published' ? (
                     <Button
                       type="button"
                       size="sm"
@@ -1128,40 +1439,77 @@ export default function DocumentStudioPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuItem onClick={() => duplicateMut.mutate(doc.id)}>
-                          <Copy className="mr-2 h-4 w-4" /> Duplicate
+                        <DropdownMenuItem onClick={() => openSaveAs()}>
+                          <Copy className="mr-2 h-4 w-4" /> Save As…
                         </DropdownMenuItem>
-                        <DropdownMenuLabel className="text-xs text-slate-500">Move to folder</DropdownMenuLabel>
-                        <DropdownMenuItem disabled={!doc.folder_id} onClick={() => moveMut.mutate({ id: doc.id, folder_id: null })}>
-                          Unfiled
-                        </DropdownMenuItem>
-                        {folders.map(f => (
-                          <DropdownMenuItem key={f.id} disabled={f.id === doc.folder_id} onClick={() => moveMut.mutate({ id: doc.id, folder_id: f.id })}>
-                            {f.name}
+                        {!isSampleDoc ? (
+                          <DropdownMenuItem onClick={() => duplicateMut.mutate(doc.id)}>
+                            <Copy className="mr-2 h-4 w-4" /> Duplicate
                           </DropdownMenuItem>
-                        ))}
-                        <DropdownMenuSeparator />
-                        {doc.status === 'published' ? (
-                          <DropdownMenuItem onClick={() => statusMut.mutate({ id: doc.id, status: 'draft' })}>Return to draft</DropdownMenuItem>
                         ) : null}
-                        {doc.status !== 'archived' ? (
-                          <DropdownMenuItem onClick={() => statusMut.mutate({ id: doc.id, status: 'archived' })}>Archive</DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem onClick={() => statusMut.mutate({ id: doc.id, status: 'draft' })}>Unarchive</DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem
-                          className="text-red-700 focus:text-red-700"
-                          onClick={() => {
-                            if (window.confirm(`Delete "${doc.title}" and all its versions? This cannot be undone.`)) deleteMut.mutate(doc.id);
-                          }}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete
-                        </DropdownMenuItem>
+                        {!isSampleDoc && canEditDoc ? (
+                          <DropdownMenuItem onClick={() => openFileInBinder()}>
+                            <BinderIcon className="mr-2 h-4 w-4" /> File in binder…
+                          </DropdownMenuItem>
+                        ) : null}
+                        {!isSampleDoc ? (
+                          <>
+                            <DropdownMenuLabel className="text-xs text-slate-500">Move to folder</DropdownMenuLabel>
+                            <DropdownMenuItem disabled={!doc.folder_id} onClick={() => moveMut.mutate({ id: doc.id, folder_id: null })}>
+                              Unfiled
+                            </DropdownMenuItem>
+                            {folders.map(f => (
+                              <DropdownMenuItem key={f.id} disabled={f.id === doc.folder_id} onClick={() => moveMut.mutate({ id: doc.id, folder_id: f.id })}>
+                                {f.name}
+                              </DropdownMenuItem>
+                            ))}
+                            <DropdownMenuSeparator />
+                            {doc.status === 'published' ? (
+                              <DropdownMenuItem onClick={() => statusMut.mutate({ id: doc.id, status: 'draft' })}>Return to draft</DropdownMenuItem>
+                            ) : null}
+                            {doc.status !== 'archived' ? (
+                              <DropdownMenuItem onClick={() => statusMut.mutate({ id: doc.id, status: 'archived' })}>Archive</DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem onClick={() => statusMut.mutate({ id: doc.id, status: 'draft' })}>Unarchive</DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem
+                              className="text-red-700 focus:text-red-700"
+                              onClick={() => {
+                                if (window.confirm(`Delete "${doc.title}" and all its versions? This cannot be undone.`)) deleteMut.mutate(doc.id);
+                              }}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" /> Delete
+                            </DropdownMenuItem>
+                          </>
+                        ) : null}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   ) : null}
                 </div>
               </header>
+
+              {isSampleDoc ? (
+                <div
+                  className="flex flex-wrap items-center gap-3 border-b border-amber-200 bg-amber-50 px-3 py-3"
+                  data-tour="studio-sample-readonly-banner"
+                >
+                  <p className="min-w-0 flex-1 text-base text-amber-950">
+                    This is a library sample (read-only). Save As to create your editable copy.
+                  </p>
+                  {canAuthor ? (
+                    <button
+                      type="button"
+                      data-tour="studio-save-as"
+                      className="inline-flex min-h-[44px] shrink-0 items-center rounded-md bg-[#07111f] px-4 text-base font-medium text-white hover:bg-slate-800"
+                      onClick={() =>
+                        openSaveAs()
+                      }
+                    >
+                      Save As…
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
 
               <div className="flex min-h-0 flex-1 flex-col">
                 {doc.doc_type === 'tutorial' && doc.tutorial_data?.steps?.length ? (
@@ -1175,7 +1523,7 @@ export default function DocumentStudioPage() {
                     key={doc.id}
                     ref={editorRef}
                     initialMarkdown={doc.content_markdown || ''}
-                    readOnly={!canAuthor}
+                    readOnly={!canEditDoc}
                     documentId={doc.id}
                     scope={studioScope}
                     templateAudience={templateAudience}
@@ -1201,7 +1549,7 @@ export default function DocumentStudioPage() {
                         <VersionHistoryPanel
                           versions={versionsQ.data ?? []}
                           currentVersion={doc.version_no}
-                          canRestore={canAuthor}
+                          canRestore={canEditDoc}
                           busyVersion={restoringVersion}
                           onRestore={v => {
                             if (window.confirm(`Restore version ${v}? The current content is kept as a version.`)) restoreMut.mutate({ id: doc.id, version_no: v });
@@ -1217,6 +1565,24 @@ export default function DocumentStudioPage() {
           )}
         </section>
       </div>
+
+      
+      <SaveAsDialog
+        open={saveAsOpen}
+        folders={folders}
+        defaultTitle={saveAsTitle}
+        defaultFolderId={
+          saveAsIntent === 'file'
+            ? null // filing prefers the first binder — the dialog picks it
+            : folderSel !== ALL_DOCS && folderSel !== UNFILED
+              ? folderSel
+              : null
+        }
+        intent={saveAsIntent}
+        busy={saveAsBusy}
+        onClose={() => setSaveAsOpen(false)}
+        onSave={payload => void handleSaveAsConfirm(payload)}
+      />
 
       <NewDocumentDialog
         open={newOpen}

@@ -272,9 +272,83 @@ export async function setDocumentReviewState(
   return data;
 }
 
-export async function duplicateDocument(id: string, scope?: string): Promise<DocDetail> {
-  const { data } = await axios.post(`${BASE}/documents/${id}/duplicate`, null, cfg({ scope }));
+export async function duplicateDocument(
+  id: string,
+  opts?: { title?: string; folder_id?: string | null; scope?: string }
+): Promise<DocDetail> {
+  const scope = typeof opts === 'string' ? opts : opts?.scope;
+  const body: Record<string, unknown> = {};
+  if (opts && typeof opts === 'object') {
+    if (opts.title !== undefined) body.title = opts.title;
+    if (opts.folder_id !== undefined) body.folder_id = opts.folder_id;
+  }
+  const payload = Object.keys(body).length ? body : null;
+  const { data } = await axios.post(`${BASE}/documents/${id}/duplicate`, payload, cfg({ scope }));
   return data;
+}
+
+function stripSampleMarkers(tags: string[] | null | undefined): string[] {
+  return (tags ?? []).filter(t => t !== LIBRARY_SEED_TAG && t !== LEGACY_SAMPLE_TAG);
+}
+
+/**
+ * Save As from a library sample (or any doc): duplicate, then ensure the copy is editable
+ * (staging may still copy `sample` / `Sample —` markers).
+ */
+export async function saveAsDocument(
+  id: string,
+  opts?: { title?: string; folder_id?: string | null; scope?: string }
+): Promise<DocDetail> {
+  const scope = opts?.scope;
+  const desiredTitle = opts?.title?.trim() || undefined;
+
+  let copy: DocDetail;
+  try {
+    copy = await duplicateDocument(id, {
+      ...(desiredTitle ? { title: desiredTitle } : {}),
+      ...(opts?.folder_id !== undefined ? { folder_id: opts.folder_id } : {}),
+      scope,
+    });
+  } catch {
+    // Older APIs reject a body — fall back to bare duplicate.
+    copy = await duplicateDocument(id, scope);
+  }
+
+  const nextTitle = desiredTitle || sampleSaveAsTitle(copy.title);
+  const nextTags = stripSampleMarkers(copy.tags);
+
+  // If duplicate already produced a clean editable doc, done.
+  if (!isLibrarySampleDocument(copy) && nextTitle === copy.title) {
+    return copy;
+  }
+
+  try {
+    return await updateDocument(
+      copy.id,
+      {
+        title: nextTitle,
+        tags: nextTags,
+        ...(opts?.folder_id !== undefined ? { folder_id: opts.folder_id } : {}),
+      },
+      scope
+    );
+  } catch {
+    // If the copy is still locked as a sample (mutable assert), create a fresh editable doc.
+    const full = await fetchDocument(id, scope);
+    return createDocument(
+      {
+        title: nextTitle,
+        folder_id: opts?.folder_id !== undefined ? opts.folder_id : full.folder_id,
+        template_id: full.template_id,
+        doc_type: full.doc_type,
+        content_markdown: full.content_markdown || '',
+        tutorial_data: full.tutorial_data ?? null,
+        summary: full.summary ?? null,
+        tags: nextTags,
+      },
+      scope
+    );
+  }
 }
 
 export async function deleteDocument(id: string, scope?: string): Promise<void> {
@@ -553,6 +627,31 @@ export async function recordCustodyAcknowledgment(
 
 /** HTML5 DnD mime for Document Studio library moves. */
 export const DOC_STUDIO_DRAG_MIME = 'application/x-ww360-doc-studio';
+
+/** Seeded library samples are read-only originals — Save As only. */
+export const LIBRARY_SEED_TAG = 'library_seed';
+/** Legacy seed script tag (same intent as library_seed). */
+export const LEGACY_SAMPLE_TAG = 'sample';
+export const SAMPLE_TITLE_PREFIX = 'Sample —';
+
+export function isLibrarySampleDocument(
+  doc: Pick<{ tags?: string[] | null; title?: string | null }, 'tags' | 'title'> | null | undefined
+): boolean {
+  if (!doc) return false;
+  const tags = Array.isArray(doc.tags) ? doc.tags : [];
+  if (tags.includes(LIBRARY_SEED_TAG) || tags.includes(LEGACY_SAMPLE_TAG)) return true;
+  // Em dash, en dash, minus, or hyphen after Sample
+  return /^Sample\s*[—–−-]\s*/i.test(doc.title ?? '');
+}
+
+/** Default Save As title — drop Sample prefix so the copy is editable. */
+export function sampleSaveAsTitle(title: string): string {
+  const base = title
+    .replace(/^Sample\s*[\u2014\u2013\u2212-]\s*/i, '')
+    .replace(/\s*\(copy\)\s*$/i, '')
+    .trim();
+  return `${base || title} (copy)`;
+}
 
 const ANCHORED_LIBRARY_TAGS = new Set(['workforce-pack', 'wizard-generated', 'doh352-pdf']);
 const WORKFORCE_FOLDER_NAMES = new Set(['Workforce & succession', 'Workforce Continuity']);

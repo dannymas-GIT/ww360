@@ -48,6 +48,7 @@ import { ALL_DOCS, FolderTree, UNFILED } from '@/components/doc-studio/FolderTre
 import { DocumentList, relativeTime, statusTone } from '@/components/doc-studio/DocumentList';
 import { VersionHistoryPanel } from '@/components/doc-studio/VersionHistoryPanel';
 import { NewDocumentDialog } from '@/components/doc-studio/NewDocumentDialog';
+import { SaveAsDialog, type SaveAsPayload } from '@/components/doc-studio/SaveAsDialog';
 import { ExternalLibraryDialog } from '@/components/doc-studio/ExternalLibraryDialog';
 import { CustodyTransferDialog } from '@/components/doc-studio/CustodyTransferDialog';
 import { ApplicationStepsOverviewDialog } from '@/components/doc-studio/ApplicationStepsOverviewDialog';
@@ -57,6 +58,7 @@ import { TutorialPlayer } from '@/components/doc-studio/TutorialPlayer';
 import { useTutorialRecorder } from '@/context/TutorialRecorderContext';
 import * as api from '@/services/docStudioService';
 import type { DocDetail, DocFolder, DocSummary } from '@/services/docStudioService';
+import { isLibrarySampleDocument, sampleSaveAsTitle } from '@/services/docStudioService';
 import { templateById, templateAudienceFromTour, tourSampleTemplateId } from '@/config/studioTemplates';
 import {
   buildStudioTourConfig,
@@ -101,6 +103,9 @@ export default function DocumentStudioPage() {
   const [selectedId, setSelectedId] = useState<string | null>(params.get('doc'));
   const [showVersions, setShowVersions] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
+  const [saveAsOpen, setSaveAsOpen] = useState(false);
+  const [saveAsTitle, setSaveAsTitle] = useState('');
+  const [saveAsBusy, setSaveAsBusy] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [custodyOpen, setCustodyOpen] = useState(params.get('custody') === 'open');
   const [overviewOpen, setOverviewOpen] = useState(false);
@@ -173,6 +178,18 @@ export default function DocumentStudioPage() {
     enabled: !!selectedId && accessQ.isSuccess,
   });
   const doc: DocDetail | undefined = docQ.data;
+  /** Seeded library samples are read-only originals — Save As only (no overwrite). */
+  const isSampleDoc = isLibrarySampleDocument(doc);
+  const canEditDoc = canAuthor && !isSampleDoc;
+
+  const openSaveAs = () => {
+    if (!doc) return;
+    setSaveAsTitle(sampleSaveAsTitle(doc.title));
+    setSaveAsOpen(true);
+  };
+
+
+
 
   const versionsQ = useQuery({
     queryKey: ['studio', 'versions', studioScope, selectedId],
@@ -306,7 +323,7 @@ export default function DocumentStudioPage() {
       window.clearTimeout(autosaveTimer.current);
       autosaveTimer.current = null;
     }
-    if (!selectedId || pendingMarkdown.current === null || !canAuthor) return;
+    if (!selectedId || pendingMarkdown.current === null || !canEditDoc) return;
     const markdown = pendingMarkdown.current;
     pendingMarkdown.current = null;
     setSaveState('saving');
@@ -315,23 +332,23 @@ export default function DocumentStudioPage() {
     } catch {
       /* toast handled in onError */
     }
-  }, [canAuthor, saveContentAsync, selectedId]);
+  }, [canEditDoc, saveContentAsync, selectedId]);
   const flushAutosaveRef = useRef(flushAutosave);
   flushAutosaveRef.current = flushAutosave;
 
   const handleEditorChange = useCallback(
     (markdown: string) => {
-      if (!canAuthor) return;
+      if (!canEditDoc) return;
       pendingMarkdown.current = markdown;
       setSaveState('dirty');
       if (autosaveTimer.current) window.clearTimeout(autosaveTimer.current);
       autosaveTimer.current = window.setTimeout(() => void flushAutosave(), AUTOSAVE_MS);
     },
-    [canAuthor, flushAutosave]
+    [canEditDoc, flushAutosave]
   );
 
   const handleExplicitSave = useCallback(async () => {
-    if (!selectedId || !canAuthor) return;
+    if (!selectedId || !canEditDoc) return;
     if (autosaveTimer.current) window.clearTimeout(autosaveTimer.current);
     pendingMarkdown.current = null;
     const markdown = editorRef.current?.getMarkdown() ?? doc?.content_markdown ?? '';
@@ -344,7 +361,7 @@ export default function DocumentStudioPage() {
       title: titleDraft.trim() || undefined,
       note: 'Manual save',
     }).catch(() => undefined);
-  }, [canAuthor, doc?.content_markdown, saveContentAsync, selectedId, titleDraft]);
+  }, [canEditDoc, doc?.content_markdown, saveContentAsync, selectedId, titleDraft]);
 
   // Ctrl/Cmd+S
   useEffect(() => {
@@ -404,7 +421,7 @@ export default function DocumentStudioPage() {
   });
 
   const commitTitle = () => {
-    if (!doc || !canAuthor) return;
+    if (!doc || !canEditDoc) return;
     const t = titleDraft.trim();
     if (!t || t === doc.title) {
       setTitleDraft(doc.title);
@@ -555,14 +572,77 @@ export default function DocumentStudioPage() {
   );
 
   const duplicateMut = useMutation({
-    mutationFn: (id: string) => api.duplicateDocument(id),
-    onSuccess: async data => {
-      invalidateLists();
-      await selectDocument(data.id);
-      toast({ title: 'Duplicated', description: data.title });
+    mutationFn: (vars: string | { id: string; title?: string; folder_id?: string | null }) => {
+      if (typeof vars === 'string') {
+        return api.duplicateDocument(vars, studioScope);
+      }
+      // Object form is Save As — sanitize so library samples become editable copies.
+      return api.saveAsDocument(vars.id, {
+        title: vars.title,
+        folder_id: vars.folder_id,
+        scope: studioScope,
+      });
     },
-    onError: err => toast({ title: 'Duplicate failed', description: errMessage(err), variant: 'destructive' }),
+    onSuccess: async (data, vars) => {
+      invalidateLists();
+      if (data.folder_id) setFolderSel(data.folder_id);
+      await selectDocument(data.id);
+      toast({
+        title: typeof vars === 'string' ? 'Duplicated' : 'Saved as new document',
+        description: data.title,
+      });
+    },
+    onError: err =>
+      toast({ title: 'Save As / duplicate failed', description: errMessage(err), variant: 'destructive' }),
   });
+
+
+  const handleSaveAsConfirm = async (payload: SaveAsPayload) => {
+    if (!doc) return;
+    setSaveAsBusy(true);
+    try {
+      let folderId: string | null = null;
+      if (payload.mode === 'folder') {
+        folderId = payload.folderId ?? null;
+      } else if (payload.mode === 'new_binder' || payload.mode === 'new_folder') {
+        const name =
+          payload.mode === 'new_binder' && payload.newName && !/binder/i.test(payload.newName)
+            ? `${payload.newName} binder`
+            : (payload.newName || 'Binder');
+        // Nest new binders under the Binders root when present.
+        const bindersRoot = folders.find(f => f.name === 'Binders') ?? null;
+        const parentId =
+          payload.mode === 'new_binder' && bindersRoot ? bindersRoot.id : null;
+        const created = await folderCreateMut.mutateAsync({
+          name,
+          parent_id: parentId,
+        });
+        folderId = created.id;
+      } else {
+        folderId = null;
+      }
+
+      const createdDoc = await api.saveAsDocument(doc.id, {
+        title: payload.title,
+        folder_id: folderId,
+        scope: studioScope,
+      });
+      setSaveAsOpen(false);
+      invalidateLists();
+      if (folderId) setFolderSel(folderId);
+      else setFolderSel(UNFILED);
+      await selectDocument(createdDoc.id);
+      toast({ title: 'Saved as new document', description: createdDoc.title });
+    } catch (err) {
+      toast({
+        title: 'Save As failed',
+        description: errMessage(err),
+        variant: 'destructive',
+      });
+    } finally {
+      setSaveAsBusy(false);
+    }
+  };
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => api.deleteDocument(id),
@@ -590,7 +670,8 @@ export default function DocumentStudioPage() {
 
   // ── Folders ────────────────────────────────────────────────────────────
   const folderCreateMut = useMutation({
-    mutationFn: (vars: { name: string; parent_id: string | null }) => api.createFolder(vars),
+    mutationFn: (vars: { name: string; parent_id: string | null }) =>
+      api.createFolder(vars, studioScope),
     onSuccess: f => {
       qc.invalidateQueries({ queryKey: ['studio', 'folders'] });
       setFolderSel(f.id);
@@ -649,6 +730,7 @@ export default function DocumentStudioPage() {
               title: `Sample — ${tpl?.name ?? 'Document'}`,
               template_id: tourSampleId,
               content_markdown: tpl?.markdown ?? '',
+              tags: ['library_seed', `template:${tourSampleId}`],
             });
             invalidateLists();
             await selectDocument(created.id);
@@ -685,6 +767,7 @@ export default function DocumentStudioPage() {
                 const created = await api.createDocument({
                   title: `Sample — ${tpl?.name ?? 'Document'}`,
                   template_id: tourSampleId,
+                  tags: ['library_seed', `template:${tourSampleId}`],
                   content_markdown: tpl?.markdown ?? '',
                 });
                 invalidateLists();
@@ -1009,7 +1092,7 @@ export default function DocumentStudioPage() {
                     if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                     if (e.key === 'Escape') setTitleDraft(doc.title);
                   }}
-                  readOnly={!canAuthor}
+                  readOnly={!canEditDoc}
                   aria-label="Document title"
                   className="h-9 min-w-[200px] flex-1 border-transparent bg-transparent px-2 text-base font-semibold text-slate-900 shadow-none hover:border-slate-200 focus:border-sky-300"
                 />
@@ -1041,9 +1124,15 @@ export default function DocumentStudioPage() {
                       {doc.custody_status.replace(/_/g, ' ')}
                     </span>
                   ) : null}
-                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ${statusTone(doc.status)}`}>{doc.status}</span>
+                  {isSampleDoc ? (
+                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-900 ring-1 ring-amber-200">
+                      Sample · Save As
+                    </span>
+                  ) : (
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ${statusTone(doc.status)}`}>{doc.status}</span>
+                  )}
                   <span className="text-[11px] text-slate-500">v{doc.version_no}</span>
-                  <SaveIndicator state={saveState} updatedAt={doc.updated_at} />
+                  {!isSampleDoc ? <SaveIndicator state={saveState} updatedAt={doc.updated_at} /> : null}
                 </div>
                 <div className="ml-auto flex items-center gap-1">
                   <Button
@@ -1059,7 +1148,7 @@ export default function DocumentStudioPage() {
                     {editorFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                     <span className="ml-1 hidden sm:inline">{editorFullscreen ? 'Exit' : 'Fullscreen'}</span>
                   </Button>
-                  {canAuthor && doc.doc_type === 'tutorial' ? (
+                  {canEditDoc && doc.doc_type === 'tutorial' ? (
                     <Button
                       type="button"
                       size="sm"
@@ -1071,12 +1160,29 @@ export default function DocumentStudioPage() {
                       <Video className="mr-1 h-4 w-4" /> Re-record
                     </Button>
                   ) : null}
-                  {canAuthor ? (
+                  {canEditDoc ? (
                     <Button type="button" size="sm" variant="outline" className="h-9" onClick={() => void handleExplicitSave()} disabled={saveMut.isPending} data-tour="studio-save">
                       {saveMut.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Save className="mr-1 h-4 w-4" />} Save
                     </Button>
                   ) : null}
-                  {canPublish && doc.status !== 'published' ? (
+                  {isSampleDoc && canAuthor ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-9 min-h-[44px] bg-[#07111f] text-base text-white hover:bg-slate-800"
+                      data-tour="studio-save-as"
+                      disabled={saveAsBusy}
+                      onClick={() => openSaveAs()}
+                    >
+                      {duplicateMut.isPending ? (
+                        <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Copy className="mr-1 h-4 w-4" />
+                      )}{' '}
+                      Save As…
+                    </Button>
+                  ) : null}
+                  {canEditDoc && canPublish && doc.status !== 'published' ? (
                     <Button
                       type="button"
                       size="sm"
@@ -1128,40 +1234,72 @@ export default function DocumentStudioPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuItem onClick={() => duplicateMut.mutate(doc.id)}>
-                          <Copy className="mr-2 h-4 w-4" /> Duplicate
-                        </DropdownMenuItem>
-                        <DropdownMenuLabel className="text-xs text-slate-500">Move to folder</DropdownMenuLabel>
-                        <DropdownMenuItem disabled={!doc.folder_id} onClick={() => moveMut.mutate({ id: doc.id, folder_id: null })}>
-                          Unfiled
-                        </DropdownMenuItem>
-                        {folders.map(f => (
-                          <DropdownMenuItem key={f.id} disabled={f.id === doc.folder_id} onClick={() => moveMut.mutate({ id: doc.id, folder_id: f.id })}>
-                            {f.name}
-                          </DropdownMenuItem>
-                        ))}
-                        <DropdownMenuSeparator />
-                        {doc.status === 'published' ? (
-                          <DropdownMenuItem onClick={() => statusMut.mutate({ id: doc.id, status: 'draft' })}>Return to draft</DropdownMenuItem>
-                        ) : null}
-                        {doc.status !== 'archived' ? (
-                          <DropdownMenuItem onClick={() => statusMut.mutate({ id: doc.id, status: 'archived' })}>Archive</DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem onClick={() => statusMut.mutate({ id: doc.id, status: 'draft' })}>Unarchive</DropdownMenuItem>
-                        )}
                         <DropdownMenuItem
-                          className="text-red-700 focus:text-red-700"
                           onClick={() => {
-                            if (window.confirm(`Delete "${doc.title}" and all its versions? This cannot be undone.`)) deleteMut.mutate(doc.id);
+                            if (isSampleDoc) openSaveAs();
+                            else duplicateMut.mutate(doc.id);
                           }}
                         >
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete
+                          <Copy className="mr-2 h-4 w-4" /> {isSampleDoc ? 'Save As…' : 'Duplicate'}
                         </DropdownMenuItem>
+                        {!isSampleDoc ? (
+                          <>
+                            <DropdownMenuLabel className="text-xs text-slate-500">Move to folder</DropdownMenuLabel>
+                            <DropdownMenuItem disabled={!doc.folder_id} onClick={() => moveMut.mutate({ id: doc.id, folder_id: null })}>
+                              Unfiled
+                            </DropdownMenuItem>
+                            {folders.map(f => (
+                              <DropdownMenuItem key={f.id} disabled={f.id === doc.folder_id} onClick={() => moveMut.mutate({ id: doc.id, folder_id: f.id })}>
+                                {f.name}
+                              </DropdownMenuItem>
+                            ))}
+                            <DropdownMenuSeparator />
+                            {doc.status === 'published' ? (
+                              <DropdownMenuItem onClick={() => statusMut.mutate({ id: doc.id, status: 'draft' })}>Return to draft</DropdownMenuItem>
+                            ) : null}
+                            {doc.status !== 'archived' ? (
+                              <DropdownMenuItem onClick={() => statusMut.mutate({ id: doc.id, status: 'archived' })}>Archive</DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem onClick={() => statusMut.mutate({ id: doc.id, status: 'draft' })}>Unarchive</DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem
+                              className="text-red-700 focus:text-red-700"
+                              onClick={() => {
+                                if (window.confirm(`Delete "${doc.title}" and all its versions? This cannot be undone.`)) deleteMut.mutate(doc.id);
+                              }}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" /> Delete
+                            </DropdownMenuItem>
+                          </>
+                        ) : null}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   ) : null}
                 </div>
               </header>
+
+              {isSampleDoc ? (
+                <div
+                  className="flex flex-wrap items-center gap-3 border-b border-amber-200 bg-amber-50 px-3 py-3"
+                  data-tour="studio-sample-readonly-banner"
+                >
+                  <p className="min-w-0 flex-1 text-base text-amber-950">
+                    This is a library sample (read-only). Save As to create your editable copy.
+                  </p>
+                  {canAuthor ? (
+                    <button
+                      type="button"
+                      data-tour="studio-save-as"
+                      className="inline-flex min-h-[44px] shrink-0 items-center rounded-md bg-[#07111f] px-4 text-base font-medium text-white hover:bg-slate-800"
+                      onClick={() =>
+                        openSaveAs()
+                      }
+                    >
+                      Save As…
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
 
               <div className="flex min-h-0 flex-1 flex-col">
                 {doc.doc_type === 'tutorial' && doc.tutorial_data?.steps?.length ? (
@@ -1175,7 +1313,7 @@ export default function DocumentStudioPage() {
                     key={doc.id}
                     ref={editorRef}
                     initialMarkdown={doc.content_markdown || ''}
-                    readOnly={!canAuthor}
+                    readOnly={!canEditDoc}
                     documentId={doc.id}
                     scope={studioScope}
                     templateAudience={templateAudience}
@@ -1201,7 +1339,7 @@ export default function DocumentStudioPage() {
                         <VersionHistoryPanel
                           versions={versionsQ.data ?? []}
                           currentVersion={doc.version_no}
-                          canRestore={canAuthor}
+                          canRestore={canEditDoc}
                           busyVersion={restoringVersion}
                           onRestore={v => {
                             if (window.confirm(`Restore version ${v}? The current content is kept as a version.`)) restoreMut.mutate({ id: doc.id, version_no: v });
@@ -1217,6 +1355,20 @@ export default function DocumentStudioPage() {
           )}
         </section>
       </div>
+
+      
+      <SaveAsDialog
+        open={saveAsOpen}
+        folders={folders}
+        defaultTitle={saveAsTitle}
+        defaultFolderId={
+          folders.find(f => f.name === 'Binders')?.id
+          ?? (folderSel !== ALL_DOCS && folderSel !== UNFILED ? folderSel : null)
+        }
+        busy={saveAsBusy}
+        onClose={() => setSaveAsOpen(false)}
+        onSave={payload => void handleSaveAsConfirm(payload)}
+      />
 
       <NewDocumentDialog
         open={newOpen}

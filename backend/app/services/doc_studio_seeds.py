@@ -30,6 +30,7 @@ DEFAULT_PROGRAM_FOLDERS: Sequence[tuple[str, str]] = (
     ("Outreach", "Utility invitations, newsletters, job profiles and career-pipeline messaging."),
     ("Operations", "SOPs, succession memos, meeting notes and day-to-day procedures."),
     ("Tutorials", "Recorded walkthroughs and step-by-step guides from Tutorial Studio."),
+    ("Binders", "Working sets of documents grouped by facility, grant, or need — Save As from samples here."),
     ("Templates", "Blank starters — copy into a working folder before editing."),
 )
 
@@ -40,6 +41,7 @@ DEFAULT_DISTRICT_FOLDERS: Sequence[tuple[str, str]] = (
     ("Compliance", "Monthly checklists, emergency playbooks and incident reports."),
     ("Shift logs", "Handoffs, rounds and equipment checks for operators."),
     ("Tutorials", "Recorded walkthroughs and documentation-task write-ups."),
+    ("Binders", "Working sets of documents grouped by facility or need — Save As from samples here."),
     ("Templates", "Blank starters — copy into a working folder before editing."),
 )
 

@@ -57,6 +57,13 @@ class DocFolderRead(BaseModel):
 # ── Documents ────────────────────────────────────────────────────────────────
 
 
+class DocDuplicateRequest(BaseModel):
+    """Optional Save As target when duplicating an existing document."""
+
+    title: str | None = Field(default=None, min_length=1, max_length=500)
+    folder_id: str | None = None
+
+
 class DocDocumentCreate(BaseModel):
     title: str = Field(min_length=1, max_length=500)
     folder_id: str | None = None

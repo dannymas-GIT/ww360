@@ -86,25 +86,53 @@ function foldersCopy(audience: StudioTourAudience): Copy {
     case 'operator':
       return {
         title: 'Your district folders',
-        body: 'Folders organize work for your utility — operations notes, tutorials, and anything your manager set up. "All documents" and "Unfiled" are always available. Ask a district manager if you need a new folder.',
+        body: 'Folders organize day-to-day library shelves — operations notes, tutorials, and anything your manager set up. "All documents" and "Unfiled" are always available. Working sets you treat like physical binders live in the Binders section above.',
         tip: 'Deleting a folder never deletes documents — they move up a level.',
       };
     case 'district':
       return {
         title: 'Your utility library',
-        body: 'Create folders that match how your plant works — Operations, Training, Tutorials, and anything else your team needs. "All documents" and "Unfiled" are always available.',
+        body: 'Create folders that match how your plant files day-to-day — Operations, Training, Tutorials, and anything else your team needs. "All documents" and "Unfiled" are always available. Use Binders (above Folders) for packets you would keep in a 3-ring binder.',
         tip: 'Deleting a folder never deletes documents — they move up a level.',
       };
     case 'viewer':
       return {
         title: 'Library folders',
-        body: 'Folders group documents in this library. Use "All documents" to browse everything, or pick a folder to narrow the list.',
+        body: 'Folders group documents in this library. Use "All documents" to browse everything, or pick a folder to narrow the list. Binders above Folders hold ordered working sets.',
       };
     default:
       return {
         title: 'The program library',
-        body: 'Folders follow how Jenny and partners work: Program briefs, Training & cohorts, Grant reporting, Outreach, Operations (SOPs and notes), Tutorials (recorded walkthroughs), and Templates for blank starters. Add your own folders or nest them. "All documents" and "Unfiled" are always available.',
+        body: 'Folders follow how Jenny and partners work: Program briefs, Training & cohorts, Grant reporting, Outreach, Operations (SOPs and notes), Tutorials (recorded walkthroughs), and Templates for blank starters. Add your own folders or nest them. "All documents" and "Unfiled" are always available. Binders (above) are for ordered packets — grant applications, succession sets, board books.',
         tip: 'Deleting a folder never deletes documents — they move up a level.',
+      };
+  }
+}
+
+function bindersCopy(audience: StudioTourAudience): Copy {
+  switch (audience) {
+    case 'operator':
+      return {
+        title: 'Binders — like the ones on the shelf',
+        body: 'A binder is a working set of pages you keep together — the same idea as a printed 3-ring binder. Open one to see its table of contents. Drag rows to reorder pages the way you would rearrange sheets.',
+        tip: 'Ask a manager if you need a new binder for a project or grant.',
+      };
+    case 'district':
+      return {
+        title: 'Binders — working sets you can reorder',
+        body: 'Think of each binder as a physical binder: one place for related documents (a grant packet, succession set, or board book). Open it for a numbered table of contents, drag to reorder pages, and add a short description so staff know what it is for.',
+        tip: 'File an unfiled draft with "File in binder…", or Save As a library sample into a new binder.',
+      };
+    case 'viewer':
+      return {
+        title: 'Binders',
+        body: 'Binders group related documents into an ordered packet — like a printed binder with a table of contents. Open one to browse its pages in order.',
+      };
+    default:
+      return {
+        title: 'Binders — packets with a table of contents',
+        body: 'Binders mirror the binders utilities already keep on the shelf. Use them for grant applications, succession packets, and board books. Each binder has a description and a numbered table of contents — drag pages to rearrange the order.',
+        tip: 'Grant templates Save As into a binder automatically. Use "File in binder…" to move an existing draft.',
       };
   }
 }
@@ -262,26 +290,26 @@ function doneCopy(audience: StudioTourAudience): Copy {
     case 'operator':
       return {
         title: 'Your utility owns this library',
-        body: 'Documents you create here belong to your district. Program partners use a separate One Water Workforce library. Start with a tutorial or SOP for a task on your operator home checklist.',
-        tip: 'Need a folder or a publish? Ask your district manager.',
+        body: 'Documents you create here belong to your district. Program partners use a separate One Water Workforce library. Start with a tutorial or SOP for a task on your operator home checklist — file it in a binder when it is part of a larger packet.',
+        tip: 'Need a binder, folder, or a publish? Ask your district manager.',
       };
     case 'district':
       return {
         title: 'Your utility owns this library',
-        body: 'District documents stay private to your utility. The One Water Workforce program library is separate for partners and platform admins. Publish drafts when they are ready for staff to treat as final.',
-        tip: 'A good first document: an SOP or tutorial for a high-turnover procedure.',
+        body: 'District documents stay private to your utility. The One Water Workforce program library is separate for partners and platform admins. Use binders for packets you would print and keep together; publish drafts when staff should treat them as final.',
+        tip: 'A good first binder: succession docs or your next grant application packet.',
       };
     case 'viewer':
       return {
         title: 'Read what your team published',
-        body: 'You can open and export shared documents in this library. Creating, recording, and publishing need an authoring role.',
+        body: 'You can open and export shared documents in this library — including pages inside binders. Creating, recording, and publishing need an authoring role.',
         tip: 'Use search when you know part of a title or phrase.',
       };
     default:
       return {
         title: 'Whose content is this?',
-        body: 'Program partners and platform admins share the One Water Workforce library. Utilities that enroll get their own private library — their records stay theirs. Anyone signed in can read; authoring and publishing follow program and district roles.',
-        tip: 'A good first document: the regional workforce brief for the region you are visiting next.',
+        body: 'Program partners and platform admins share the One Water Workforce library. Utilities that enroll get their own private library — their records stay theirs. Binders keep grant and succession packets ordered the way field staff already think about printed binders.',
+        tip: 'A good first binder: the regional workforce brief plus supporting SOPs for the region you visit next.',
       };
   }
 }
@@ -315,6 +343,15 @@ export function buildStudioTourSlides(hooks: StudioTourHooks): Ww360TourSlide[] 
     body: f.body,
     tip: f.tip,
     highlight: '[data-tour="studio-folders"]',
+  });
+
+  const b = bindersCopy(audience);
+  slides.push({
+    id: 'binders',
+    title: b.title,
+    body: b.body,
+    tip: b.tip,
+    highlight: '[data-tour="studio-binders"]',
   });
 
   const d = documentsCopy(audience);

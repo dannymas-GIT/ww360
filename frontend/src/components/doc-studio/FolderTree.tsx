@@ -194,44 +194,47 @@ export function FolderTree({
       </ul>
 
       {/* Binders — working sets, listed above plain folders */}
-      <div className="mt-3 flex items-center justify-between px-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Binders</p>
-        {canManage && onCreateBinder ? (
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium text-sky-700 hover:bg-sky-50"
-            onClick={onCreateBinder}
-          >
-            <Plus className="h-3.5 w-3.5" /> New
-          </button>
-        ) : null}
+      <div data-tour="studio-binders">
+        <div className="mt-3 flex items-center justify-between px-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Binders</p>
+          {canManage && onCreateBinder ? (
+            <button
+              type="button"
+              className="inline-flex min-h-[28px] items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium text-sky-700 hover:bg-sky-50"
+              onClick={onCreateBinder}
+              aria-label="New binder"
+            >
+              <Plus className="h-3.5 w-3.5" /> New
+            </button>
+          ) : null}
+        </div>
+        <ul className="mt-1 space-y-0.5" data-tour="studio-binders-list">
+          {binders.map(f => (
+            <FolderNode
+              key={f.id}
+              folder={f}
+              depth={0}
+              binder
+              active={selectedId === f.id}
+              childrenCount={0}
+              isOpen
+              canManage={canManage}
+              dropEnabled={dropEnabled}
+              onToggle={() => undefined}
+              onSelect={() => onSelect(f.id)}
+              onCreate={() => onCreate(f.id)}
+              onRename={() => onRename(f)}
+              onDelete={() => onDelete(f)}
+              onDropDocument={onDropDocument}
+            />
+          ))}
+          {!binders.length ? (
+            <li className="px-2 py-1.5 text-xs leading-snug text-slate-500">
+              No binders yet — file documents into a binder to build a working set.
+            </li>
+          ) : null}
+        </ul>
       </div>
-      <ul className="mt-1 space-y-0.5">
-        {binders.map(f => (
-          <FolderNode
-            key={f.id}
-            folder={f}
-            depth={0}
-            binder
-            active={selectedId === f.id}
-            childrenCount={0}
-            isOpen
-            canManage={canManage}
-            dropEnabled={dropEnabled}
-            onToggle={() => undefined}
-            onSelect={() => onSelect(f.id)}
-            onCreate={() => onCreate(f.id)}
-            onRename={() => onRename(f)}
-            onDelete={() => onDelete(f)}
-            onDropDocument={onDropDocument}
-          />
-        ))}
-        {!binders.length ? (
-          <li className="px-2 py-1.5 text-xs leading-snug text-slate-500">
-            No binders yet — file documents into a binder to build a working set.
-          </li>
-        ) : null}
-      </ul>
 
       <div className="mt-3 flex items-center justify-between px-2">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Folders</p>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BookMarked, Folder as FolderIcon, Inbox, Save } from 'lucide-react';
+import { Folder as FolderIcon, Inbox, Save } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -11,6 +11,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { DocFolder } from '@/services/docStudioService';
+import { isBinderFolder, isBindersRootFolder } from '@/services/docStudioService';
+import { BinderIcon } from '@/components/doc-studio/BinderIcon';
 
 export type SaveAsDest = 'folder' | 'new_binder' | 'new_folder' | 'unfiled';
 
@@ -21,18 +23,18 @@ export interface SaveAsPayload {
   newName?: string;
 }
 
+/** `saveAs` copies into the destination; `file` moves the existing document. */
+export type SaveAsIntent = 'saveAs' | 'file';
+
 export interface SaveAsDialogProps {
   open: boolean;
   folders: DocFolder[];
   defaultTitle: string;
   defaultFolderId?: string | null;
   busy?: boolean;
+  intent?: SaveAsIntent;
   onClose: () => void;
   onSave: (payload: SaveAsPayload) => void;
-}
-
-function isBinderFolder(f: DocFolder): boolean {
-  return /binder/i.test(f.name);
 }
 
 export function SaveAsDialog({
@@ -41,11 +43,25 @@ export function SaveAsDialog({
   defaultTitle,
   defaultFolderId = null,
   busy = false,
+  intent = 'saveAs',
   onClose,
   onSave,
 }: SaveAsDialogProps) {
-  const binders = useMemo(() => folders.filter(isBinderFolder), [folders]);
-  const otherFolders = useMemo(() => folders.filter(f => !isBinderFolder(f)), [folders]);
+  const bindersRoot = useMemo(() => folders.find(isBindersRootFolder) ?? null, [folders]);
+  const binders = useMemo(
+    () =>
+      folders.filter(
+        f =>
+          !isBindersRootFolder(f) &&
+          (isBinderFolder(f) || (bindersRoot ? f.parent_id === bindersRoot.id : false))
+      ),
+    [folders, bindersRoot]
+  );
+  const otherFolders = useMemo(
+    () => folders.filter(f => !isBindersRootFolder(f) && !binders.includes(f)),
+    [folders, binders]
+  );
+  const isFile = intent === 'file';
 
   const [title, setTitle] = useState(defaultTitle);
   const [mode, setMode] = useState<SaveAsDest>('folder');
@@ -58,7 +74,7 @@ export function SaveAsDialog({
     setNewName('');
 
     const pre = defaultFolderId;
-    if (pre && folders.some(f => f.id === pre)) {
+    if (pre && [...binders, ...otherFolders].some(f => f.id === pre)) {
       setMode('folder');
       setFolderId(pre);
       return;
@@ -99,35 +115,45 @@ export function SaveAsDialog({
       <DialogContent className="max-w-lg" data-tour="studio-save-as-dialog">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg">
-            <Save className="h-5 w-5" aria-hidden />
-            Save As
+            {isFile ? <BinderIcon className="h-5 w-5" /> : <Save className="h-5 w-5" aria-hidden />}
+            {isFile ? 'File in binder' : 'Save As'}
           </DialogTitle>
           <DialogDescription className="text-base text-slate-600">
-            Choose a title and where to put your editable copy. The original sample stays read-only.
+            {isFile
+              ? 'Pick the binder this document belongs in. It moves there — no copy is made.'
+              : 'Choose a title and where to put your editable copy. The original sample stays read-only.'}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={submit} className="space-y-4">
-          <label className="block text-base">
-            <span className="mb-1.5 block font-medium text-slate-800">Title</span>
-            <Input
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              className="h-11 text-base"
-              maxLength={500}
-              required
-              autoFocus
-              aria-label="Document title"
-            />
-          </label>
+          {!isFile ? (
+            <label className="block text-base">
+              <span className="mb-1.5 block font-medium text-slate-800">Title</span>
+              <Input
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                className="h-11 text-base"
+                maxLength={500}
+                required
+                autoFocus
+                aria-label="Document title"
+              />
+            </label>
+          ) : (
+            <p className="rounded-md bg-slate-50 px-3 py-2 text-base text-slate-700">
+              <span className="font-medium">{defaultTitle}</span>
+            </p>
+          )}
 
           <fieldset className="space-y-2">
-            <legend className="mb-1.5 text-base font-medium text-slate-800">Save to</legend>
+            <legend className="mb-1.5 text-base font-medium text-slate-800">
+              {isFile ? 'File to' : 'Save to'}
+            </legend>
             <div className="grid gap-2 sm:grid-cols-2">
               {(
                 [
-                  { id: 'folder' as const, label: 'Existing folder / binder', icon: FolderIcon },
-                  { id: 'new_binder' as const, label: 'New binder', icon: BookMarked },
+                  { id: 'folder' as const, label: 'Existing binder / folder', icon: BinderIcon },
+                  { id: 'new_binder' as const, label: 'New binder', icon: BinderIcon },
                   { id: 'new_folder' as const, label: 'New folder', icon: FolderIcon },
                   { id: 'unfiled' as const, label: 'Unfiled', icon: Inbox },
                 ] as const
@@ -231,7 +257,7 @@ export function SaveAsDialog({
               disabled={!canSubmit || busy}
               data-tour="studio-save-as-confirm"
             >
-              {busy ? 'Saving…' : 'Save As'}
+              {busy ? (isFile ? 'Filing…' : 'Saving…') : isFile ? 'File in binder' : 'Save As'}
             </Button>
           </DialogFooter>
         </form>

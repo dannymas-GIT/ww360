@@ -47,6 +47,8 @@ export interface DocSummary {
   template_id?: string | null;
   version_no: number;
   word_count: number;
+  /** Page order inside a folder/binder (0-based). */
+  sort_order?: number;
   source_filename?: string | null;
   created_by?: number | null;
   updated_by?: number | null;
@@ -176,6 +178,30 @@ export async function updateFolder(
 
 export async function deleteFolder(id: string, scope?: string): Promise<void> {
   await axios.delete(`${BASE}/folders/${id}`, cfg({ scope }));
+}
+
+/** The system "Binders" container folder (holds individual binders, is not one itself). */
+export function isBindersRootFolder(f: Pick<DocFolder, 'name'>): boolean {
+  return f.name.trim().toLowerCase() === 'binders';
+}
+
+/** A working binder — named like a binder, excluding the "Binders" root container. */
+export function isBinderFolder(f: Pick<DocFolder, 'name'>): boolean {
+  return !isBindersRootFolder(f) && /binder/i.test(f.name);
+}
+
+/** Set the page order of documents inside a folder/binder. */
+export async function reorderFolderDocuments(
+  folderId: string,
+  documentIds: string[],
+  scope?: string
+): Promise<DocSummary[]> {
+  const { data } = await axios.put(
+    `${BASE}/folders/${folderId}/document-order`,
+    { document_ids: documentIds },
+    cfg({ scope })
+  );
+  return data;
 }
 
 export async function fetchDocuments(

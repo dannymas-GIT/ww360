@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronDown, ChevronRight, Folder, FolderOpen, FolderPlus, Inbox, Library, MoreHorizontal } from 'lucide-react';
+import { ChevronDown, ChevronRight, Folder, FolderOpen, FolderPlus, Inbox, Library, MoreHorizontal, Plus } from 'lucide-react';
 import type { DocFolder } from '@/services/docStudioService';
-import { DOC_STUDIO_DRAG_MIME } from '@/services/docStudioService';
+import { DOC_STUDIO_DRAG_MIME, isBinderFolder, isBindersRootFolder } from '@/services/docStudioService';
+import { BinderIcon } from '@/components/doc-studio/BinderIcon';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +25,8 @@ export interface FolderTreeProps {
   onDelete: (folder: DocFolder) => void;
   /** Drop a dragged document onto a folder (`folderId`) or Unfiled (`null`). */
   onDropDocument?: ((folderId: string | null, documentId: string) => void) | undefined;
+  /** Create a new binder (shown as a "New" action in the Binders section). */
+  onCreateBinder?: (() => void) | undefined;
 }
 
 function parseDragDocumentId(e: React.DragEvent): string | null {
@@ -87,10 +90,30 @@ export function FolderTree({
   onRename,
   onDelete,
   onDropDocument,
+  onCreateBinder,
 }: FolderTreeProps) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const dropEnabled = Boolean(canManage && onDropDocument);
   const unfiledDrop = useDropTarget(dropEnabled, onDropDocument, null);
+
+  const bindersRoot = useMemo(() => folders.find(isBindersRootFolder) ?? null, [folders]);
+
+  /** Working binders: binder-named folders anywhere + any child of the Binders root. */
+  const binderIds = useMemo(() => {
+    const ids = new Set<string>();
+    folders.forEach(f => {
+      if (isBinderFolder(f) || (bindersRoot && f.parent_id === bindersRoot.id)) ids.add(f.id);
+    });
+    return ids;
+  }, [folders, bindersRoot]);
+
+  const binders = useMemo(
+    () =>
+      folders
+        .filter(f => binderIds.has(f.id))
+        .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name)),
+    [folders, binderIds]
+  );
 
   const byParent = useMemo(() => {
     const map = new Map<string | null, DocFolder[]>();
@@ -103,7 +126,7 @@ export function FolderTree({
   }, [folders]);
 
   const renderNode = (f: DocFolder, depth: number): React.ReactNode => {
-    const children = byParent.get(f.id) ?? [];
+    const children = (byParent.get(f.id) ?? []).filter(c => !binderIds.has(c.id));
     const isOpen = !collapsed[f.id];
     const active = selectedId === f.id;
     return (
@@ -128,7 +151,10 @@ export function FolderTree({
     );
   };
 
-  const roots = byParent.get(null) ?? [];
+  // Plain folders exclude binders and the Binders root container.
+  const roots = (byParent.get(null) ?? []).filter(
+    f => !binderIds.has(f.id) && !isBindersRootFolder(f)
+  );
 
   return (
     <nav aria-label="Folders" className="flex h-full flex-col">
@@ -166,6 +192,47 @@ export function FolderTree({
           </button>
         </li>
       </ul>
+
+      {/* Binders — working sets, listed above plain folders */}
+      <div className="mt-3 flex items-center justify-between px-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Binders</p>
+        {canManage && onCreateBinder ? (
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium text-sky-700 hover:bg-sky-50"
+            onClick={onCreateBinder}
+          >
+            <Plus className="h-3.5 w-3.5" /> New
+          </button>
+        ) : null}
+      </div>
+      <ul className="mt-1 space-y-0.5">
+        {binders.map(f => (
+          <FolderNode
+            key={f.id}
+            folder={f}
+            depth={0}
+            binder
+            active={selectedId === f.id}
+            childrenCount={0}
+            isOpen
+            canManage={canManage}
+            dropEnabled={dropEnabled}
+            onToggle={() => undefined}
+            onSelect={() => onSelect(f.id)}
+            onCreate={() => onCreate(f.id)}
+            onRename={() => onRename(f)}
+            onDelete={() => onDelete(f)}
+            onDropDocument={onDropDocument}
+          />
+        ))}
+        {!binders.length ? (
+          <li className="px-2 py-1.5 text-xs leading-snug text-slate-500">
+            No binders yet — file documents into a binder to build a working set.
+          </li>
+        ) : null}
+      </ul>
+
       <div className="mt-3 flex items-center justify-between px-2">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Folders</p>
         {canManage ? (
@@ -194,6 +261,7 @@ function FolderNode({
   isOpen,
   canManage,
   dropEnabled,
+  binder = false,
   onToggle,
   onSelect,
   onCreate,
@@ -209,6 +277,7 @@ function FolderNode({
   isOpen: boolean;
   canManage: boolean;
   dropEnabled: boolean;
+  binder?: boolean;
   onToggle: () => void;
   onSelect: () => void;
   onCreate: () => void;
@@ -249,9 +318,11 @@ function FolderNode({
           className="flex min-h-[36px] flex-1 items-center gap-2 truncate py-1 text-left"
           onClick={onSelect}
           aria-current={active ? 'true' : undefined}
-          title={dropEnabled ? 'Drop a document here to move it' : undefined}
+          title={dropEnabled ? `Drop a document here to file it in this ${binder ? 'binder' : 'folder'}` : undefined}
         >
-          {active || drop.dragOver ? (
+          {binder ? (
+            <BinderIcon className={`h-4 w-4 shrink-0 ${active || drop.dragOver ? 'text-sky-600' : 'text-slate-400'}`} />
+          ) : active || drop.dragOver ? (
             <FolderOpen className="h-4 w-4 shrink-0 text-sky-600" />
           ) : (
             <Folder className="h-4 w-4 shrink-0 text-slate-400" />
@@ -265,16 +336,16 @@ function FolderNode({
               <button
                 type="button"
                 className="rounded p-1 text-slate-400 opacity-0 transition group-hover:opacity-100 focus:opacity-100 data-[state=open]:opacity-100 hover:bg-slate-200/70 hover:text-slate-700"
-                aria-label={`Folder actions for ${folder.name}`}
+                aria-label={`${binder ? 'Binder' : 'Folder'} actions for ${folder.name}`}
               >
                 <MoreHorizontal className="h-4 w-4" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44">
-              <DropdownMenuItem onClick={onCreate}>New subfolder</DropdownMenuItem>
+              {!binder ? <DropdownMenuItem onClick={onCreate}>New subfolder</DropdownMenuItem> : null}
               <DropdownMenuItem onClick={onRename}>Rename</DropdownMenuItem>
               <DropdownMenuItem className="text-red-700 focus:text-red-700" onClick={onDelete}>
-                Delete folder
+                Delete {binder ? 'binder' : 'folder'}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

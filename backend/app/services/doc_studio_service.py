@@ -383,8 +383,57 @@ class DocStudioService:
                     DocDocument.content_markdown.ilike(like),
                 )
             )
-        rows = query.order_by(DocDocument.updated_at.desc()).limit(limit).all()
+        if folder_id and folder_id != "__root__":
+            # Inside a concrete folder/binder, respect the explicit page order.
+            rows = (
+                query.order_by(DocDocument.sort_order.asc(), DocDocument.updated_at.desc())
+                .limit(limit)
+                .all()
+            )
+        else:
+            rows = query.order_by(DocDocument.updated_at.desc()).limit(limit).all()
         return [DocDocumentRead.model_validate(r) for r in rows]
+
+    def _next_sort_order(self, scope: str, folder_id: str | None) -> int:
+        """Append position for a new/moved document in a folder (0 when unfiled)."""
+        if not folder_id:
+            return 0
+        current_max = (
+            self.db.query(func.max(DocDocument.sort_order))
+            .filter(DocDocument.scope == scope, DocDocument.folder_id == folder_id)
+            .scalar()
+        )
+        return int(current_max) + 1 if current_max is not None else 0
+
+    def reorder_documents(
+        self, scope: str, folder_id: str, document_ids: list[str]
+    ) -> list[DocDocumentRead]:
+        """Set the page order of a folder/binder to the given id sequence."""
+        self._get_folder(scope, folder_id)
+        rows = (
+            self.db.query(DocDocument)
+            .filter(DocDocument.scope == scope, DocDocument.folder_id == folder_id)
+            .all()
+        )
+        by_id = {r.id: r for r in rows}
+        unknown = [i for i in document_ids if i not in by_id]
+        if unknown:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "All documents must belong to this folder",
+            )
+        for idx, doc_id in enumerate(document_ids):
+            by_id[doc_id].sort_order = idx
+        # Docs not mentioned keep their relative order after the listed ones.
+        ordered_ids = set(document_ids)
+        tail = sorted(
+            (r for r in rows if r.id not in ordered_ids),
+            key=lambda r: (r.sort_order, r.id),
+        )
+        for offset, row in enumerate(tail):
+            row.sort_order = len(document_ids) + offset
+        self.db.commit()
+        return self.list_documents(scope, folder_id=folder_id)
 
     def require_custody_transfer(self, context: TenantContext, scope: str) -> None:
         if not self.access(context, scope).can_custody_transfer:
@@ -425,6 +474,7 @@ class DocStudioService:
             tutorial_data=payload.tutorial_data,
             version_no=1,
             word_count=_word_count(md),
+            sort_order=self._next_sort_order(scope, payload.folder_id),
             created_by=user_id,
             updated_by=user_id,
         )
@@ -469,6 +519,7 @@ class DocStudioService:
             content_markdown=markdown,
             version_no=1,
             word_count=_word_count(markdown),
+            sort_order=self._next_sort_order(scope, folder_id),
             source_filename=source_filename,
             created_by=user_id,
             updated_by=user_id,
@@ -498,6 +549,11 @@ class DocStudioService:
         data = payload.model_dump(exclude_unset=True)
         if "folder_id" in data and data["folder_id"]:
             self._get_folder(scope, data["folder_id"])
+        # Moving to a different folder appends at the end of that binder's page order.
+        if "folder_id" in data and "sort_order" not in data:
+            new_folder = data["folder_id"] or None
+            if new_folder != (d.folder_id or None):
+                data["sort_order"] = self._next_sort_order(scope, new_folder)
         for k, v in data.items():
             setattr(d, k, v.strip() if isinstance(v, str) and k == "title" else v)
         if data.get("status") == "published" and not d.published_at:

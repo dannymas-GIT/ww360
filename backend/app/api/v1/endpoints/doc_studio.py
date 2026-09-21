@@ -32,6 +32,7 @@ from app.schemas.doc_studio import (
     DocFolderUpdate,
     DocLibraryConnectionRead,
     DocLibraryConnectionUpdate,
+    DocReorderRequest,
     DocStudioAccess,
     DocStudioStats,
     DocVersionDetail,
@@ -169,6 +170,20 @@ def update_folder(
     svc = DocStudioService(db)
     svc.require_author(context, scope)
     return svc.update_folder(scope, folder_id, payload)
+
+
+@router.put("/folders/{folder_id}/document-order", response_model=list[DocDocumentRead])
+def reorder_folder_documents(
+    folder_id: str,
+    payload: DocReorderRequest,
+    pair=Depends(_ctx),
+    db: Session = Depends(deps.get_db),
+):
+    """Set the page order of documents inside a folder/binder."""
+    context, scope = pair
+    svc = DocStudioService(db)
+    svc.require_author(context, scope)
+    return svc.reorder_documents(scope, folder_id, payload.document_ids)
 
 
 @router.delete("/folders/{folder_id}", status_code=status.HTTP_204_NO_CONTENT)

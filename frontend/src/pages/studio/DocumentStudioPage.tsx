@@ -46,9 +46,15 @@ import { Ww360TourOverlay, requestOpenTour } from '@/components/ww360/Ww360TourO
 import { StudioEditor, type StudioEditorHandle } from '@/components/doc-studio/StudioEditor';
 import { ALL_DOCS, FolderTree, UNFILED } from '@/components/doc-studio/FolderTree';
 import { DocumentList, relativeTime, statusTone } from '@/components/doc-studio/DocumentList';
+import { BinderIcon } from '@/components/doc-studio/BinderIcon';
+import { BinderToc } from '@/components/doc-studio/BinderToc';
 import { VersionHistoryPanel } from '@/components/doc-studio/VersionHistoryPanel';
 import { NewDocumentDialog } from '@/components/doc-studio/NewDocumentDialog';
-import { SaveAsDialog, type SaveAsPayload } from '@/components/doc-studio/SaveAsDialog';
+import {
+  SaveAsDialog,
+  type SaveAsIntent,
+  type SaveAsPayload,
+} from '@/components/doc-studio/SaveAsDialog';
 import { ExternalLibraryDialog } from '@/components/doc-studio/ExternalLibraryDialog';
 import { CustodyTransferDialog } from '@/components/doc-studio/CustodyTransferDialog';
 import { ApplicationStepsOverviewDialog } from '@/components/doc-studio/ApplicationStepsOverviewDialog';
@@ -58,8 +64,13 @@ import { TutorialPlayer } from '@/components/doc-studio/TutorialPlayer';
 import { useTutorialRecorder } from '@/context/TutorialRecorderContext';
 import * as api from '@/services/docStudioService';
 import type { DocDetail, DocFolder, DocSummary } from '@/services/docStudioService';
-import { isLibrarySampleDocument, sampleSaveAsTitle } from '@/services/docStudioService';
-import { templateById, templateAudienceFromTour, tourSampleTemplateId } from '@/config/studioTemplates';
+import {
+  isBinderFolder,
+  isBindersRootFolder,
+  isLibrarySampleDocument,
+  sampleSaveAsTitle,
+} from '@/services/docStudioService';
+import { templateById, templateAudienceFromTour, tourSampleTemplateId, type StudioTemplate } from '@/config/studioTemplates';
 import {
   buildStudioTourConfig,
   resolveStudioTourAudience,
@@ -74,6 +85,18 @@ import { fillStudioTemplateMarkdown } from '@/lib/studioTemplateFill';
 const AUTOSAVE_MS = 2500;
 
 type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error';
+
+/** Working-binder name for a grant/template deep-link (kept within folder name limits). */
+function binderNameForTemplate(tpl: StudioTemplate): string {
+  if (tpl.id.startsWith('epa-iwiwd-2026')) return 'EPA IWIWD 2026 binder';
+  return `${tpl.name.slice(0, 60).trim()} binder`;
+}
+
+/** Ensure a user-entered binder name reads like one (matches the /binder/i heuristic). */
+function normalizeBinderName(name: string): string {
+  const trimmed = name.trim();
+  return /binder/i.test(trimmed) ? trimmed : `${trimmed} binder`;
+}
 
 function errMessage(err: unknown): string {
   if (typeof err === 'object' && err && 'response' in err) {
@@ -106,6 +129,7 @@ export default function DocumentStudioPage() {
   const [saveAsOpen, setSaveAsOpen] = useState(false);
   const [saveAsTitle, setSaveAsTitle] = useState('');
   const [saveAsBusy, setSaveAsBusy] = useState(false);
+  const [saveAsIntent, setSaveAsIntent] = useState<SaveAsIntent>('saveAs');
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [custodyOpen, setCustodyOpen] = useState(params.get('custody') === 'open');
   const [overviewOpen, setOverviewOpen] = useState(false);
@@ -184,7 +208,16 @@ export default function DocumentStudioPage() {
 
   const openSaveAs = () => {
     if (!doc) return;
+    setSaveAsIntent('saveAs');
     setSaveAsTitle(sampleSaveAsTitle(doc.title));
+    setSaveAsOpen(true);
+  };
+
+  /** Move (not copy) the open document into a binder. */
+  const openFileInBinder = () => {
+    if (!doc) return;
+    setSaveAsIntent('file');
+    setSaveAsTitle(doc.title);
     setSaveAsOpen(true);
   };
 
@@ -452,19 +485,44 @@ export default function DocumentStudioPage() {
 
   // Grants / readiness "Open in Studio" (?template=…) → create that template immediately
   // with jurisdiction / EPA autofill applied when {{placeholders}} are present.
+  // New docs are auto-filed into a per-template binder instead of landing in Unfiled.
   useEffect(() => {
     if (templateDeepLinkHandled.current) return;
     if (!deepLinkTemplateId) return;
     const tpl = templateById(deepLinkTemplateId);
     if (!tpl) return;
     if (!accessQ.isSuccess || !canAuthor) return;
+    // Wait for folders so we can resolve/create the destination binder.
+    if (!foldersQ.isSuccess) return;
     templateDeepLinkHandled.current = true;
-    const folder_id =
-      folderSel !== ALL_DOCS && folderSel !== UNFILED ? folderSel : null;
     const districtCode =
       studioScope && studioScope !== 'program' ? studioScope : null;
     let cancelled = false;
     void (async () => {
+      // Keep an explicitly selected folder; otherwise file into the template's binder.
+      let folder_id: string | null =
+        folderSel !== ALL_DOCS && folderSel !== UNFILED ? folderSel : null;
+      if (!folder_id) {
+        const binderName = binderNameForTemplate(tpl);
+        const existing = folders.find(
+          f => f.name.trim().toLowerCase() === binderName.toLowerCase()
+        );
+        if (existing) {
+          folder_id = existing.id;
+        } else {
+          try {
+            const bindersRoot = folders.find(isBindersRootFolder) ?? null;
+            const created = await api.createFolder(
+              { name: binderName, parent_id: bindersRoot?.id ?? null },
+              studioScope
+            );
+            qc.invalidateQueries({ queryKey: ['studio', 'folders'] });
+            folder_id = created.id;
+          } catch {
+            folder_id = null; // fall back to Unfiled rather than block creation
+          }
+        }
+      }
       const markdown = await fillStudioTemplateMarkdown(tpl.markdown, {
         templateId: tpl.id,
         stateCode: activeState,
@@ -480,6 +538,9 @@ export default function DocumentStudioPage() {
           markdown,
         },
         {
+          onSuccess: data => {
+            if (data.folder_id) setFolderSel(data.folder_id);
+          },
           onSettled: () => {
             const next = new URLSearchParams(params);
             next.delete('template');
@@ -498,6 +559,9 @@ export default function DocumentStudioPage() {
   }, [
     deepLinkTemplateId,
     accessQ.isSuccess,
+    foldersQ.isSuccess,
+    folders,
+    qc,
     canAuthor,
     folderSel,
     studioScope,
@@ -606,11 +670,11 @@ export default function DocumentStudioPage() {
         folderId = payload.folderId ?? null;
       } else if (payload.mode === 'new_binder' || payload.mode === 'new_folder') {
         const name =
-          payload.mode === 'new_binder' && payload.newName && !/binder/i.test(payload.newName)
-            ? `${payload.newName} binder`
-            : (payload.newName || 'Binder');
+          payload.mode === 'new_binder'
+            ? normalizeBinderName(payload.newName || 'Binder')
+            : (payload.newName || 'Folder');
         // Nest new binders under the Binders root when present.
-        const bindersRoot = folders.find(f => f.name === 'Binders') ?? null;
+        const bindersRoot = folders.find(isBindersRootFolder) ?? null;
         const parentId =
           payload.mode === 'new_binder' && bindersRoot ? bindersRoot.id : null;
         const created = await folderCreateMut.mutateAsync({
@@ -620,6 +684,19 @@ export default function DocumentStudioPage() {
         folderId = created.id;
       } else {
         folderId = null;
+      }
+
+      if (saveAsIntent === 'file') {
+        // File in binder — move the existing document, no copy.
+        const moved = await api.updateDocument(doc.id, { folder_id: folderId }, studioScope);
+        setSaveAsOpen(false);
+        qc.setQueryData(['studio', 'document', studioScope, doc.id], moved);
+        invalidateLists();
+        if (folderId) setFolderSel(folderId);
+        else setFolderSel(UNFILED);
+        const dest = folderId ? folders.find(f => f.id === folderId)?.name ?? 'binder' : 'Unfiled';
+        toast({ title: `Filed in ${dest}`, description: moved.title });
+        return;
       }
 
       const createdDoc = await api.saveAsDocument(doc.id, {
@@ -635,7 +712,7 @@ export default function DocumentStudioPage() {
       toast({ title: 'Saved as new document', description: createdDoc.title });
     } catch (err) {
       toast({
-        title: 'Save As failed',
+        title: saveAsIntent === 'file' ? 'File in binder failed' : 'Save As failed',
         description: errMessage(err),
         variant: 'destructive',
       });
@@ -691,6 +768,29 @@ export default function DocumentStudioPage() {
       setFolderSel(ALL_DOCS);
     },
     onError: err => toast({ title: 'Delete failed', description: errMessage(err), variant: 'destructive' }),
+  });
+  const folderDescriptionMut = useMutation({
+    mutationFn: (vars: { id: string; description: string }) =>
+      api.updateFolder(vars.id, { description: vars.description }, studioScope),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['studio', 'folders'] }),
+    onError: err => toast({ title: 'Could not update description', description: errMessage(err), variant: 'destructive' }),
+  });
+
+  // ── Binder page order ──────────────────────────────────────────────────
+  const reorderMut = useMutation({
+    mutationFn: (vars: { folderId: string; documentIds: string[] }) =>
+      api.reorderFolderDocuments(vars.folderId, vars.documentIds, studioScope),
+    onSuccess: (data, vars) => {
+      qc.setQueryData(
+        ['studio', 'documents', studioScope, vars.folderId, query],
+        data
+      );
+      qc.invalidateQueries({ queryKey: ['studio', 'documents'] });
+    },
+    onError: err => {
+      toast({ title: 'Reorder failed', description: errMessage(err), variant: 'destructive' });
+      qc.invalidateQueries({ queryKey: ['studio', 'documents'] });
+    },
   });
 
   // ── Export ─────────────────────────────────────────────────────────────
@@ -829,6 +929,19 @@ export default function DocumentStudioPage() {
 
   // ── Render ─────────────────────────────────────────────────────────────
   const selectedFolder = folders.find(f => f.id === folderSel);
+  const bindersRoot = folders.find(isBindersRootFolder) ?? null;
+  /** Selected folder behaves like a physical binder: TOC + page order. */
+  const selectedFolderIsBinder =
+    !!selectedFolder &&
+    !isBindersRootFolder(selectedFolder) &&
+    (isBinderFolder(selectedFolder) ||
+      (bindersRoot ? selectedFolder.parent_id === bindersRoot.id : false));
+  /** True when the open document already lives in a binder (hide the File CTA). */
+  const docFolder = doc?.folder_id ? folders.find(f => f.id === doc.folder_id) : null;
+  const docIsInBinder =
+    !!docFolder &&
+    !isBindersRootFolder(docFolder) &&
+    (isBinderFolder(docFolder) || (bindersRoot ? docFolder.parent_id === bindersRoot.id : false));
   const defaultFolderForNew = folderSel !== ALL_DOCS && folderSel !== UNFILED ? folderSel : null;
   const busy = createMut.isPending || importMut.isPending;
   const custodyDocs: DocSummary[] = doc
@@ -983,8 +1096,23 @@ export default function DocumentStudioPage() {
               totalCount={totalCount}
               unfiledCount={unfiledCount}
               canManage={canAuthor}
-              onSelect={setFolderSel}
+              onSelect={id => {
+                setFolderSel(id);
+                // Binder view shows the TOC (no search box) — drop any stale filter.
+                const f = folders.find(x => x.id === id);
+                if (f && (isBinderFolder(f) || (bindersRoot && f.parent_id === bindersRoot.id))) {
+                  setQuery('');
+                }
+              }}
               onDropDocument={canAuthor ? handleDropDocument : undefined}
+              onCreateBinder={() => {
+                const name = window.prompt('New binder name');
+                if (!name?.trim()) return;
+                folderCreateMut.mutate({
+                  name: normalizeBinderName(name),
+                  parent_id: bindersRoot?.id ?? null,
+                });
+              }}
               onCreate={parentId => {
                 const name = window.prompt(parentId ? 'New subfolder name' : 'New folder name');
                 if (name?.trim()) folderCreateMut.mutate({ name: name.trim(), parent_id: parentId });
@@ -1024,29 +1152,79 @@ export default function DocumentStudioPage() {
           className="flex min-h-0 flex-col rounded-xl border border-slate-200 bg-white pt-2 shadow-sm"
           aria-label="Documents"
         >
-          <div className="flex items-center justify-between px-3 pb-1">
-            <p className="truncate text-sm font-semibold text-slate-800">
-              {folderSel === ALL_DOCS ? 'All documents' : folderSel === UNFILED ? 'Unfiled' : selectedFolder?.name ?? 'Folder'}
-            </p>
-            <span className="text-[11px] text-slate-500">{documents.length}</span>
-          </div>
-          {selectedFolder?.description ? (
-            <p className="px-3 pb-2 text-[11px] leading-snug text-slate-500">{selectedFolder.description}</p>
-          ) : null}
-          <DocumentList
-            documents={documents}
-            selectedId={selectedId}
-            query={query}
-            loading={docsQ.isLoading}
-            onQueryChange={setQuery}
-            onSelect={d => void selectDocument(d.id)}
-            canDrag={canAuthor}
-            emptyHint={
-              canAuthor && !query
-                ? 'Nothing here yet — create a document from a template or import a file.'
-                : undefined
-            }
-          />
+          {selectedFolderIsBinder && selectedFolder ? (
+            <>
+              {/* Binder header — name, editable description, table of contents */}
+              <div className="flex items-center gap-2 px-3 pb-1">
+                <BinderIcon className="h-4 w-4 shrink-0 text-sky-700" />
+                <p className="min-w-0 flex-1 truncate text-base font-semibold text-slate-900">
+                  {selectedFolder.name}
+                </p>
+                <span className="text-[11px] text-slate-500">
+                  {documents.length} page{documents.length === 1 ? '' : 's'}
+                </span>
+              </div>
+              <div className="flex items-start gap-2 px-3 pb-2">
+                <p className="min-w-0 flex-1 text-sm leading-snug text-slate-500">
+                  {selectedFolder.description || (canAuthor ? 'No description yet.' : '')}
+                </p>
+                {canAuthor ? (
+                  <button
+                    type="button"
+                    className="shrink-0 rounded px-1.5 py-0.5 text-sm font-medium text-sky-700 hover:bg-sky-50"
+                    onClick={() => {
+                      const next = window.prompt(
+                        `Describe binder "${selectedFolder.name}"`,
+                        selectedFolder.description ?? ''
+                      );
+                      if (next !== null && next.trim() !== (selectedFolder.description ?? '')) {
+                        folderDescriptionMut.mutate({ id: selectedFolder.id, description: next.trim() });
+                      }
+                    }}
+                  >
+                    Edit
+                  </button>
+                ) : null}
+              </div>
+              <p className="border-t border-slate-100 px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                Table of contents
+              </p>
+              <BinderToc
+                documents={documents}
+                selectedId={selectedId}
+                loading={docsQ.isLoading}
+                canReorder={canAuthor && !query}
+                onSelect={d => void selectDocument(d.id)}
+                onReorder={ids => reorderMut.mutate({ folderId: selectedFolder.id, documentIds: ids })}
+              />
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-between px-3 pb-1">
+                <p className="truncate text-sm font-semibold text-slate-800">
+                  {folderSel === ALL_DOCS ? 'All documents' : folderSel === UNFILED ? 'Unfiled' : selectedFolder?.name ?? 'Folder'}
+                </p>
+                <span className="text-[11px] text-slate-500">{documents.length}</span>
+              </div>
+              {selectedFolder?.description ? (
+                <p className="px-3 pb-2 text-[11px] leading-snug text-slate-500">{selectedFolder.description}</p>
+              ) : null}
+              <DocumentList
+                documents={documents}
+                selectedId={selectedId}
+                query={query}
+                loading={docsQ.isLoading}
+                onQueryChange={setQuery}
+                onSelect={d => void selectDocument(d.id)}
+                canDrag={canAuthor}
+                emptyHint={
+                  canAuthor && !query
+                    ? 'Nothing here yet — create a document from a template or import a file.'
+                    : undefined
+                }
+              />
+            </>
+          )}
         </section>
 
         {/* Editor */}
@@ -1182,6 +1360,33 @@ export default function DocumentStudioPage() {
                       Save As…
                     </Button>
                   ) : null}
+                  {!isSampleDoc && canAuthor ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-9"
+                      data-tour="studio-save-as"
+                      disabled={saveAsBusy}
+                      onClick={() => openSaveAs()}
+                    >
+                      <Copy className="mr-1 h-4 w-4" /> Save As…
+                    </Button>
+                  ) : null}
+                  {canEditDoc && !docIsInBinder ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-9"
+                      data-tour="studio-file-in-binder"
+                      disabled={saveAsBusy}
+                      title="Move this document into a binder"
+                      onClick={() => openFileInBinder()}
+                    >
+                      <BinderIcon className="mr-1 h-4 w-4" /> File in binder…
+                    </Button>
+                  ) : null}
                   {canEditDoc && canPublish && doc.status !== 'published' ? (
                     <Button
                       type="button"
@@ -1234,14 +1439,19 @@ export default function DocumentStudioPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-56">
-                        <DropdownMenuItem
-                          onClick={() => {
-                            if (isSampleDoc) openSaveAs();
-                            else duplicateMut.mutate(doc.id);
-                          }}
-                        >
-                          <Copy className="mr-2 h-4 w-4" /> {isSampleDoc ? 'Save As…' : 'Duplicate'}
+                        <DropdownMenuItem onClick={() => openSaveAs()}>
+                          <Copy className="mr-2 h-4 w-4" /> Save As…
                         </DropdownMenuItem>
+                        {!isSampleDoc ? (
+                          <DropdownMenuItem onClick={() => duplicateMut.mutate(doc.id)}>
+                            <Copy className="mr-2 h-4 w-4" /> Duplicate
+                          </DropdownMenuItem>
+                        ) : null}
+                        {!isSampleDoc && canEditDoc ? (
+                          <DropdownMenuItem onClick={() => openFileInBinder()}>
+                            <BinderIcon className="mr-2 h-4 w-4" /> File in binder…
+                          </DropdownMenuItem>
+                        ) : null}
                         {!isSampleDoc ? (
                           <>
                             <DropdownMenuLabel className="text-xs text-slate-500">Move to folder</DropdownMenuLabel>
@@ -1362,9 +1572,13 @@ export default function DocumentStudioPage() {
         folders={folders}
         defaultTitle={saveAsTitle}
         defaultFolderId={
-          folders.find(f => f.name === 'Binders')?.id
-          ?? (folderSel !== ALL_DOCS && folderSel !== UNFILED ? folderSel : null)
+          saveAsIntent === 'file'
+            ? null // filing prefers the first binder — the dialog picks it
+            : folderSel !== ALL_DOCS && folderSel !== UNFILED
+              ? folderSel
+              : null
         }
+        intent={saveAsIntent}
         busy={saveAsBusy}
         onClose={() => setSaveAsOpen(false)}
         onSave={payload => void handleSaveAsConfirm(payload)}

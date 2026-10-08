@@ -8,6 +8,7 @@ import { AppShell } from '@/components/ww360/AppShell';
 import { AnalyticsRouteTracker } from '@/components/analytics/AnalyticsRouteTracker';
 import LoginPage from '@/pages/LoginPage';
 import HandoffPage from '@/pages/HandoffPage';
+import InviteAcceptPage from '@/pages/InviteAcceptPage';
 import Workforce360Landing from '@/pages/workforce360/Workforce360Landing';
 import WorkspaceHomePage from '@/pages/workspaces/WorkspaceHomePage';
 import DigitalReachPage from '@/pages/analytics/DigitalReachPage';
@@ -85,6 +86,8 @@ export default function App() {
       <Route path="/" element={<LandingRoute />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/auth/handoff" element={<HandoffPage />} />
+      <Route path="/auth/oww" element={<HandoffPage />} />
+      <Route path="/invite/accept" element={<InviteAcceptPage />} />
       <Route
         element={
           <ProtectedRoute>

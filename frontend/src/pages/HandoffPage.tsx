@@ -1,23 +1,38 @@
 import React, { useEffect, useState } from 'react';
-import { Navigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+
+function safeNextPath(raw: string | null): string {
+  if (!raw || !raw.startsWith('/') || raw.startsWith('//')) return '/dashboard';
+  return raw;
+}
 
 export default function HandoffPage() {
   const [params] = useSearchParams();
+  const location = useLocation();
   const code = params.get('code') || '';
-  const { redeemHandoffCode, isAuthenticated } = useAuth();
+  const next = safeNextPath(params.get('next'));
+  const { redeemHandoffCode, redeemOwwHandoffCode, isAuthenticated } = useAuth();
   const [error, setError] = useState('');
+  const fromOww = location.pathname.includes('/auth/oww');
 
   useEffect(() => {
     if (!code) {
       setError('Missing handoff code');
       return;
     }
-    void redeemHandoffCode(code).catch(() => setError('Handoff failed — code may be expired'));
-  }, [code, redeemHandoffCode]);
+    const redeem = fromOww ? redeemOwwHandoffCode : redeemHandoffCode;
+    void redeem(code).catch(() =>
+      setError(
+        fromOww
+          ? 'Handoff failed — code may be expired or payment is required'
+          : 'Handoff failed — code may be expired'
+      )
+    );
+  }, [code, fromOww, redeemHandoffCode, redeemOwwHandoffCode]);
 
   if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={next} replace />;
   }
 
   if (error) {

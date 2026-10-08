@@ -37,6 +37,15 @@ class Settings(BaseSettings):
     WW360_SERVICE_TOKEN: str = ""
     WW360_SYNC_HMAC_SECRET: str = ""
 
+    # One Water Workforce integration (Access → Water Workforce 360)
+    OWW_SERVICE_TOKEN: str = ""
+    OWW_ENTITLEMENT_BASE_URL: str = "http://127.0.0.1:8003"
+    OWW_API_KEY: str = ""
+    OWW_HMAC_SECRET: str = ""
+    OWW_HANDOFF_CODE_TTL_SECONDS: int = 90
+    OWW_ENTITLEMENT_CACHE_SECONDS: int = 1800
+    WW360_PUBLIC_APP_URL: str = ""
+
     APP_DOMAIN: str = "waterworkforce360.org"
     EXTRA_CORS_ORIGINS: str = ""
     EXTRA_TRUSTED_HOSTS: str = ""

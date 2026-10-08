@@ -32,6 +32,8 @@ class WorkforceOrganization(Base):
     contact_email = Column(String(255), nullable=True)
     website_url = Column(String(500), nullable=True)
     notes = Column(Text, nullable=True)
+    oww_org_id = Column(String(64), nullable=True, unique=True, index=True)
+    stripe_customer_id = Column(String(120), nullable=True, index=True)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(
@@ -78,6 +80,7 @@ class OrganizationDistrictMembership(Base):
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
 
     workforce_package_enabled = Column(Boolean, nullable=False, default=True, server_default="true")
+    program_code = Column(String(64), nullable=True, index=True)
 
     organization = relationship("WorkforceOrganization", back_populates="memberships")
 
@@ -135,6 +138,11 @@ def ensure_workforce_organization_schema(engine) -> None:
         """,
         "CREATE INDEX IF NOT EXISTS ix_org_user_memberships_user_id ON organization_user_memberships(user_id)",
         "CREATE INDEX IF NOT EXISTS ix_org_user_memberships_org_code ON organization_user_memberships(org_code)",
+        "ALTER TABLE workforce_organizations ADD COLUMN IF NOT EXISTS oww_org_id VARCHAR(64)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS ix_workforce_orgs_oww_org_id ON workforce_organizations (oww_org_id) WHERE oww_org_id IS NOT NULL",
+        "ALTER TABLE workforce_organizations ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(120)",
+        "ALTER TABLE organization_district_memberships ADD COLUMN IF NOT EXISTS program_code VARCHAR(64)",
+        "CREATE INDEX IF NOT EXISTS ix_org_district_memberships_program_code ON organization_district_memberships (program_code)",
     ]
     with engine.begin() as conn:
         for stmt in statements:

@@ -32,6 +32,7 @@ def init_db() -> None:
     from app.models.notification import ensure_notification_schema
     from app.models.water_district import ensure_water_district_schema
     from app.models.workforce_organization import ensure_workforce_organization_schema
+    from app.models.oww_integration import ensure_oww_integration_schema
     from app.models.impersonation import ensure_impersonation_schema
     from app.models.national_metrics import ensure_national_schema
     from app.models.grants import ensure_grants_schema
@@ -47,6 +48,7 @@ def init_db() -> None:
     ensure_notification_schema(engine)
     ensure_water_district_schema(engine)
     ensure_workforce_organization_schema(engine)
+    ensure_oww_integration_schema(engine)
     ensure_impersonation_schema(engine)
     ensure_national_schema(engine)
     ensure_grants_schema(engine)

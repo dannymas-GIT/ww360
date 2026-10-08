@@ -281,6 +281,11 @@ function navGroupsForRolesFull(roles: string[], districts: string[] = []): NavGr
       label: 'Content',
       items: [{ label: 'Document Studio', path: '/studio', icon: PenSquare }],
     },
+    {
+      id: 'admin',
+      label: 'Administration',
+      items: [{ label: 'Users & access', path: '/admin/users', icon: Users }],
+    },
   ];
 }
 
@@ -369,6 +374,13 @@ function navGroupsSimplified(
         },
       ],
     });
+    if (roles.includes('district_admin') || roles.includes('district_manager')) {
+      extras.push({
+        id: 'admin',
+        label: 'Administration',
+        items: [{ label: 'Users & access', path: '/admin/users', icon: Users }],
+      });
+    }
   }
 
   return [today, ...extras, careersGroup, fundingNavGroup, studioGroup];

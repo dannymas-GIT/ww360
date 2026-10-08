@@ -5,6 +5,7 @@ import {
   login as apiLogin,
   logout as apiLogout,
   redeemHandoff,
+  redeemOwwHandoff,
   type WW360User,
 } from '@/services/authService';
 
@@ -30,6 +31,7 @@ interface AuthContextValue {
   login: (username: string, password: string) => Promise<void>;
   applySessionUser: (user: WW360User) => void;
   redeemHandoffCode: (code: string) => Promise<void>;
+  redeemOwwHandoffCode: (code: string) => Promise<void>;
   logout: () => void;
   hasAnyRole: (...roles: string[]) => boolean;
 }
@@ -73,6 +75,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const redeemHandoffCode = useCallback(async (code: string) => {
     const data = await redeemHandoff(code);
     setUser(data.user);
+  }, []);
+
+  const redeemOwwHandoffCode = useCallback(async (code: string) => {
+    const data = await redeemOwwHandoff(code);
+    // Prefer /auth/me shape when available; fall back to handoff user payload.
+    try {
+      setUser(await fetchMe());
+    } catch {
+      setUser(data.user);
+    }
   }, []);
 
   const logout = useCallback(() => {
@@ -127,10 +139,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       login,
       applySessionUser,
       redeemHandoffCode,
+      redeemOwwHandoffCode,
       logout,
       hasAnyRole,
     }),
-    [user, loading, login, applySessionUser, redeemHandoffCode, logout, hasAnyRole, userRoles, isPlatformAdmin, isStateAdmin]
+    [
+      user,
+      loading,
+      login,
+      applySessionUser,
+      redeemHandoffCode,
+      redeemOwwHandoffCode,
+      logout,
+      hasAnyRole,
+      userRoles,
+      isPlatformAdmin,
+      isStateAdmin,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

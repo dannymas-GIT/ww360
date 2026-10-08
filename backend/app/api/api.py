@@ -21,6 +21,7 @@ from app.api.v1.endpoints import (
     grants,
     impersonation,
     insights,
+    integrations_oww,
     jobs,
     jurisdiction_admin,
     jurisdictions,
@@ -53,6 +54,10 @@ api_router.include_router(
 api_router.include_router(
     sync.router,
     tags=["sync"],
+)
+api_router.include_router(
+    integrations_oww.router,
+    tags=["integrations-oww"],
 )
 api_router.include_router(
     districts.router,

@@ -30,9 +30,19 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       APP_DOMAIN: ${APP_DOMAIN:-ww360.aquasafe-solutions.us}
+      # Allow container-DNS Host header from OWW on shared saas_integration network
+      EXTRA_TRUSTED_HOSTS: ${EXTRA_TRUSTED_HOSTS:-ww360_backend}
       AQUASAFE_INTEGRATION_BASE_URL: ${AQUASAFE_INTEGRATION_BASE_URL}
       WW360_SERVICE_TOKEN: ${WW360_SERVICE_TOKEN}
       WW360_SYNC_HMAC_SECRET: ${WW360_SYNC_HMAC_SECRET}
+      OWW_SERVICE_TOKEN: ${OWW_SERVICE_TOKEN:-}
+      # Co-hosted OWW: use shared saas_integration DNS (ports are 127.0.0.1-only on host)
+      OWW_ENTITLEMENT_BASE_URL: ${OWW_ENTITLEMENT_BASE_URL:-http://oww_backend:8000}
+      OWW_API_KEY: ${OWW_API_KEY:-}
+      OWW_HMAC_SECRET: ${OWW_HMAC_SECRET:-}
+      OWW_HANDOFF_CODE_TTL_SECONDS: ${OWW_HANDOFF_CODE_TTL_SECONDS:-90}
+      OWW_ENTITLEMENT_CACHE_SECONDS: ${OWW_ENTITLEMENT_CACHE_SECONDS:-1800}
+      WW360_PUBLIC_APP_URL: ${WW360_PUBLIC_APP_URL:-https://ww360.aquasafe-solutions.us}
       EMAIL_ENABLED: ${EMAIL_ENABLED:-false}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_USER: ${SMTP_USER:-}
@@ -58,6 +68,7 @@ services:
         condition: service_healthy
     networks:
       - ww360_network
+      - saas_integration
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
@@ -82,3 +93,7 @@ volumes:
 networks:
   ww360_network:
     driver: bridge
+  # Shared with OWW on the same VM for entitlement/handoff (docker network create saas_integration)
+  saas_integration:
+    external: true
+    name: saas_integration

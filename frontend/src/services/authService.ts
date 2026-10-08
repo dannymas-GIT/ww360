@@ -99,6 +99,12 @@ export async function redeemHandoff(code: string) {
   return data as { access_token: string; user: WW360User };
 }
 
+export async function redeemOwwHandoff(code: string) {
+  const { data } = await axios.post(`${API_BASE_URL}/auth/oww/redeem`, { code });
+  localStorage.setItem(AUTH_TOKEN_KEY, data.access_token);
+  return data as { access_token: string; user: WW360User };
+}
+
 export async function fetchMe(): Promise<WW360User> {
   const { data } = await axios.get(`${API_BASE_URL}/auth/me`, { headers: getAuthHeader() });
   return data;

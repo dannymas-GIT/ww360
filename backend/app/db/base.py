@@ -9,6 +9,7 @@ def import_models() -> None:
     import app.models.water_district  # noqa: F401
     import app.models.workforce_succession  # noqa: F401
     import app.models.workforce_organization  # noqa: F401
+    import app.models.oww_integration  # noqa: F401
     import app.models.sdwis_water_system  # noqa: F401
     import app.models.sdwis_violation  # noqa: F401
     import app.models.sdwis_enforcement_action  # noqa: F401

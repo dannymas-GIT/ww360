@@ -45,6 +45,18 @@ bash /opt/projects/workspace/scripts/ww360/sync-staging-env.sh
 
 **Checklist:** DNS A `ww360` → VM IP · certbot for `ww360.aquasafe-solutions.us` · `verify_azure_env.sh` WW360 section · AquaSafe integration → `docs/ww360-aquasafe-staging-env.example`
 
+### OWW ↔ WW360 e2e (co-hosted staging)
+
+OWW and WW360 share VM `20.51.200.188` and Docker network `saas_integration` (`oww_backend` ↔ `ww360_backend`). Shared secrets live in `/opt/projects/aquasafeV2/.local/oww-ww360-e2e.env` (gitignored overlay; do **not** overwrite `WW360_SERVICE_TOKEN` — that is AquaSafe).
+
+```bash
+# Deploy both + smoke (entitlement + handoff + auth reject)
+bash /opt/projects/workspace/scripts/oww-ww360/deploy-e2e-staging.sh
+
+# Smoke only
+bash /opt/projects/workspace/scripts/oww-ww360/verify-e2e-integration.sh
+```
+
 ## Login (interim standalone)
 
 WW360 issues its own JWT until AquaSafe handoff is deployed on staging:

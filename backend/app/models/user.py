@@ -21,6 +21,7 @@ class User(Base):
     district_memberships = Column(JSONB, nullable=False, default=list)
     is_active = Column(Boolean, default=True, nullable=False)
     aquasafe_user_id = Column(Integer, nullable=True, index=True)
+    oww_user_id = Column(String(64), nullable=True, unique=True, index=True)
     sso_provider = Column(String(50), nullable=True, index=True)
     sso_subject = Column(String(255), nullable=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -38,6 +39,8 @@ def ensure_user_schema(engine) -> None:
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS district_memberships JSONB NOT NULL DEFAULT '[]'::jsonb",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS sso_provider VARCHAR(50)",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS sso_subject VARCHAR(255)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS oww_user_id VARCHAR(64)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_oww_user_id ON users (oww_user_id) WHERE oww_user_id IS NOT NULL",
     ]
     with engine.begin() as conn:
         for stmt in statements:

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { KeyRound } from 'lucide-react';
 import { Ww360PageHero } from '@/components/ww360/Ww360PageHero';
 import { Ww360Section } from '@/components/ww360/Ww360Section';
@@ -28,6 +29,8 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import {
   fetchAdminUsers,
+  fetchOrgMembers,
+  inviteAdminUser,
   patchAdminUser,
   resetAdminUserPassword,
   type AdminUser,
@@ -46,7 +49,8 @@ const ROLE_PRESETS = [
 ] as const;
 
 export default function AdminUsersPage() {
-  const { isPlatformAdmin } = useAuth();
+  const { isPlatformAdmin, isAdmin, hasAnyRole } = useAuth();
+  const [searchParams] = useSearchParams();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,23 +63,52 @@ export default function AdminUsersPage() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordBusy, setPasswordBusy] = useState(false);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteName, setInviteName] = useState('');
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+
+  const canInvite =
+    isPlatformAdmin ||
+    isAdmin ||
+    hasAnyRole('district_admin', 'district_manager', 'oww_partner');
 
   const load = () => {
     setLoading(true);
     setError(null);
-    void fetchAdminUsers()
+    const fetcher = isPlatformAdmin ? fetchAdminUsers : fetchOrgMembers;
+    void fetcher()
       .then(setUsers)
-      .catch(() => setError('Could not load users (platform admin required).'))
+      .catch(() =>
+        setError(
+          isPlatformAdmin
+            ? 'Could not load users (platform admin required).'
+            : 'Could not load organization members. Open WW360 from OWW as the utility administrator first.'
+        )
+      )
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
-    if (isPlatformAdmin) load();
+    if (canInvite) load();
     else {
       setLoading(false);
-      setError('Platform admin role required to manage users.');
+      setError('Utility administrator or platform admin role required to manage users.');
     }
-  }, [isPlatformAdmin]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPlatformAdmin, canInvite]);
+
+  useEffect(() => {
+    if (canInvite && searchParams.get('invite') === '1') {
+      setInviteOpen(true);
+      setInviteEmail('');
+      setInviteName('');
+      setInviteError(null);
+      setInviteUrl(null);
+    }
+  }, [canInvite, searchParams]);
 
   const loadAudit = () => {
     setAuditLoading(true);
@@ -232,16 +265,32 @@ export default function AdminUsersPage() {
         description="WW360 local accounts. AquaSafe IdP handoff will map into these roles later."
         dataMode="live"
         actions={
-          isPlatformAdmin ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-white/20 bg-white/5 text-white hover:bg-white/15 min-h-[44px] md:min-h-9"
-              onClick={load}
-              disabled={loading}
-            >
-              Reload
-            </Button>
+          canInvite ? (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-white/20 bg-white/5 text-white hover:bg-white/15 min-h-[44px] md:min-h-9"
+                onClick={() => {
+                  setInviteOpen(true);
+                  setInviteEmail('');
+                  setInviteName('');
+                  setInviteError(null);
+                  setInviteUrl(null);
+                }}
+              >
+                Invite user
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-white/20 bg-white/5 text-white hover:bg-white/15 min-h-[44px] md:min-h-9"
+                onClick={load}
+                disabled={loading}
+              >
+                Reload
+              </Button>
+            </div>
           ) : null
         }
       />
@@ -545,6 +594,90 @@ export default function AdminUsersPage() {
             >
               {passwordBusy ? 'Saving…' : 'Reset password'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={inviteOpen} onOpenChange={open => (!inviteBusy ? setInviteOpen(open) : null)}>
+        <DialogContent className="max-w-md text-base">
+          <DialogHeader>
+            <DialogTitle className="text-[1.25rem]">Invite user</DialogTitle>
+            <DialogDescription className="text-[1.125rem] leading-relaxed">
+              Creates an invite link. Share it with the person so they can set a password and join
+              your organization.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {inviteError ? (
+              <p className="text-base text-red-700 rounded-md border border-red-200 bg-red-50 px-3 py-2">
+                {inviteError}
+              </p>
+            ) : null}
+            {inviteUrl ? (
+              <p className="text-base break-all rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-900">
+                {inviteUrl}
+              </p>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="invite-email" className="text-base">
+                    Email
+                  </Label>
+                  <Input
+                    id="invite-email"
+                    type="email"
+                    className="text-base min-h-[44px]"
+                    value={inviteEmail}
+                    onChange={e => setInviteEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="invite-name" className="text-base">
+                    Full name
+                  </Label>
+                  <Input
+                    id="invite-name"
+                    className="text-base min-h-[44px]"
+                    value={inviteName}
+                    onChange={e => setInviteName(e.target.value)}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-[44px] text-base"
+              onClick={() => setInviteOpen(false)}
+              disabled={inviteBusy}
+            >
+              Close
+            </Button>
+            {!inviteUrl ? (
+              <Button
+                type="button"
+                className="min-h-[44px] text-base"
+                disabled={inviteBusy || !inviteEmail.trim()}
+                onClick={() => {
+                  setInviteBusy(true);
+                  setInviteError(null);
+                  void inviteAdminUser({
+                    email: inviteEmail.trim(),
+                    full_name: inviteName.trim() || undefined,
+                    // Utility invites: district_manager; platform can elevate later
+                    roles: isPlatformAdmin ? ['district_admin'] : ['district_manager'],
+                  })
+                    .then(r => setInviteUrl(r.invite_url))
+                    .catch(() => setInviteError('Invite failed. Check email and permissions.'))
+                    .finally(() => setInviteBusy(false));
+                }}
+              >
+                {inviteBusy ? 'Sending…' : 'Create invite'}
+              </Button>
+            ) : null}
           </DialogFooter>
         </DialogContent>
       </Dialog>

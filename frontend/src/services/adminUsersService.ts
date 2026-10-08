@@ -18,6 +18,14 @@ export async function fetchAdminUsers(): Promise<AdminUser[]> {
   return data;
 }
 
+/** Utility administrator org roster (OWW-linked memberships). */
+export async function fetchOrgMembers(): Promise<AdminUser[]> {
+  const { data } = await axios.get<AdminUser[]>(`${API_BASE_URL}/admin/users/org-members`, {
+    headers: getAuthHeader(),
+  });
+  return data;
+}
+
 export async function patchAdminUser(
   userId: number,
   body: Partial<Pick<AdminUser, 'roles' | 'is_active' | 'full_name' | 'email'>>
@@ -37,5 +45,16 @@ export async function resetAdminUserPassword(
     { password },
     { headers: getAuthHeader() }
   );
+  return data;
+}
+
+export async function inviteAdminUser(body: {
+  email: string;
+  full_name?: string;
+  roles?: string[];
+}): Promise<{ id: string; email: string; invite_url: string; expires_at: string }> {
+  const { data } = await axios.post(`${API_BASE_URL}/admin/users/invite`, body, {
+    headers: getAuthHeader(),
+  });
   return data;
 }

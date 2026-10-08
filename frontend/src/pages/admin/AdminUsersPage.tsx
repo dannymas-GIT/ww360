@@ -671,7 +671,18 @@ export default function AdminUsersPage() {
                     roles: isPlatformAdmin ? ['district_admin'] : ['district_manager'],
                   })
                     .then(r => setInviteUrl(r.invite_url))
-                    .catch(() => setInviteError('Invite failed. Check email and permissions.'))
+                    .catch((err: unknown) => {
+                      const detail = (err as { response?: { data?: { detail?: string }; status?: number } })
+                        ?.response?.data?.detail;
+                      const status = (err as { response?: { status?: number } })?.response?.status;
+                      if (status === 409) {
+                        setInviteError('A user with that email already exists. Use a different email.');
+                      } else if (typeof detail === 'string' && detail.trim()) {
+                        setInviteError(detail);
+                      } else {
+                        setInviteError('Invite failed. Check permissions or try another email.');
+                      }
+                    })
                     .finally(() => setInviteBusy(false));
                 }}
               >

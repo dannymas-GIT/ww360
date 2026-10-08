@@ -216,10 +216,9 @@ class InviteAcceptBody(BaseModel):
 
 
 def _can_invite(context: TenantContext) -> bool:
+    # TenantContext.has_any_role expects a single list argument.
     return context.is_global_admin or context.has_any_role(
-        Roles.DISTRICT_ADMIN,
-        "district_manager",
-        "oww_partner",
+        [Roles.DISTRICT_ADMIN, "district_manager", "oww_partner"]
     )
 
 

@@ -249,6 +249,18 @@ export const WW360_WIDGET_CATALOG: Ww360CatalogOption[] = [
     profiles: ALL,
   },
   {
+    module_id: 'oww_blog',
+    label: 'One Water Workforce updates',
+    description: 'Published OWW blog posts — the same updates shared on social channels.',
+    category: 'content',
+    kind: 'module',
+    columnSpan: 2,
+    rowSpan: 1,
+    allowRowSpan: false,
+    unique: true,
+    profiles: ALL,
+  },
+  {
     module_id: 'national_overview',
     label: 'US / national overview',
     description: 'United States headline KPIs and state scorecard entry.',
@@ -313,7 +325,7 @@ const SECTION_META: {
   {
     category: 'content',
     title: 'Content',
-    subtitle: 'Document Studio',
+    subtitle: 'Document Studio and OWW updates',
     columnSpan: 2,
   },
   {

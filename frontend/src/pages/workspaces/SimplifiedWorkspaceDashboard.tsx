@@ -38,6 +38,7 @@ import { WorkspaceChartPanel } from './WorkspaceChartPanel';
 import { WorkspaceTourOverlay } from './WorkspaceTourOverlay';
 import { UsajobsJobListingsPanel } from './UsajobsJobListingsPanel';
 import { DocumentStudioPanel } from '@/components/doc-studio/DocumentStudioPanel';
+import { OwwBlogFeedWidget } from '@/components/dashboard/widgets/OwwBlogFeedWidget';
 import { WorkforceMetricCard } from '@/components/dashboard/widgets/workforce/WorkforceMetricCard';
 import { WorkforceMetricGroupCard } from '@/components/dashboard/widgets/workforce/WorkforceMetricGroupCard';
 import { UpcomingTrainingWidget } from '@/components/dashboard/widgets/workforce/UpcomingTrainingWidget';
@@ -492,6 +493,8 @@ export const SimplifiedWorkspaceDashboard: React.FC<SimplifiedWorkspaceDashboard
         );
       case 'document_studio':
         return <DocumentStudioPanel tourId="document-studio" />;
+      case 'oww_blog':
+        return <OwwBlogFeedWidget tourId="oww-blog" />;
       case 'opcert_program':
         return <OpCertProgramPanel />;
       case 'national_overview':

@@ -15,6 +15,7 @@ from app.api.endpoints import (
 from app.api.v1.endpoints import (
     admin_users,
     auth,
+    content,
     digital_analytics,
     districts,
     doc_studio,
@@ -128,6 +129,10 @@ api_router.include_router(
     jobs.router,
     prefix="/jobs",
     tags=["jobs"],
+)
+api_router.include_router(
+    content.router,
+    tags=["content"],
 )
 api_router.include_router(
     workspace.router,

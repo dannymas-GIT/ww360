@@ -44,6 +44,8 @@ class Settings(BaseSettings):
     OWW_HMAC_SECRET: str = ""
     OWW_HANDOFF_CODE_TTL_SECONDS: int = 90
     OWW_ENTITLEMENT_CACHE_SECONDS: int = 1800
+    # Optional override for public OWW blog feed (defaults to OWW_ENTITLEMENT_BASE_URL)
+    OWW_PUBLIC_BASE_URL: str = ""
     WW360_PUBLIC_APP_URL: str = ""
 
     APP_DOMAIN: str = "waterworkforce360.org"

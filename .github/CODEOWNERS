@@ -1,6 +1,6 @@
-# CODEOWNERS — developer / agent tooling
-# Requires review when changing agent rules (configure matching GitHub teams/users).
-# Path-based *read* restriction is not available in Git; this gates *writes* via PR review.
-
-.cursor/ @dannymas-GIT
-docs/dev/ @dannymas-GIT
+# Default owners for WW360 security-sensitive paths
+*       @dannymas-GIT
+/backend/app/api/                 @dannymas-GIT
+/backend/app/core/                @dannymas-GIT
+/backend/app/tenant_auth.py       @dannymas-GIT
+/.github/workflows/               @dannymas-GIT

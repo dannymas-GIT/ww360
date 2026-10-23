@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -104,7 +104,10 @@ def _user_out(user: User, payload: dict) -> UserOut:
 
 
 @router.post("/login")
-def login(body: LoginBody, db: Session = Depends(get_db)):
+def login(body: LoginBody, request: Request, db: Session = Depends(get_db)):
+    from app.core.login_rate_limit import enforce_login_rate_limit
+
+    enforce_login_rate_limit(request)
     user = db.query(User).filter(User.username == body.username).first()
     if not user or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")

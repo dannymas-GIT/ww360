@@ -10,6 +10,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.api import api_router
 from app.core.config import settings
+from app.core.security_headers import SecurityHeadersMiddleware
 from app.db import base
 from app.db.database import SessionLocal, init_db
 from app.services.sdwis_state_refresh_service import refresh_configured_states
@@ -132,6 +133,7 @@ app.add_middleware(
     TrustedHostMiddleware,
     allowed_hosts=settings.trusted_hosts,
 )
+app.add_middleware(SecurityHeadersMiddleware)
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 

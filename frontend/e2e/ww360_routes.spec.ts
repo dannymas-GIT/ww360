@@ -53,7 +53,7 @@ test.describe('WW360 routes', () => {
     });
     await page.getByRole('button', { name: /back to counties/i }).click();
     await expect(page).not.toHaveURL(/[?&]county=/);
-    await expect(page.getByText(/compliance pressure by county/i })).toBeVisible();
+    await expect(page.getByText(/compliance pressure by county/i)).toBeVisible();
   });
 
   test('county utilities PWSID returns via back link', async ({ page }) => {

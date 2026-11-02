@@ -45,7 +45,7 @@ rapidfuzz>=3.6.0
 
 # Notification Services
 twilio>=8.0.0
-APScheduler>=3.10,<4
+APScheduler>=3.11.3,<4
 
 # Two-Factor Authentication
 pyotp>=2.8.0

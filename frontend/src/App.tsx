@@ -7,6 +7,7 @@ import { KitchenSinkProvider } from '@/context/KitchenSinkContext';
 import { AppShell } from '@/components/ww360/AppShell';
 import { AnalyticsRouteTracker } from '@/components/analytics/AnalyticsRouteTracker';
 import LoginPage from '@/pages/LoginPage';
+// AnalyticsRouteTracker: public pages only (/, /login). Not mounted under ProtectedRoute.
 import HandoffPage from '@/pages/HandoffPage';
 import InviteAcceptPage from '@/pages/InviteAcceptPage';
 import Workforce360Landing from '@/pages/workforce360/Workforce360Landing';
@@ -82,7 +83,10 @@ function LandingRoute() {
 
 export default function App() {
   return (
-    <Routes>
+    <>
+      {/* Public-only GA4 (no-op until VITE_GA4_MEASUREMENT_ID is set on production). */}
+      <AnalyticsRouteTracker />
+      <Routes>
       <Route path="/" element={<LandingRoute />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/auth/handoff" element={<HandoffPage />} />
@@ -94,7 +98,6 @@ export default function App() {
             <JurisdictionProvider>
               <ImpersonationProvider>
                 <KitchenSinkProvider>
-                  <AnalyticsRouteTracker />
                   <AppShell />
                 </KitchenSinkProvider>
               </ImpersonationProvider>
@@ -138,5 +141,6 @@ export default function App() {
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
+    </>
   );
 }

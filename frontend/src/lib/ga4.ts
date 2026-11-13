@@ -1,6 +1,7 @@
 /**
  * GA4 client instrumentation — loads only when VITE_GA4_MEASUREMENT_ID is set.
- * No PII in event params (paths and event names only).
+ * Government-facing: path only, no query/hash/PII; honour DNT/GPC; no Google Signals.
+ * Public surfaces only — callers must gate with isPublicPath / PublicAnalyticsTracker.
  */
 
 declare global {
@@ -12,10 +13,43 @@ declare global {
 
 const MEASUREMENT_ID = (import.meta.env.VITE_GA4_MEASUREMENT_ID as string | undefined)?.trim();
 
+/** Public routes allowed to report (WW360 gov policy: landing + login only). */
+const PUBLIC_PATHS = ['/', '/login'];
+
 let initialized = false;
+
+export function isGa4Enabled(): boolean {
+  return Boolean(MEASUREMENT_ID);
+}
+
+function trackingOptOut(): boolean {
+  if (typeof navigator === 'undefined') return true;
+  if (navigator.doNotTrack === '1') return true;
+  // @ts-expect-error Global Privacy Control
+  if (navigator.globalPrivacyControl === true) return true;
+  return false;
+}
+
+function pathOnly(path: string): string {
+  const q = path.indexOf('?');
+  const h = path.indexOf('#');
+  let end = path.length;
+  if (q >= 0) end = Math.min(end, q);
+  if (h >= 0) end = Math.min(end, h);
+  return path.slice(0, end) || '/';
+}
+
+export function isPublicPath(path: string): boolean {
+  const p = pathOnly(path);
+  return PUBLIC_PATHS.some((prefix) => {
+    if (prefix === '/') return p === '/';
+    return p === prefix || p.startsWith(`${prefix}/`);
+  });
+}
 
 function ensureGtag(): boolean {
   if (!MEASUREMENT_ID || typeof window === 'undefined') return false;
+  if (trackingOptOut()) return false;
   if (initialized && typeof window.gtag === 'function') return true;
 
   window.dataLayer = window.dataLayer || [];
@@ -23,7 +57,11 @@ function ensureGtag(): boolean {
     window.dataLayer!.push(args);
   };
   window.gtag('js', new Date());
-  window.gtag('config', MEASUREMENT_ID, { send_page_view: false });
+  window.gtag('config', MEASUREMENT_ID, {
+    send_page_view: false,
+    allow_google_signals: false,
+    allow_ad_personalization_signals: false,
+  });
 
   if (!document.getElementById('ww360-ga4-script')) {
     const script = document.createElement('script');
@@ -37,16 +75,14 @@ function ensureGtag(): boolean {
   return true;
 }
 
-export function isGa4Enabled(): boolean {
-  return Boolean(MEASUREMENT_ID);
-}
-
 export function trackPageView(path: string, title?: string): void {
   if (!ensureGtag()) return;
+  const clean = pathOnly(path);
+  if (!isPublicPath(clean)) return;
   window.gtag!('event', 'page_view', {
-    page_path: path,
+    page_path: clean,
     page_title: title || document.title,
-    page_location: `${window.location.origin}${path}`,
+    page_location: `${window.location.origin}${clean}`,
   });
 }
 

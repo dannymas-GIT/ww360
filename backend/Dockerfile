@@ -1,5 +1,5 @@
 # Use an official Python runtime as a parent image
-FROM python:3.12-slim
+FROM python:3.15-slim
 
 # Set environment variables to prevent buffering issues with Python logging
 ENV PYTHONUNBUFFERED 1

@@ -63,16 +63,26 @@ export interface TutorialStep {
   caption?: string;
   title?: string;
   description?: string;
+  body?: string;
+  narration?: string;
   screenshot_asset_id?: string;
   screenshot_url?: string;
+  screenshot_alt?: string;
   order: number;
   annotations?: StepAnnotation[];
   tMs?: number;
+  end_tMs?: number;
+  timestamp_seconds?: number;
+  duration_seconds?: number;
 }
 
 export interface TutorialData {
   steps: TutorialStep[];
   video_asset_id?: string;
+  captions_url?: string;
+  captions_asset_id?: string;
+  captions_vtt?: string;
+  transcript?: string;
   mode?: string;
 }
 

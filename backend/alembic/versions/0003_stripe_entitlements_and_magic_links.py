@@ -5,7 +5,6 @@ Revises: 0002_sync_pwsid_and_user_links
 Create Date: 2026-11-28
 
 Depends on PR 1A Alembic revisions (0001_baseline, 0002_sync_pwsid_and_user_links).
-When cutting from develop before 1A lands, down_revision may be None until rebase.
 """
 
 from __future__ import annotations

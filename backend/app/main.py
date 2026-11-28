@@ -3,19 +3,19 @@
 import logging
 from contextlib import asynccontextmanager
 
-from apscheduler.schedulers.background import BackgroundScheduler
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
-
 from app.api.api import api_router
+from app.core.advisory_lock import pg_try_advisory_lock
 from app.core.config import settings
 from app.core.security_headers import SecurityHeadersMiddleware
 from app.db import base
 from app.db.database import SessionLocal, init_db
-from app.services.sdwis_state_refresh_service import refresh_configured_states
-from app.services.national.sdwis_bulk_ingest import refresh_all_states
 from app.services.national.npdes_bulk_ingest import refresh_all_states as refresh_all_npdes_states
+from app.services.national.sdwis_bulk_ingest import refresh_all_states
+from app.services.sdwis_state_refresh_service import refresh_configured_states
+from apscheduler.schedulers.background import BackgroundScheduler
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -24,22 +24,31 @@ base.import_models()
 
 _scheduler: BackgroundScheduler | None = None
 
+# Stable advisory-lock keys for multi-worker Uvicorn (must not collide across jobs).
+_LOCK_SDWIS = 360_000_001
+_LOCK_NPDES = 360_000_002
+_LOCK_NATIONAL = 360_000_003
+_LOCK_DOC_NOTIFIER = 360_000_004
+
 
 def _run_sdwis_refresh() -> None:
     if not settings.SDWIS_SYNC_ENABLED:
         return
     db = SessionLocal()
     try:
-        if settings.WW360_SDWIS_STATES.strip().upper() in ("ALL", ""):
-            results = refresh_all_states(db)
-        else:
-            results = refresh_configured_states(db)
-        logger.info("SDWIS state refresh completed: %s", results)
+        with pg_try_advisory_lock(db, _LOCK_SDWIS) as acquired:
+            if not acquired:
+                logger.info("SDWIS refresh skipped (advisory lock held by another worker)")
+                return
+            if settings.WW360_SDWIS_STATES.strip().upper() in ("ALL", ""):
+                results = refresh_all_states(db)
+            else:
+                results = refresh_configured_states(db)
+            logger.info("SDWIS state refresh completed: %s", results)
     except Exception as exc:
         logger.warning("SDWIS state refresh failed: %s", exc)
     finally:
         db.close()
-
 
 
 def _run_npdes_refresh() -> None:
@@ -47,26 +56,35 @@ def _run_npdes_refresh() -> None:
         return
     db = SessionLocal()
     try:
-        results = refresh_all_npdes_states(db)
-        logger.info("NPDES state refresh completed: %s", results)
+        with pg_try_advisory_lock(db, _LOCK_NPDES) as acquired:
+            if not acquired:
+                logger.info("NPDES refresh skipped (advisory lock held by another worker)")
+                return
+            results = refresh_all_npdes_states(db)
+            logger.info("NPDES state refresh completed: %s", results)
     except Exception as exc:
         logger.warning("NPDES state refresh failed: %s", exc)
     finally:
         db.close()
 
+
 def _run_national_metrics_refresh() -> None:
     db = SessionLocal()
     try:
-        from app.services.national.labor_market_adapter import refresh_labor_market
-        from app.services.national.funding_regulatory_adapter import refresh_funding_regulatory
-        from app.services.national.ny_roster_adapter import refresh_ny_roster
-        from app.services.national.kpi_service import compute_kpi_snapshots
+        with pg_try_advisory_lock(db, _LOCK_NATIONAL) as acquired:
+            if not acquired:
+                logger.info("National metrics refresh skipped (advisory lock held)")
+                return
+            from app.services.national.funding_regulatory_adapter import refresh_funding_regulatory
+            from app.services.national.kpi_service import compute_kpi_snapshots
+            from app.services.national.labor_market_adapter import refresh_labor_market
+            from app.services.national.ny_roster_adapter import refresh_ny_roster
 
-        refresh_labor_market(db)
-        refresh_funding_regulatory(db)
-        refresh_ny_roster(db)
-        compute_kpi_snapshots(db)
-        logger.info("National metrics refresh completed")
+            refresh_labor_market(db)
+            refresh_funding_regulatory(db)
+            refresh_ny_roster(db)
+            compute_kpi_snapshots(db)
+            logger.info("National metrics refresh completed")
     except Exception as exc:
         logger.warning("National metrics refresh failed: %s", exc)
     finally:
@@ -76,13 +94,17 @@ def _run_national_metrics_refresh() -> None:
 def _run_documentation_notifier() -> None:
     db = SessionLocal()
     try:
-        from app.services.documentation_task_notifier import run_documentation_task_notifier
-        from app.services.documentation_task_service import mark_overdue_tasks
-        from app.services.workforce_succession.alert_scanner import scan_all_districts
+        with pg_try_advisory_lock(db, _LOCK_DOC_NOTIFIER) as acquired:
+            if not acquired:
+                logger.info("Documentation notifier skipped (advisory lock held)")
+                return
+            from app.services.documentation_task_notifier import run_documentation_task_notifier
+            from app.services.documentation_task_service import mark_overdue_tasks
+            from app.services.workforce_succession.alert_scanner import scan_all_districts
 
-        mark_overdue_tasks(db)
-        run_documentation_task_notifier(db)
-        scan_all_districts(db)
+            mark_overdue_tasks(db)
+            run_documentation_task_notifier(db)
+            scan_all_districts(db)
     except Exception as exc:
         logger.warning("Documentation / alert job failed: %s", exc)
     finally:
@@ -92,7 +114,7 @@ def _run_documentation_notifier() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _scheduler
-    logger.info("WW360 backend starting")
+    logger.info("WW360 backend starting (alembic=%s)", settings.WW360_USE_ALEMBIC)
     try:
         init_db()
     except Exception as exc:

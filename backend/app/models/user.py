@@ -2,11 +2,10 @@
 
 from datetime import datetime
 
+from app.core.security import get_password_hash
+from app.db.base_class import Base
 from sqlalchemy import Boolean, Column, DateTime, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
-
-from app.db.base_class import Base
-from app.core.security import get_password_hash
 
 
 class User(Base):
@@ -20,7 +19,8 @@ class User(Base):
     roles = Column(JSONB, nullable=False, default=list)
     district_memberships = Column(JSONB, nullable=False, default=list)
     is_active = Column(Boolean, default=True, nullable=False)
-    aquasafe_user_id = Column(Integer, nullable=True, index=True)
+    # External IdP links — never use these as JWT `sub` (local `id` is the surrogate).
+    aquasafe_user_id = Column(Integer, nullable=True, unique=True, index=True)
     oww_user_id = Column(String(64), nullable=True, unique=True, index=True)
     sso_provider = Column(String(50), nullable=True, index=True)
     sso_subject = Column(String(255), nullable=True, index=True)
@@ -32,7 +32,11 @@ class User(Base):
 
 
 def ensure_user_schema(engine) -> None:
-    """Idempotently add columns introduced after the original users table."""
+    """Idempotently add columns introduced after the original users table.
+
+    Prefer Alembic when ``WW360_USE_ALEMBIC=true``; this remains for local/dev
+    bootstraps that still use create_all.
+    """
     from sqlalchemy import text
 
     statements = [
@@ -40,7 +44,9 @@ def ensure_user_schema(engine) -> None:
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS sso_provider VARCHAR(50)",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS sso_subject VARCHAR(255)",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS oww_user_id VARCHAR(64)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS aquasafe_user_id INTEGER",
         "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_oww_user_id ON users (oww_user_id) WHERE oww_user_id IS NOT NULL",
+        "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_aquasafe_user_id ON users (aquasafe_user_id) WHERE aquasafe_user_id IS NOT NULL",
     ]
     with engine.begin() as conn:
         for stmt in statements:

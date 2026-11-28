@@ -27,8 +27,11 @@
         "frontend/src/pages/LoginPage.tsx",
         "frontend/src/context/AuthContext.tsx",
         "frontend/src/services/authService.ts",
+        "frontend/src/components/ww360/AppShell.tsx",
+        "frontend/src/utils/brandHost.ts",
         "backend/app/api/v1/endpoints/auth.py",
         "backend/app/services/sso_auth_service.py",
+        "backend/app/services/auth_service.py",
         "backend/app/models/user.py"
       ],
       "defaultRunOn": [
@@ -250,8 +253,18 @@
       "pathPatterns": [
         "backend/app/api/v1/endpoints/sync.py",
         "backend/app/services/sync_processor.py",
+        "backend/app/services/auth_service.py",
         "backend/app/models/sync.py",
-        "backend/tests/test_sync_facility.py"
+        "backend/app/models/water_district.py",
+        "backend/app/models/user.py",
+        "backend/app/api/v1/endpoints/districts.py",
+        "backend/app/api/endpoints/coverage.py",
+        "backend/app/api/service_token_auth.py",
+        "backend/app/api/v1/endpoints/admin_districts.py",
+        "backend/tests/test_sync_facility.py",
+        "backend/tests/test_workforce_authz_idor.py",
+        "backend/alembic/**",
+        "docker-compose.azure.yml"
       ],
       "alwaysRun": true,
       "defaultRunOn": [

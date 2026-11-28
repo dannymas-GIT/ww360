@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sys
 from typing import Any
 
@@ -70,10 +71,22 @@ def compare_dbs(aq_dsn: str, ww_dsn: str) -> list[dict[str, Any]]:
     return issues
 
 
-def sample_api_parity(aq_url: str, ww_url: str, district: str) -> dict[str, Any]:
+def sample_api_parity(
+    aq_url: str,
+    ww_url: str,
+    district: str,
+    *,
+    ww360_service_token: str | None = None,
+) -> dict[str, Any]:
+    headers = {}
+    if ww360_service_token:
+        headers["Authorization"] = f"Bearer {ww360_service_token}"
     with httpx.Client(timeout=30.0) as client:
         aq = client.get(f"{aq_url.rstrip('/')}/api/v1/workforce-succession/continuity/{district}")
-        ww = client.get(f"{ww_url.rstrip('/')}/api/v1/districts/{district}/workforce-summary")
+        ww = client.get(
+            f"{ww_url.rstrip('/')}/api/v1/districts/{district}/workforce-summary",
+            headers=headers,
+        )
     return {
         "aquasafe_status": aq.status_code,
         "ww360_status": ww.status_code,
@@ -88,11 +101,21 @@ def main() -> int:
     parser.add_argument("--aquasafe-url", default="http://127.0.0.1:8001")
     parser.add_argument("--ww360-url", default="http://127.0.0.1:8002")
     parser.add_argument("--district", default="WW360")
+    parser.add_argument(
+        "--ww360-service-token",
+        default=os.environ.get("WW360_SERVICE_TOKEN", ""),
+        help="Bearer token for WW360 /workforce-summary (defaults to WW360_SERVICE_TOKEN env)",
+    )
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
 
     issues = compare_dbs(args.aquasafe_dsn, args.ww360_dsn)
-    api = sample_api_parity(args.aquasafe_url, args.ww360_url, args.district)
+    api = sample_api_parity(
+        args.aquasafe_url,
+        args.ww360_url,
+        args.district,
+        ww360_service_token=args.ww360_service_token or None,
+    )
     report = {"table_issues": issues, "api_sample": api, "ok": len(issues) == 0}
 
     if args.json:

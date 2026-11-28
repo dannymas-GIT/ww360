@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, LogOut, Menu, UserRound } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ExternalLink, LogOut, Menu, UserRound } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { getWw360LogoPath, WW360_LOGO_SIZE } from '@/utils/brandHost';
-import { ww360NavGroups, navItemTo, navGroupsForRoles } from './navConfig';
+import { getAquasafePublicOrigin, getWw360LogoPath, WW360_LOGO_SIZE } from '@/utils/brandHost';
+import { navItemTo, navGroupsForRoles } from './navConfig';
 import { Button } from '@/components/ui/button';
 import { StateSwitcher } from './StateSwitcher';
 import { NotificationBell } from './NotificationBell';
@@ -45,6 +45,8 @@ export const AppShell: React.FC = () => {
 
   const logo = getWw360LogoPath('dark');
   const sidebarLogoH = collapsed ? WW360_LOGO_SIZE.navMinPx : WW360_LOGO_SIZE.navPx;
+  const showReturnToAquasafe = user?.origin === 'aquasafe';
+  const aquasafeOrigin = getAquasafePublicOrigin();
 
   return (
     <div className="ww360-app-shell min-h-screen flex bg-[#EEF3F9]">
@@ -62,6 +64,17 @@ export const AppShell: React.FC = () => {
               style={{ height: sidebarLogoH, minHeight: sidebarLogoH }}
             />
           </Link>
+          {showReturnToAquasafe ? (
+            <a
+              href={aquasafeOrigin}
+              className="mt-3 inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-sky-400/40 bg-sky-500/10 px-3 py-2 text-base text-sky-100 hover:bg-sky-500/20"
+              data-testid="return-to-aquasafe"
+            >
+              <ExternalLink className="h-4 w-4 shrink-0" aria-hidden />
+              {!collapsed && <span>Return to AquaSafe</span>}
+              {collapsed && <span className="sr-only">Return to AquaSafe</span>}
+            </a>
+          ) : null}
         </div>
         <nav className="flex-1 overflow-y-auto py-4 px-2">
           <div className="space-y-6">
@@ -200,10 +213,22 @@ export const AppShell: React.FC = () => {
             className="border-b border-slate-200/90 bg-white px-4 py-2.5 md:px-6"
             data-testid="ww360-user-topbar"
           >
-            <p className="text-base text-slate-800">
-              <span className="text-slate-600">{ww360Greeting()}, </span>
-              <span className="font-semibold">{userDisplayName(user)}</span>
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-base text-slate-800">
+                <span className="text-slate-600">{ww360Greeting()}, </span>
+                <span className="font-semibold">{userDisplayName(user)}</span>
+              </p>
+              {showReturnToAquasafe ? (
+                <a
+                  href={aquasafeOrigin}
+                  className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-sky-700/30 bg-sky-50 px-3 py-2 text-base text-sky-900 hover:bg-sky-100 md:hidden"
+                  data-testid="return-to-aquasafe-mobile"
+                >
+                  <ExternalLink className="h-4 w-4 shrink-0" aria-hidden />
+                  Return to AquaSafe
+                </a>
+              ) : null}
+            </div>
           </div>
         ) : null}
         <main className="flex-1 overflow-auto">

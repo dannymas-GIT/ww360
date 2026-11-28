@@ -101,7 +101,8 @@ export function getAquasafePublicOrigin(): string {
   if (typeof fromEnv === 'string' && fromEnv.trim()) {
     return fromEnv.replace(/\/$/, '');
   }
-  if (typeof window !== 'undefined') {
+  // When already on a WW360 host, do not treat the current origin as AquaSafe.
+  if (typeof window !== 'undefined' && !hostnameMatchesWorkforceHost(window.location.hostname)) {
     return window.location.origin.replace(/\/$/, '');
   }
   return 'https://staging.aquasafe-solutions.us';

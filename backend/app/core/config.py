@@ -34,8 +34,13 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
 
     AQUASAFE_INTEGRATION_BASE_URL: str = "http://127.0.0.1:8001"
+    AQUASAFE_PUBLIC_ORIGIN: str = "https://staging.aquasafe-solutions.us"
     WW360_SERVICE_TOKEN: str = ""
     WW360_SYNC_HMAC_SECRET: str = ""
+    # When true, skip create_all / ad-hoc ALTER patches; rely on Alembic migrations.
+    WW360_USE_ALEMBIC: bool = False
+    REDIS_URL: str = ""
+
 
     # One Water Workforce integration (Access → Water Workforce 360)
     OWW_SERVICE_TOKEN: str = ""

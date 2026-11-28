@@ -3,15 +3,13 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
-
-from fastapi import Depends, Header, HTTPException, Query, Request, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer, OAuth2PasswordBearer
-from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.database import SessionLocal, get_db
 from app.tenant_auth import TenantAuthService, TenantContext
+from fastapi import Depends, Header, HTTPException, Query, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer, OAuth2PasswordBearer
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +24,7 @@ IMPERSONATION_WRITE_ALLOWLIST = {
     ("GET", "/api/v1/impersonation/personas"),
 }
 
-_tenant_auth_service: Optional[TenantAuthService] = None
+_tenant_auth_service: TenantAuthService | None = None
 
 
 def get_tenant_auth_service() -> TenantAuthService:
@@ -61,7 +59,71 @@ async def get_current_tenant_user(
     requested = (x_ww360_state or state or "").strip().upper()[:2] or None
     context = await _resolve_context(credentials.credentials, requested_state=requested)
     _enforce_impersonation_read_only(request, context)
+    _enforce_entitlement_write(request, context)
     return context
+
+
+def _enforce_entitlement_write(request: Request, context: TenantContext) -> None:
+    """Block mutating API calls when the active org is in Stripe read-only / archived mode."""
+    method = request.method.upper()
+    if method in ("GET", "HEAD", "OPTIONS"):
+        return
+    path = request.url.path
+    if any(
+        path.startswith(p)
+        for p in (
+            "/api/v1/auth/",
+            "/api/v1/webhooks/",
+            "/api/v1/impersonation/",
+            "/api/v1/public/",
+        )
+    ):
+        return
+    if any(s in path.lower() for s in ("/export", "/download")):
+        return
+    if "platform_admin" in set(context.roles or []) or context.is_system_admin:
+        return
+    org_code = context.active_org_code
+    if not org_code:
+        return
+    try:
+        from app.services.entitlement_service import entitlement_for_org
+
+        db = SessionLocal()
+        try:
+            result = entitlement_for_org(db, org_code=org_code)
+        finally:
+            db.close()
+    except Exception:
+        return
+    if result.allows_write:
+        return
+    if result.access_mode == "readonly" or result.allows_read:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail={
+                "code": "entitlement_readonly",
+                "message": (
+                    "Membership is past due or canceled. Exports remain available; "
+                    "edits are blocked until billing is restored."
+                ),
+                "access_mode": result.access_mode,
+                "status": result.status,
+            },
+        )
+    if result.source in ("stripe_cache", "oww") and result.access_mode in (
+        "archived",
+        "none",
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "entitlement_archived",
+                "message": "Membership access has expired.",
+                "access_mode": result.access_mode,
+                "status": result.status,
+            },
+        )
 
 
 def _enforce_impersonation_read_only(request: Request, context: TenantContext) -> None:
@@ -107,8 +169,8 @@ def log_impersonation_request(context: TenantContext, request: Request, status_c
 
 
 async def get_current_tenant_user_from_header_or_query(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(tenant_bearer_optional),
-    access_token: Optional[str] = Query(None),
+    credentials: HTTPAuthorizationCredentials | None = Depends(tenant_bearer_optional),
+    access_token: str | None = Query(None),
     x_ww360_state: str | None = Header(None, alias="X-WW360-State"),
     state: str | None = Query(None),
 ) -> TenantContext:
@@ -124,10 +186,10 @@ async def get_current_tenant_user_from_header_or_query(
 
 
 async def get_optional_tenant_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(tenant_bearer_optional),
+    credentials: HTTPAuthorizationCredentials | None = Depends(tenant_bearer_optional),
     x_ww360_state: str | None = Header(None, alias="X-WW360-State"),
     state: str | None = Query(None),
-) -> Optional[TenantContext]:
+) -> TenantContext | None:
     if not credentials or not credentials.credentials:
         return None
     try:

@@ -23,6 +23,19 @@ export interface ImpersonationInfo {
   expires_at?: string | null;
 }
 
+export interface EntitlementInfo {
+  status?: string;
+  source?: string;
+  access_mode?: string;
+  allows_write?: boolean;
+  allows_read?: boolean;
+  is_active?: boolean;
+  grace_until?: string | null;
+  current_period_end?: string | null;
+  stripe_customer_id?: string | null;
+  org_code?: string | null;
+}
+
 export interface WW360User {
   id: number;
   username: string;
@@ -38,6 +51,7 @@ export interface WW360User {
   /** Session origin — e.g. "aquasafe" when arriving via domain handoff */
   origin?: string | null;
   aquasafe_user_id?: number | null;
+  entitlement?: EntitlementInfo | null;
 }
 
 export function getStoredToken(): string | null {
@@ -87,12 +101,19 @@ export async function completeSsoCallback(params: {
     redirect_uri: params.redirectUri,
     state: params.state,
   });
-  localStorage.setItem(AUTH_TOKEN_KEY, data.access_token);
+  if (data?.access_token) {
+    localStorage.setItem(AUTH_TOKEN_KEY, data.access_token);
+  }
   return data as {
-    access_token: string;
-    user: WW360User;
+    access_token?: string;
+    user?: WW360User;
     library_provider?: string;
     library_linked?: boolean;
+    activate_required?: boolean;
+    email?: string;
+    full_name?: string;
+    redirect_to?: string;
+    entitlement_match?: { matched?: boolean } | null;
   };
 }
 

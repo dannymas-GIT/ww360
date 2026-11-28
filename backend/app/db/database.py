@@ -38,6 +38,7 @@ def init_db() -> None:
     from app.models.national_metrics import ensure_national_schema
     from app.models.notification import ensure_notification_schema
     from app.models.oww_integration import ensure_oww_integration_schema
+    from app.models.stripe_entitlement import ensure_stripe_entitlement_schema
     from app.models.user import ensure_user_schema
     from app.models.water_district import ensure_water_district_schema
     from app.models.workforce_organization import ensure_workforce_organization_schema
@@ -53,6 +54,7 @@ def init_db() -> None:
     ensure_notification_schema(engine)
     ensure_water_district_schema(engine)
     ensure_workforce_organization_schema(engine)
+    ensure_stripe_entitlement_schema(engine)
     ensure_oww_integration_schema(engine)
     ensure_impersonation_schema(engine)
     ensure_national_schema(engine)

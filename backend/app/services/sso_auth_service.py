@@ -1,8 +1,7 @@
-"""Microsoft / Google SSO for WW360 login, seeding Document Studio library tokens.
+"""Microsoft / Google SSO for WW360 login (identity-only).
 
-Uses the same OAuth apps as Document Studio external libraries (`DOC_STUDIO_MS_*`,
-`DOC_STUDIO_GOOGLE_*`) so a single consent grants identity + drive access. Tokens
-are stored on `DocLibraryConnection` for the user's Studio scope.
+Login scopes are limited to ``openid profile email``. Document Studio drive /
+SharePoint access uses incremental consent via ``/api/v1/doc-studio/library/*``.
 """
 
 from __future__ import annotations
@@ -13,9 +12,6 @@ import urllib.parse
 from typing import Any
 
 import httpx
-from fastapi import HTTPException, status
-from sqlalchemy.orm import Session
-
 from app.models.doc_document import program_scope_for_state
 from app.models.user import User
 from app.services.auth_service import mint_ww360_token
@@ -24,6 +20,8 @@ from app.services.doc_studio_service import resolve_scope
 from app.services.external_library_provider import ExternalLibraryService
 from app.services.jurisdiction_context_service import build_session_payload
 from app.tenant_auth import TenantContext
+from fastapi import HTTPException, status
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
@@ -32,11 +30,14 @@ PROVIDER_GOOGLE = "google_drive"
 
 SSO_PROVIDERS = (PROVIDER_MICROSOFT, PROVIDER_GOOGLE)
 
-# Identity + drive scopes so login tokens work for External library / custody.
-MS_SSO_SCOPES = (
+# Identity-only at login (High #7). Drive scopes live on Document Studio library OAuth.
+MS_SSO_SCOPES = "openid profile email offline_access User.Read"
+GOOGLE_SSO_SCOPES = "openid email profile"
+# Kept for Document Studio incremental consent / legacy connection display.
+MS_LIBRARY_SCOPES = (
     "openid profile email offline_access User.Read Files.ReadWrite.All Sites.Read.All"
 )
-GOOGLE_SSO_SCOPES = (
+GOOGLE_LIBRARY_SCOPES = (
     "openid email profile "
     "https://www.googleapis.com/auth/drive.readonly "
     "https://www.googleapis.com/auth/drive.file"
@@ -213,7 +214,10 @@ async def fetch_sso_profile(provider: str, access_token: str) -> dict[str, str]:
         }
 
 
-def find_user_for_sso(db: Session, email: str, subject: str | None = None) -> User:
+def find_user_for_sso(
+    db: Session, email: str, subject: str | None = None
+) -> User | None:
+    """Return matching active user, or None when the email should continue to /activate."""
     if not email:
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED,
@@ -232,10 +236,10 @@ def find_user_for_sso(db: Session, email: str, subject: str | None = None) -> Us
             .filter(User.sso_provider.isnot(None), User.sso_subject == subject)
             .first()
         )
-    if not user or not user.is_active:
+    if user and not user.is_active:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN,
-            "No active WW360 account matches this email. Ask an administrator to invite you.",
+            "This WW360 account is inactive. Contact your administrator.",
         )
     return user
 
@@ -289,7 +293,7 @@ def seed_library_connection_from_sso(
     )
     conn.display_name = labels.get(provider, provider)
     conn.scopes = (
-        MS_SSO_SCOPES if provider == PROVIDER_MICROSOFT else GOOGLE_SSO_SCOPES
+        MS_LIBRARY_SCOPES if provider == PROVIDER_MICROSOFT else GOOGLE_LIBRARY_SCOPES
     )
     db.commit()
 
@@ -312,6 +316,33 @@ async def complete_sso_login(
     profile = await fetch_sso_profile(provider, access)
     user = find_user_for_sso(db, profile["email"], profile.get("subject"))
 
+    # Unknown verified email → continue activation claim (do not 403).
+    if user is None:
+        from app.services.activate_service import _lookup_entitlement_by_email
+        from app.services.auth_service import mint_ww360_token as _mint
+
+        email = profile["email"]
+        proof = _mint(
+            {
+                "user_id": 0,
+                "username": f"activate:{email}",
+                "email": email,
+                "roles": ["activate_pending"],
+                "district_memberships": [],
+                "activate_email": email,
+                "activate_verified": True,
+            },
+            expire_minutes=60,
+        )
+        return {
+            "activate_required": True,
+            "email": email,
+            "full_name": profile.get("full_name") or "",
+            "activate_token": proof,
+            "entitlement_match": _lookup_entitlement_by_email(db, email),
+            "redirect_to": f"/activate?email={email}&sso=1",
+        }
+
     # Persist SSO linkage for future subject-based match.
     if hasattr(user, "sso_provider"):
         user.sso_provider = provider
@@ -323,16 +354,7 @@ async def complete_sso_login(
         db.commit()
         db.refresh(user)
 
-    try:
-        seed_library_connection_from_sso(
-            db,
-            user=user,
-            provider=provider,
-            token_payload=tokens,
-            account_email=profile.get("email") or user.email,
-        )
-    except Exception:
-        logger.exception("SSO login succeeded but library token seed failed for user %s", user.id)
+    # Identity-only login: do not seed drive library tokens (incremental consent in Studio).
 
     payload = build_session_payload(db, user)
     token = mint_ww360_token(payload)
@@ -340,7 +362,7 @@ async def complete_sso_login(
         "access_token": token,
         "token_type": "bearer",
         "library_provider": provider,
-        "library_linked": True,
+        "library_linked": False,
         "user": {
             "id": user.id,
             "username": user.username,

@@ -10,6 +10,7 @@ import LoginPage from '@/pages/LoginPage';
 // AnalyticsRouteTracker: public pages only (/, /login). Not mounted under ProtectedRoute.
 import HandoffPage from '@/pages/HandoffPage';
 import InviteAcceptPage from '@/pages/InviteAcceptPage';
+import ActivatePage from '@/pages/ActivatePage';
 import Workforce360Landing from '@/pages/workforce360/Workforce360Landing';
 import WorkspaceHomePage from '@/pages/workspaces/WorkspaceHomePage';
 import DigitalReachPage from '@/pages/analytics/DigitalReachPage';
@@ -89,6 +90,7 @@ export default function App() {
       <Routes>
       <Route path="/" element={<LandingRoute />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/activate" element={<ActivatePage />} />
       <Route path="/auth/handoff" element={<HandoffPage />} />
       <Route path="/auth/oww" element={<HandoffPage />} />
       <Route path="/invite/accept" element={<InviteAcceptPage />} />

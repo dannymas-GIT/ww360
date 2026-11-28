@@ -31,6 +31,10 @@ cryptography>=46.0.5  # Security update (CVE-2026-26007)
 aiohttp>=3.13.3  # Security update — 8 CVEs fixed vs 3.12.x
 requests>=2.33.0  # Security update (CVE-2026-25645)
 
+# OWW Stripe entitlements (webhooks + read-only restricted key)
+stripe>=11.0.0,<13
+redis>=5.0.0,<6
+
 # Data processing
 pandas>=2.0.0
 pypdf>=5.0.0

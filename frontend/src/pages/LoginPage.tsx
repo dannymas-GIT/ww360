@@ -56,14 +56,22 @@ export default function LoginPage() {
     setParams(next, { replace: true });
     setSsoBusy(pending.provider);
     setError('');
+    const ssoState = params.get('state');
     void completeSsoCallback({
       provider: pending.provider,
       code,
       redirectUri: pending.redirectUri,
-      state: params.get('state') ?? undefined,
+      ...(ssoState ? { state: ssoState } : {}),
     })
       .then(data => {
-        applySessionUser(data.user);
+        if (data.activate_required) {
+          const q = new URLSearchParams();
+          if (data.email) q.set('email', data.email);
+          q.set('sso', '1');
+          navigate(`/activate?${q.toString()}`, { replace: true });
+          return;
+        }
+        if (data.user) applySessionUser(data.user);
         navigate(pending.returnTo || from, { replace: true });
       })
       .catch(err => {
@@ -156,8 +164,9 @@ export default function LoginPage() {
                   : `Continue with ${p.label}`}
               </Button>
             ))}
-            <p className="text-center text-[11px] text-slate-500">
-              Microsoft or Google sign-in also connects Document Studio to your cloud drive.
+            <p className="text-center text-sm text-slate-500">
+              Sign-in uses identity only (email profile). Connect OneDrive or Google Drive later in
+              Document Studio.
             </p>
             <div className="relative py-2">
               <div className="absolute inset-0 flex items-center" aria-hidden>
@@ -197,7 +206,12 @@ export default function LoginPage() {
             {submitting ? 'Signing in…' : 'Sign in'}
           </Button>
         </form>
-        <p className="mt-6 text-center text-xs text-slate-500">
+        <p className="mt-6 text-center text-sm text-slate-500">
+          New OWW member?{' '}
+          <Link to="/activate" className="text-[#2563eb] hover:underline">
+            Activate your utility
+          </Link>
+          {' · '}
           <Link to="/" className="text-[#2563eb] hover:underline">
             Back to home
           </Link>

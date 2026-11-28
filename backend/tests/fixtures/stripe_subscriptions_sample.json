@@ -1,0 +1,48 @@
+{
+  "subscriptions": [
+    {
+      "id": "sub_test_active_1",
+      "object": "subscription",
+      "status": "active",
+      "customer": {
+        "id": "cus_test_active_1",
+        "email": "billing@example-utility.gov",
+        "name": "Example Utility"
+      },
+      "current_period_end": 1893456000,
+      "cancel_at_period_end": false,
+      "items": {
+        "data": [
+          {
+            "price": {
+              "id": "price_ww360_utility",
+              "product": "prod_ww360_utility"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "sub_test_conference",
+      "object": "subscription",
+      "status": "active",
+      "customer": {
+        "id": "cus_conference",
+        "email": "tickets@example.org",
+        "name": "Conference Ticket"
+      },
+      "current_period_end": 1893456000,
+      "cancel_at_period_end": false,
+      "items": {
+        "data": [
+          {
+            "price": {
+              "id": "price_conference_only",
+              "product": "prod_conference"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

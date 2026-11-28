@@ -2,23 +2,20 @@
 
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any
 
 import jwt
-from fastapi import HTTPException, status
-
-from app.core.config import settings
 from app.services.auth_service import decode_ww360_token
 
 
-def _normalize_str_list(raw: Optional[Any]) -> List[str]:
+def _normalize_str_list(raw: Any | None) -> list[str]:
     if raw is None:
         return []
     if isinstance(raw, str):
         s = raw.strip()
         return [s] if s else []
     if isinstance(raw, (list, tuple, set)):
-        out: List[str] = []
+        out: list[str] = []
         for item in raw:
             if item is None:
                 continue
@@ -60,22 +57,23 @@ class TenantContext:
         self,
         user_id: int,
         username: str,
-        district_code: Optional[str] = None,
-        roles: Optional[List[str]] = None,
-        assigned_districts: Optional[List[str]] = None,
+        district_code: str | None = None,
+        roles: list[str] | None = None,
+        assigned_districts: list[str] | None = None,
         is_system_admin: bool = False,
-        modules: Optional[List[str]] = None,
-        email: Optional[str] = None,
+        modules: list[str] | None = None,
+        email: str | None = None,
         active_state_code: str = DEFAULT_STATE_CODE,
-        active_org_code: Optional[str] = None,
+        active_org_code: str | None = None,
         is_national_admin: bool = False,
-        orgs: Optional[List[dict[str, Any]]] = None,
+        orgs: list[dict[str, Any]] | None = None,
         *,
-        actor_user_id: Optional[int] = None,
+        actor_user_id: int | None = None,
         is_impersonating: bool = False,
-        impersonation_mode: Optional[str] = None,
-        impersonation_session_id: Optional[str] = None,
-        impersonation_persona_key: Optional[str] = None,
+        impersonation_mode: str | None = None,
+        impersonation_session_id: str | None = None,
+        impersonation_persona_key: str | None = None,
+        origin: str | None = None,
     ):
         self.user_id = user_id
         self.username = username
@@ -94,6 +92,7 @@ class TenantContext:
         self.impersonation_mode = impersonation_mode
         self.impersonation_session_id = impersonation_session_id
         self.impersonation_persona_key = impersonation_persona_key
+        self.origin = origin
 
         self.is_global_admin = any(role in GLOBAL_ADMIN_ROLES for role in self.roles)
 
@@ -109,7 +108,7 @@ class TenantContext:
             return True
         return role in self.roles or self.is_global_admin
 
-    def has_any_role(self, roles: List[str]) -> bool:
+    def has_any_role(self, roles: list[str]) -> bool:
         expanded = set(roles)
         if Roles.OWW_PARTNER in expanded:
             expanded.add(Roles.STATE_ADMIN)
@@ -146,7 +145,7 @@ class TenantAuthService:
         token: str,
         *,
         requested_state: str | None = None,
-    ) -> Optional[TenantContext]:
+    ) -> TenantContext | None:
         try:
             payload = decode_ww360_token(token)
         except jwt.PyJWTError:
@@ -205,6 +204,10 @@ class TenantAuthService:
             elif Roles.NATIONAL_OBSERVER in roles and req == "US":
                 active_state = req
 
+        origin = payload.get("origin")
+        if origin is not None:
+            origin = str(origin)
+
         return TenantContext(
             user_id=effective_user_id,
             username=username,
@@ -223,6 +226,7 @@ class TenantAuthService:
             impersonation_mode=impersonation_mode,
             impersonation_session_id=impersonation_session_id,
             impersonation_persona_key=impersonation_persona_key,
+            origin=origin,
         )
 
     async def set_database_context(self, db, context: TenantContext) -> None:
@@ -232,7 +236,7 @@ class TenantAuthService:
 
 def build_user_token_payload(user) -> dict:
     """Build dict for mint_ww360_token from WW360User (legacy, no jurisdiction)."""
-    districts: List[str] = []
+    districts: list[str] = []
     if hasattr(user, "district_memberships"):
         districts = list(user.district_memberships or [])
     return {

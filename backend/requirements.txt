@@ -47,6 +47,9 @@ rapidfuzz>=3.6.0
 twilio>=8.0.0
 APScheduler>=3.10,<4
 
+# Redis (entitlement cache / future arq worker; graceful degrade if unset)
+redis>=5.0.0
+
 # Two-Factor Authentication
 pyotp>=2.8.0
 qrcode[pil]>=7.4.0

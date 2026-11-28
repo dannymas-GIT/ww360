@@ -2,18 +2,17 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
-from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
-
 from app.api import deps
 from app.core.security import verify_password
 from app.db.database import get_db
 from app.models.user import User
-from app.services.auth_service import mint_ww360_token
 from app.services import sso_auth_service
+from app.services.auth_service import mint_ww360_token
 from app.services.jurisdiction_context_service import build_session_payload
 from app.tenant_auth import TenantContext
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
 router = APIRouter()
 
@@ -52,6 +51,8 @@ class UserOut(BaseModel):
     is_national_admin: bool = False
     orgs: list[OrgMembershipOut] = []
     impersonation: ImpersonationOut | None = None
+    origin: str | None = None
+    aquasafe_user_id: int | None = None
 
 
 class ActiveStateBody(BaseModel):
@@ -76,7 +77,7 @@ class SsoCallbackBody(BaseModel):
     state: str | None = None
 
 
-def _user_out(user: User, payload: dict) -> UserOut:
+def _user_out(user: User, payload: dict, *, origin: str | None = None) -> UserOut:
     orgs_raw = payload.get("orgs") or []
     orgs = [
         OrgMembershipOut(
@@ -100,6 +101,8 @@ def _user_out(user: User, payload: dict) -> UserOut:
         active_org_code=payload.get("active_org_code"),
         is_national_admin=bool(payload.get("is_national_admin")),
         orgs=orgs,
+        origin=origin or payload.get("origin"),
+        aquasafe_user_id=user.aquasafe_user_id,
     )
 
 
@@ -169,7 +172,7 @@ def me(
             target_username=user.username,
             session_id=context.impersonation_session_id,
         )
-    out = _user_out(user, payload)
+    out = _user_out(user, payload, origin=context.origin)
     if imp:
         out.impersonation = imp
     return out

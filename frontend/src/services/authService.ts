@@ -35,6 +35,9 @@ export interface WW360User {
   is_national_admin?: boolean;
   orgs?: OrgMembership[];
   impersonation?: ImpersonationInfo | null;
+  /** Session origin — e.g. "aquasafe" when arriving via domain handoff */
+  origin?: string | null;
+  aquasafe_user_id?: number | null;
 }
 
 export function getStoredToken(): string | null {

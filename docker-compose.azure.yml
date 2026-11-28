@@ -19,6 +19,21 @@ services:
       - ww360_network
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    container_name: ww360_redis
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - ww360_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - ww360_network
+    restart: unless-stopped
+
   backend:
     build: ./backend
     container_name: ww360_backend
@@ -33,8 +48,11 @@ services:
       # Allow container-DNS Host header from OWW on shared saas_integration network
       EXTRA_TRUSTED_HOSTS: ${EXTRA_TRUSTED_HOSTS:-ww360_backend}
       AQUASAFE_INTEGRATION_BASE_URL: ${AQUASAFE_INTEGRATION_BASE_URL}
+      AQUASAFE_PUBLIC_ORIGIN: ${AQUASAFE_PUBLIC_ORIGIN:-https://staging.aquasafe-solutions.us}
       WW360_SERVICE_TOKEN: ${WW360_SERVICE_TOKEN}
       WW360_SYNC_HMAC_SECRET: ${WW360_SYNC_HMAC_SECRET}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      WW360_USE_ALEMBIC: ${WW360_USE_ALEMBIC:-true}
       OWW_SERVICE_TOKEN: ${OWW_SERVICE_TOKEN:-}
       # Co-hosted OWW: use shared saas_integration DNS (ports are 127.0.0.1-only on host)
       OWW_ENTITLEMENT_BASE_URL: ${OWW_ENTITLEMENT_BASE_URL:-http://oww_backend:8000}
@@ -66,6 +84,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - ww360_network
       - saas_integration
@@ -89,6 +109,7 @@ services:
 
 volumes:
   ww360_postgres_data:
+  ww360_redis_data:
 
 networks:
   ww360_network:

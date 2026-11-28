@@ -53,6 +53,26 @@ class Settings(BaseSettings):
     OWW_PUBLIC_BASE_URL: str = ""
     WW360_PUBLIC_APP_URL: str = ""
 
+    # OWW Stripe entitlement (webhooks + read-only restricted key)
+    OWW_STRIPE_WEBHOOK_SECRET: str = ""
+    OWW_STRIPE_RESTRICTED_KEY: str = ""
+    OWW_STRIPE_ELIGIBLE_PRODUCT_IDS: str = ""
+    OWW_STRIPE_ELIGIBLE_PRICE_IDS: str = ""
+    OWW_STRIPE_SEAT_MAP_JSON: str = ""
+    OWW_STRIPE_GRACE_DAYS: int = 14
+    OWW_STRIPE_READONLY_DAYS: int = 90
+    OWW_STRIPE_WEBHOOK_TOLERANCE_SECONDS: int = 300
+    OWW_STRIPE_RECONCILE_ENABLED: bool = True
+    ENTITLEMENT_REDIS_TTL_SECONDS: int = 300
+
+    @property
+    def oww_stripe_eligible_product_ids(self) -> set[str]:
+        return {x.strip() for x in self.OWW_STRIPE_ELIGIBLE_PRODUCT_IDS.split(",") if x.strip()}
+
+    @property
+    def oww_stripe_eligible_price_ids(self) -> set[str]:
+        return {x.strip() for x in self.OWW_STRIPE_ELIGIBLE_PRICE_IDS.split(",") if x.strip()}
+
     APP_DOMAIN: str = "waterworkforce360.org"
     EXTRA_CORS_ORIGINS: str = ""
     EXTRA_TRUSTED_HOSTS: str = ""

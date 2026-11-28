@@ -161,4 +161,11 @@ def build_session_payload(
     base.update(
         resolve_active_jurisdiction(db, user, requested_state=requested_state)
     )
+    try:
+        from app.services.entitlement_service import entitlement_for_org
+
+        ent = entitlement_for_org(db, org_code=base.get("active_org_code"))
+        base["entitlement"] = ent.to_public_dict()
+    except Exception:
+        base["entitlement"] = None
     return base

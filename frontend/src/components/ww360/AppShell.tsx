@@ -13,6 +13,7 @@ import { PersonaSwitcher } from '@/components/impersonation/PersonaSwitcher';
 import { ImpersonationBanner } from '@/components/impersonation/PersonaSwitcher';
 import { useKitchenSink } from '@/context/KitchenSinkContext';
 import { userDisplayName, ww360Greeting } from '@/components/ww360/ww360Greeting';
+import { EntitlementGraceBanner } from '@/components/ww360/EntitlementGraceBanner';
 
 function ensureWw360Fonts() {
   if (typeof document === 'undefined') return;
@@ -233,6 +234,7 @@ export const AppShell: React.FC = () => {
         ) : null}
         <main className="flex-1 overflow-auto">
           <ImpersonationBanner />
+          <EntitlementGraceBanner />
           <Outlet />
         </main>
       </div>

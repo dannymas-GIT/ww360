@@ -34,6 +34,12 @@ class WorkforceOrganization(Base):
     notes = Column(Text, nullable=True)
     oww_org_id = Column(String(64), nullable=True, unique=True, index=True)
     stripe_customer_id = Column(String(120), nullable=True, index=True)
+    entitlement_status = Column(String(40), nullable=True)
+    entitlement_source = Column(String(40), nullable=True)
+    stripe_subscription_id = Column(String(120), nullable=True)
+    current_period_end = Column(DateTime, nullable=True)
+    grace_until = Column(DateTime, nullable=True)
+    seat_limit = Column(Integer, nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(
@@ -141,6 +147,12 @@ def ensure_workforce_organization_schema(engine) -> None:
         "ALTER TABLE workforce_organizations ADD COLUMN IF NOT EXISTS oww_org_id VARCHAR(64)",
         "CREATE UNIQUE INDEX IF NOT EXISTS ix_workforce_orgs_oww_org_id ON workforce_organizations (oww_org_id) WHERE oww_org_id IS NOT NULL",
         "ALTER TABLE workforce_organizations ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(120)",
+        "ALTER TABLE workforce_organizations ADD COLUMN IF NOT EXISTS entitlement_status VARCHAR(40)",
+        "ALTER TABLE workforce_organizations ADD COLUMN IF NOT EXISTS entitlement_source VARCHAR(40)",
+        "ALTER TABLE workforce_organizations ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR(120)",
+        "ALTER TABLE workforce_organizations ADD COLUMN IF NOT EXISTS current_period_end TIMESTAMP",
+        "ALTER TABLE workforce_organizations ADD COLUMN IF NOT EXISTS grace_until TIMESTAMP",
+        "ALTER TABLE workforce_organizations ADD COLUMN IF NOT EXISTS seat_limit INTEGER",
         "ALTER TABLE organization_district_memberships ADD COLUMN IF NOT EXISTS program_code VARCHAR(64)",
         "CREATE INDEX IF NOT EXISTS ix_org_district_memberships_program_code ON organization_district_memberships (program_code)",
     ]

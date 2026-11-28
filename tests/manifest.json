@@ -25,14 +25,23 @@
       "specFile": "frontend/e2e/ww360_auth.spec.ts",
       "pathPatterns": [
         "frontend/src/pages/LoginPage.tsx",
+        "frontend/src/pages/ActivatePage.tsx",
+        "frontend/src/components/ww360/EntitlementGraceBanner.tsx",
         "frontend/src/context/AuthContext.tsx",
         "frontend/src/services/authService.ts",
         "frontend/src/components/ww360/AppShell.tsx",
         "frontend/src/utils/brandHost.ts",
         "backend/app/api/v1/endpoints/auth.py",
+        "backend/app/api/v1/endpoints/activate.py",
+        "backend/app/api/v1/endpoints/webhooks_stripe.py",
         "backend/app/services/sso_auth_service.py",
         "backend/app/services/auth_service.py",
-        "backend/app/models/user.py"
+        "backend/app/services/entitlement_service.py",
+        "backend/app/services/activate_service.py",
+        "backend/app/services/stripe_webhook_service.py",
+        "backend/app/models/user.py",
+        "backend/app/models/stripe_entitlement.py",
+        "backend/tests/test_stripe_entitlements.py"
       ],
       "defaultRunOn": [
         "staging",

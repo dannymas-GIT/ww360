@@ -91,6 +91,19 @@ def _run_national_metrics_refresh() -> None:
         db.close()
 
 
+def _run_stripe_reconcile() -> None:
+    db = SessionLocal()
+    try:
+        from app.services.stripe_reconcile_service import run_nightly_stripe_jobs
+
+        result = run_nightly_stripe_jobs(db)
+        logger.info("OWW Stripe reconcile completed: %s", result)
+    except Exception as exc:
+        logger.warning("OWW Stripe reconcile failed: %s", exc)
+    finally:
+        db.close()
+
+
 def _run_documentation_notifier() -> None:
     db = SessionLocal()
     try:
@@ -130,10 +143,14 @@ async def lifespan(app: FastAPI):
         _scheduler.add_job(
             _run_documentation_notifier, "cron", hour=8, minute=0, id="documentation_task_notifier"
         )
+        _scheduler.add_job(
+            _run_stripe_reconcile, "cron", hour=2, minute=30, id="oww_stripe_reconcile"
+        )
         _scheduler.start()
         logger.info("SDWIS nightly refresh scheduled (03:00 UTC)")
         logger.info("NPDES weekly refresh scheduled (Sun 05:00 UTC)")
         logger.info("Documentation task notifier scheduled (08:00 UTC)")
+        logger.info("OWW Stripe reconcile scheduled (02:30 UTC)")
 
     yield
 

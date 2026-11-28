@@ -10,6 +10,7 @@ from app.api.endpoints import (
     workforce_succession,
 )
 from app.api.v1.endpoints import (
+    activate,
     admin_districts,
     admin_users,
     auth,
@@ -29,6 +30,7 @@ from app.api.v1.endpoints import (
     state_workforce,
     sync,
     tenant,
+    webhooks_stripe,
     workspace,
     ww360_public,
 )
@@ -45,6 +47,14 @@ api_router.include_router(
     auth.router,
     prefix="/auth",
     tags=["auth"],
+)
+api_router.include_router(
+    activate.router,
+    tags=["activate"],
+)
+api_router.include_router(
+    webhooks_stripe.router,
+    tags=["webhooks-stripe"],
 )
 api_router.include_router(
     impersonation.router,

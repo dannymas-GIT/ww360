@@ -39,6 +39,19 @@ class ImpersonationOut(BaseModel):
     expires_at: str | None = None
 
 
+class EntitlementOut(BaseModel):
+    status: str = "none"
+    source: str = "unknown"
+    access_mode: str = "none"
+    allows_write: bool = False
+    allows_read: bool = False
+    is_active: bool = False
+    grace_until: str | None = None
+    current_period_end: str | None = None
+    stripe_customer_id: str | None = None
+    org_code: str | None = None
+
+
 class UserOut(BaseModel):
     id: int
     username: str
@@ -53,6 +66,7 @@ class UserOut(BaseModel):
     impersonation: ImpersonationOut | None = None
     origin: str | None = None
     aquasafe_user_id: int | None = None
+    entitlement: EntitlementOut | None = None
 
 
 class ActiveStateBody(BaseModel):
@@ -90,6 +104,8 @@ def _user_out(user: User, payload: dict, *, origin: str | None = None) -> UserOu
         for o in orgs_raw
         if isinstance(o, dict)
     ]
+    ent_raw = payload.get("entitlement")
+    entitlement = EntitlementOut(**ent_raw) if isinstance(ent_raw, dict) else None
     return UserOut(
         id=user.id,
         username=user.username,
@@ -103,6 +119,7 @@ def _user_out(user: User, payload: dict, *, origin: str | None = None) -> UserOu
         orgs=orgs,
         origin=origin or payload.get("origin"),
         aquasafe_user_id=user.aquasafe_user_id,
+        entitlement=entitlement,
     )
 
 

@@ -49,7 +49,7 @@ rapidfuzz>=3.6.0
 
 # Notification Services
 twilio>=8.0.0
-APScheduler>=3.10,<4
+APScheduler>=3.11.3,<4
 
 # Redis (entitlement cache / future arq worker; graceful degrade if unset)
 
